@@ -10,6 +10,14 @@ from typing import Callable, Optional, Dict, Any, List
 import config
 from control_pi import PIController, PIConfig
 
+# Matplotlib embebido en Tk (para gráfica tipo Excel)
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+import numpy as np
+
 
 # ============================================================
 # CONFIG / RUNTIME
@@ -104,6 +112,10 @@ class AutoView(ttk.Frame):
         self.cfg = AutoConfig()
         self.rt = AutoRuntime(points=[])
 
+        # RESULTADOS (solo se añade esto, no cambia control)
+        self.results: List[Dict[str, Any]] = []
+        self._results_win: Optional[tk.Toplevel] = None
+
         # PI (base IGUAL a config; en START aplicamos overrides desde cfg)
         self.pi = PIController(PIConfig(
             kp=config.PI_CFG.kp,
@@ -135,7 +147,8 @@ class AutoView(ttk.Frame):
         self.lbl_status = ttk.Label(self, text="IDLE", font=("Arial", 12, "bold"))
         self.lbl_status.pack(pady=4)
 
-        self.lbl_live = ttk.Label(self, text="P=--.- kPa | SP=--.- | u=--", font=("Arial", 11))
+        # LIVE con DUT
+        self.lbl_live = ttk.Label(self, text="P=--.- kPa | SP=--.- | u=-- | DUT=--", font=("Arial", 11))
         self.lbl_live.pack(pady=2)
 
         frm = ttk.LabelFrame(self, text="Configuración")
@@ -179,11 +192,9 @@ class AutoView(ttk.Frame):
         ttk.Label(frm, text="P máx (s)").grid(row=4, column=2, padx=6, pady=2, sticky="e")
         ttk.Entry(frm, textvariable=self.var_tmax, width=8).grid(row=4, column=3, padx=6, pady=2, sticky="w")
 
-        # Botón para ventana de control (separado)
         ttk.Button(frm, text="Editar condiciones de control", command=self._open_control_window)\
             .grid(row=5, column=0, columnspan=4, padx=6, pady=8, sticky="we")
 
-        # Botones principales
         btns = ttk.Frame(self)
         btns.pack(pady=10)
 
@@ -191,8 +202,10 @@ class AutoView(ttk.Frame):
         ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=10)
         ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=10)
 
+    # ========================================================
+    # Control window (igual)
+    # ========================================================
     def _open_control_window(self):
-        """Ventana pequeña con parámetros de control (separados de la configuración de calibración)."""
         if self._control_win is not None and self._control_win.winfo_exists():
             self._control_win.lift()
             self._control_win.focus_force()
@@ -204,7 +217,6 @@ class AutoView(ttk.Frame):
         win.resizable(False, False)
         win.attributes("-topmost", True)
 
-        # Variables UI (cargan defaults actuales)
         self.var_deadband = tk.StringVar(value=f"{self.cfg.deadband_kpa:.3f}")
         self.var_inband_up = tk.StringVar(value=f"{self.cfg.inband_up_s:.3f}")
         self.var_inband_down = tk.StringVar(value=f"{self.cfg.inband_down_s:.3f}")
@@ -263,7 +275,6 @@ class AutoView(ttk.Frame):
 
     def _save_control_window(self):
         try:
-            # Parse
             dead = float(self.var_deadband.get().strip().replace(",", "."))
             inu = float(self.var_inband_up.get().strip().replace(",", "."))
             ind = float(self.var_inband_down.get().strip().replace(",", "."))
@@ -271,7 +282,6 @@ class AutoView(ttk.Frame):
             umax = float(self.var_u_max.get().strip().replace(",", "."))
             uff  = float(self.var_u_ff.get().strip().replace(",", "."))
 
-            # Validate
             if dead <= 0:
                 raise ValueError("La banda muerta debe ser > 0.")
             if inu < 0 or ind < 0:
@@ -283,7 +293,6 @@ class AutoView(ttk.Frame):
             if not (0.0 <= uff <= 1.0):
                 raise ValueError("Uff debe estar entre 0.0 y 1.0.")
 
-            # Commit to cfg
             self.cfg.deadband_kpa = float(dead)
             self.cfg.inband_up_s = float(inu)
             self.cfg.inband_down_s = float(ind)
@@ -299,7 +308,6 @@ class AutoView(ttk.Frame):
     # CONFIG / POINTS
     # ========================================================
     def _pull_cfg(self):
-        # Config “de calibración / secuencia”
         self.cfg.dut_mode = self.var_mode.get().strip().upper()
         self.cfg.sig_min = float(self.var_sig_min.get().strip().replace(",", "."))
         self.cfg.sig_max = float(self.var_sig_max.get().strip().replace(",", "."))
@@ -310,7 +318,6 @@ class AutoView(ttk.Frame):
         self.cfg.settle_time_s = float(self.var_tsettle.get().strip().replace(",", "."))
         self.cfg.settle_time_max_s = float(self.var_tmax.get().strip().replace(",", "."))
 
-        # Validaciones básicas
         if self.cfg.p_max_kpa <= self.cfg.p_min_kpa:
             raise ValueError("P max debe ser mayor que P min.")
         if self.cfg.sig_max <= self.cfg.sig_min:
@@ -322,7 +329,6 @@ class AutoView(ttk.Frame):
         if self.cfg.settle_time_s < 0 or self.cfg.settle_time_max_s < 0:
             raise ValueError("Tiempos deben ser >= 0.")
 
-        # Validación control (ya validado al guardar, pero por si acaso)
         if self.cfg.deadband_kpa <= 0:
             raise ValueError("Banda muerta debe ser > 0.")
         if self.cfg.inband_up_s < 0 or self.cfg.inband_down_s < 0:
@@ -370,7 +376,7 @@ class AutoView(ttk.Frame):
         try:
             self._pull_cfg()
 
-            # aplicar deadband y límites al PI (SIN tocar config.py global)
+            # (control igual)
             self.pi.cfg.deadband_kpa = float(self.cfg.deadband_kpa)
             self.pi.cfg.u_min = float(self.cfg.u_min)
             self.pi.cfg.u_max = float(self.cfg.u_max)
@@ -385,6 +391,9 @@ class AutoView(ttk.Frame):
             self.rt.step_index = 0
             self.rt.running = True
             self.pi.reset()
+
+            # reset resultados
+            self.results = []
 
             self._last_tick_ts = None
             self._goto_state(ZERO_VENT)
@@ -425,12 +434,15 @@ class AutoView(ttk.Frame):
             self._safe_outputs(valve_open=True)
             self._goto_state(IDLE)
             self.lbl_status.config(text="FINISHED")
+
+            # ✅ al terminar: mostrar tabla + gráfica (sin tocar control)
+            self._show_results_window()
+
             return
 
         self._goto_state(GOTO_SP)
 
     def _is_down_step(self, sp: float, p: float) -> bool:
-        # Si SP está por debajo de la presión actual, es BAJADA
         return sp < p
 
     # ========================================================
@@ -441,7 +453,6 @@ class AutoView(ttk.Frame):
             if not self.rt.running:
                 return
 
-            # dt real del PI
             now = time.time()
             if self._last_tick_ts is None:
                 dt_pi = None
@@ -459,26 +470,28 @@ class AutoView(ttk.Frame):
             if p >= float(self.cfg.p_max_seguridad_kpa):
                 raise RuntimeError(f"OVERPRESSURE: P={p:.2f} kPa")
 
-            self.lbl_live.config(text=f"P={p:6.2f} kPa | SP={sp:6.2f} | u={self.rt.last_u:5.3f}")
+            # LIVE: DUT
+            try:
+                dut_txt = self._dut_text_live()
+            except Exception:
+                dut_txt = "DUT=ERR"
+
+            self.lbl_live.config(
+                text=f"P={p:6.2f} kPa | SP={sp:6.2f} | u={self.rt.last_u:5.3f} | {dut_txt}"
+            )
 
             st = self.rt.state
             t = self.rt.t_state or now
             dt_st = now - t
 
-            # ====================================================
-            # 1) ZERO_VENT  (aquí sí se ventila para “cero”)
-            # ====================================================
             if st == ZERO_VENT:
                 self.set_pump(1.0)
                 self.set_relay(False)
-                self.set_valve(True)  # vent
+                self.set_valve(True)
 
                 if abs(p - 0.0) <= dead:
                     self._goto_state(ZERO_HOLD)
 
-            # ====================================================
-            # 2) ZERO_HOLD (cierra)
-            # ====================================================
             elif st == ZERO_HOLD:
                 self.set_pump(1.0)
                 self.set_relay(False)
@@ -487,14 +500,10 @@ class AutoView(ttk.Frame):
                 if dt_st >= float(self.cfg.settle_time_s):
                     self._advance_point()
 
-            # ====================================================
-            # 3) GOTO_SP  (decide SUBIDA o BAJADA)
-            # ====================================================
             elif st == GOTO_SP:
                 is_down = self._is_down_step(sp, p)
 
                 if not is_down:
-                    # ===== SUBIDA: EV SIEMPRE CERRADA, gobierna la bomba =====
                     self.set_valve(False)
                     self.set_relay(True)
 
@@ -506,22 +515,17 @@ class AutoView(ttk.Frame):
                         self._goto_state(IN_BAND_WAIT_UP)
 
                 else:
-                    # ===== BAJADA: bomba apagada, gobierna EV =====
                     self.set_pump(1.0)
                     self.set_relay(False)
                     self.pi.freeze()
 
-                    self.set_valve(True)  # abrir para bajar
+                    self.set_valve(True)
                     self.rt.last_u = 1.0
 
                     if abs(sp - p) <= dead:
                         self._goto_state(IN_BAND_WAIT_DOWN)
 
-            # ====================================================
-            # 4) IN_BAND_WAIT_UP  (mantener en banda y apagar bomba)
-            # ====================================================
             elif st == IN_BAND_WAIT_UP:
-                # SUBIDA: EV cerrada, PI sigue corrigiendo hasta cumplir tiempo en banda
                 self.set_valve(False)
                 self.set_relay(True)
 
@@ -533,58 +537,47 @@ class AutoView(ttk.Frame):
                     self._goto_state(GOTO_SP)
                 else:
                     if dt_st >= float(self.cfg.inband_up_s):
-                        # Cumplió banda -> apaga bomba (sin usar EV)
                         self.set_pump(1.0)
                         self.set_relay(False)
                         self.pi.freeze()
                         self._goto_state(HOLD_MEASURE)
 
-            # ====================================================
-            # 5) IN_BAND_WAIT_DOWN  (mantener en banda con EV abierta)
-            # ====================================================
             elif st == IN_BAND_WAIT_DOWN:
-                # BAJADA: bomba apagada, EV abierta
                 self.set_pump(1.0)
                 self.set_relay(False)
                 self.pi.freeze()
-
                 self.set_valve(True)
 
                 if abs(sp - p) > dead:
                     self._goto_state(GOTO_SP)
                 else:
                     if dt_st >= float(self.cfg.inband_down_s):
-                        # Ya está en banda el tiempo requerido -> esperar 0.5s y cerrar
                         self._goto_state(DOWN_CLOSE_DELAY)
 
-            # ====================================================
-            # 6) DOWN_CLOSE_DELAY  (EV se cierra 0.5 s después)
-            # ====================================================
             elif st == DOWN_CLOSE_DELAY:
-                # Mantener EV ABIERTA por 0.5s después de llegar al deadband (requisito)
                 self.set_pump(1.0)
                 self.set_relay(False)
                 self.pi.freeze()
-
                 self.set_valve(True)
 
                 if dt_st >= float(self.cfg.valve_close_delay_s):
-                    # Cerrar EV y sostener
                     self.set_valve(False)
                     self._goto_state(HOLD_MEASURE)
 
-            # ====================================================
-            # 7) HOLD_MEASURE
-            # ====================================================
             elif st == HOLD_MEASURE:
-                # En HOLD: bomba apagada y EV cerrada (por tu regla)
                 self.set_valve(False)
                 self.set_pump(1.0)
                 self.set_relay(False)
 
                 wait = float(self.cfg.settle_time_max_s) if self._is_max_point(sp) else float(self.cfg.settle_time_s)
-
                 if dt_st >= wait:
+                    # ✅ AQUÍ SOLO AÑADIMOS MEDICIÓN Y REGISTRO (no cambia control)
+                    try:
+                        self._record_point_result(sp_kpa=float(sp))
+                    except Exception as e:
+                        # si falla medición, aborta con error claro
+                        raise RuntimeError(f"Fallo medición punto (SP={sp:.2f}): {e}")
+
                     self.pi.unfreeze()
                     self._advance_point()
 
@@ -602,6 +595,227 @@ class AutoView(ttk.Frame):
 
         finally:
             self.after(self.update_period_ms, self._tick)
+
+    # ========================================================
+    # RESULTADOS (solo añadido)
+    # ========================================================
+    def _record_point_result(self, sp_kpa: float):
+        """
+        Toma N_SAMPLES_MEASURE muestras (ref + dut) y guarda un registro.
+        No toca control, solo lee y registra.
+        """
+        n = int(getattr(config, "N_SAMPLES_MEASURE", 50))
+        dt_s = float(getattr(config, "SAMPLE_DT_MEASURE_S", 0.01))
+
+        p_list: List[float] = []
+        dut_list: List[float] = []
+        vadc_ref_list: List[float] = []
+        vadc_dut_list: List[float] = []
+
+        mode = (self.cfg.dut_mode or "A1").upper()
+        ch_dut = config.ADS_CH_DUT_V if mode == "A0" else config.ADS_CH_DUT_mA
+
+        for _ in range(max(1, n)):
+            vadc_ref = float(self.read_vadc(config.ADS_CH_REF))
+            p_corr = float(self._mpx_vadc_to_kpa(vadc_ref))
+            p = max(0.0, p_corr - float(self.rt.p_zero_kpa))
+
+            vadc_dut = float(self.read_vadc(ch_dut))
+            dut_eng = float(self._dut_vadc_to_eng(vadc_dut, mode))
+
+            vadc_ref_list.append(vadc_ref)
+            vadc_dut_list.append(vadc_dut)
+            p_list.append(p)
+            dut_list.append(dut_eng)
+
+            if dt_s > 0:
+                time.sleep(dt_s)
+
+        p_mean = float(np.mean(p_list)) if p_list else 0.0
+        dut_mean = float(np.mean(dut_list)) if dut_list else 0.0
+        p_std = float(np.std(p_list, ddof=1)) if len(p_list) > 1 else 0.0
+        dut_std = float(np.std(dut_list, ddof=1)) if len(dut_list) > 1 else 0.0
+
+        span_pct = self._span_percent(dut_mean)
+        err_pct = self._error_percent_fluke_style(p_mean, dut_mean)
+
+        row = {
+            "i": int(self.rt.step_index + 1),
+            "sp_kpa": float(sp_kpa),
+            "p_kpa": float(p_mean),
+            "p_std": float(p_std),
+            "dut_mode": mode,
+            "dut_eng": float(dut_mean),
+            "dut_std": float(dut_std),
+            "span_pct": float(span_pct),
+            "err_pct": float(err_pct),
+            "u_last": float(self.rt.last_u),
+        }
+        self.results.append(row)
+
+    def _span_percent(self, dut_eng: float) -> float:
+        sig_min = float(self.cfg.sig_min)
+        sig_max = float(self.cfg.sig_max)
+        span = sig_max - sig_min
+        if abs(span) < 1e-12:
+            return 0.0
+        return 100.0 * (float(dut_eng) - sig_min) / span
+
+    def _error_percent_fluke_style(self, p_kpa: float, dut_eng: float) -> float:
+        pmin = float(self.cfg.p_min_kpa)
+        pmax = float(self.cfg.p_max_kpa)
+        sig_min = float(self.cfg.sig_min)
+        sig_max = float(self.cfg.sig_max)
+
+        p_span = pmax - pmin
+        sig_span = sig_max - sig_min
+        if abs(p_span) < 1e-12 or abs(sig_span) < 1e-12:
+            return 0.0
+
+        p_pct = 100.0 * (float(p_kpa) - pmin) / p_span
+        sig_pct = 100.0 * (float(dut_eng) - sig_min) / sig_span
+        return sig_pct - p_pct
+
+    def _show_results_window(self):
+        """
+        Ventana final con:
+        - Tabla de resultados
+        - Gráfica lineal con ecuación y R² (tipo Excel)
+        """
+        if not self.results:
+            return
+
+        # si ya existe, solo levantar
+        if self._results_win is not None and self._results_win.winfo_exists():
+            self._results_win.lift()
+            self._results_win.focus_force()
+            return
+
+        win = tk.Toplevel(self)
+        self._results_win = win
+        win.title("Resultados de calibración (Auto)")
+        win.geometry("1050x650")
+
+        # ---- Layout principal
+        top = ttk.Frame(win, padding=10)
+        top.pack(fill="both", expand=True)
+
+        # ---- Tabla
+        frm_tbl = ttk.LabelFrame(top, text="Tabla de resultados")
+        frm_tbl.pack(fill="both", expand=False)
+
+        cols = ("i", "sp_kpa", "p_kpa", "p_std", "dut", "dut_std", "span_pct", "err_pct", "u_last")
+        tv = ttk.Treeview(frm_tbl, columns=cols, show="headings", height=10)
+        tv.pack(side="left", fill="both", expand=True)
+
+        vsb = ttk.Scrollbar(frm_tbl, orient="vertical", command=tv.yview)
+        tv.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+
+        tv.heading("i", text="#")
+        tv.heading("sp_kpa", text="SP (kPa)")
+        tv.heading("p_kpa", text="P med (kPa)")
+        tv.heading("p_std", text="σP")
+        tv.heading("dut", text=f"DUT ({self.results[0]['dut_mode']})")
+        tv.heading("dut_std", text="σDUT")
+        tv.heading("span_pct", text="%SPAN")
+        tv.heading("err_pct", text="%ERROR")
+        tv.heading("u_last", text="u")
+
+        for c in cols:
+            tv.column(c, width=110, anchor="center")
+        tv.column("i", width=50)
+
+        for r in self.results:
+            dut_txt = f"{r['dut_eng']:.3f}" if r["dut_mode"] == "A0" else f"{r['dut_eng']:.3f}"
+            tv.insert(
+                "", "end",
+                values=(
+                    r["i"],
+                    f"{r['sp_kpa']:.2f}",
+                    f"{r['p_kpa']:.2f}",
+                    f"{r['p_std']:.3f}",
+                    dut_txt,
+                    f"{r['dut_std']:.3f}",
+                    f"{r['span_pct']:.2f}",
+                    f"{r['err_pct']:+.2f}",
+                    f"{r['u_last']:.3f}",
+                )
+            )
+
+        # ---- Gráfica
+        frm_plot = ttk.LabelFrame(top, text="Gráfica lineal (tipo Excel) + ecuación")
+        frm_plot.pack(fill="both", expand=True, pady=(10, 0))
+
+        # Datos
+        x = np.array([r["p_kpa"] for r in self.results], dtype=float)
+        y = np.array([r["dut_eng"] for r in self.results], dtype=float)
+
+        # Ajuste lineal y = m x + b
+        m, b = np.polyfit(x, y, 1)
+        y_hat = m * x + b
+
+        # R²
+        ss_res = float(np.sum((y - y_hat) ** 2))
+        ss_tot = float(np.sum((y - float(np.mean(y))) ** 2))
+        r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
+
+        # Figura
+        fig = Figure(figsize=(6.5, 3.8), dpi=100)
+        ax = fig.add_subplot(111)
+        ax.scatter(x, y)
+        ax.plot(x, y_hat)
+        ax.set_xlabel("Presión medida (kPa)")
+        ax.set_ylabel("DUT (mA)" if self.results[0]["dut_mode"] == "A1" else "DUT (V)")
+        ax.grid(True)
+
+        eq = f"y = {m:.6f} x + {b:.6f}    |    R² = {r2:.6f}"
+        ax.set_title(eq)
+
+        canvas = FigureCanvasTkAgg(fig, master=frm_plot)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # Botón cerrar
+        ttk.Button(top, text="Cerrar", command=win.destroy).pack(pady=10)
+
+        def _on_close():
+            try:
+                win.destroy()
+            finally:
+                self._results_win = None
+
+        win.protocol("WM_DELETE_WINDOW", _on_close)
+
+    # ========================================================
+    # DUT UTILS (lectura en vivo con calibración lineal config.py)
+    # ========================================================
+    def _read_dut_vadc(self) -> float:
+        mode = (self.cfg.dut_mode or "A1").upper()
+        ch = config.ADS_CH_DUT_V if mode == "A0" else config.ADS_CH_DUT_mA
+        return float(self.read_vadc(ch))
+
+    def _dut_vadc_to_eng(self, vadc: float, mode: str) -> float:
+        mode = (mode or "A1").upper()
+        if mode == "A0":
+            if bool(getattr(config, "USE_A0_CAL", True)):
+                return float(getattr(config, "A0_VIN_GAIN", 1.0)) * float(vadc) + float(getattr(config, "A0_VIN_OFFSET", 0.0))
+            return float(vadc)
+
+        if bool(getattr(config, "USE_A1_CAL", True)):
+            return float(getattr(config, "A1_IMA_GAIN", 1.0)) * float(vadc) + float(getattr(config, "A1_IMA_OFFSET", 0.0))
+        return float(vadc)
+
+    def _dut_text_live(self) -> str:
+        mode = (self.cfg.dut_mode or "A1").upper()
+        vadc = self._read_dut_vadc()
+
+        if mode == "A0":
+            vin = self._dut_vadc_to_eng(vadc, mode)
+            return f"DUT(A0)= {vin:5.3f} V | Vadc={vadc:5.3f} V"
+
+        ima = self._dut_vadc_to_eng(vadc, mode)
+        return f"DUT(A1)= {ima:6.2f} mA | Vadc={vadc:5.3f} V"
 
     # ========================================================
     # PRESSURE UTILS
