@@ -9,7 +9,7 @@ Interfaz gráfica principal de la aplicación
 import tkinter as tk
 from tkinter import ttk
 
-import config
+from config import hardware as config
 from core.hw import HW
 from ui.views.auto import AutoView
 from ui.views.manual import ManualView

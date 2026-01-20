@@ -1,13 +1,8 @@
 # core/control.py
 # -*- coding: utf-8 -*-
 
-"""
-Controlador PI para presión
-"""
-
 from dataclasses import dataclass
 from typing import Optional
-
 
 def clamp(x: float, lo: float, hi: float) -> float:
     return lo if x < lo else hi if x > hi else x

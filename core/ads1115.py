@@ -8,7 +8,7 @@ Funciones de bajo nivel para el ADC ADS1115
 
 import time
 from smbus2 import SMBus
-import config
+from config import hardware as config
 
 
 def clamp(x: float, lo: float, hi: float) -> float:

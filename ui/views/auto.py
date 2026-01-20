@@ -7,8 +7,8 @@ from tkinter import ttk, messagebox
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, Any, List
 
-import config
-from control_pi import PIController, PIConfig
+from config import hardware as config
+from core.control import PIController, PIConfig
 
 # Matplotlib embebido en Tk (para gráfica tipo Excel)
 import matplotlib

@@ -7,8 +7,8 @@ from tkinter import ttk, messagebox
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, Any
 
-import config
-from control_pi import PIController, PIConfig
+from config import hardware as config
+from core.control import PIController, PIConfig
 
 
 # =========================

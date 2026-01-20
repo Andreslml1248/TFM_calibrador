@@ -16,7 +16,7 @@ if platform.system() == "Windows":
 else:
     from gpiozero.pins.lgpio import LGPIOFactory
 
-import config
+from config import hardware as config
 from core.ads1115 import clamp, ads_read_v_once
 
 
