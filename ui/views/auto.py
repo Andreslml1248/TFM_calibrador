@@ -166,14 +166,20 @@ class AutoView(ttk.Frame):
         self.var_pmax = tk.StringVar(value="200.0")
 
         ttk.Label(frm, text="Señal min").grid(row=1, column=0, padx=6, pady=2, sticky="e")
-        ttk.Entry(frm, textvariable=self.var_sig_min, width=8).grid(row=1, column=1, padx=6, pady=2, sticky="w")
+        self.btn_sig_min = ttk.Button(frm, text=f"[{self.var_sig_min.get()}]", command=lambda: self._open_edit_dialog(self.var_sig_min, "Señal min", 0, 100, self.btn_sig_min))
+        self.btn_sig_min.grid(row=1, column=1, padx=6, pady=2, sticky="w")
+
         ttk.Label(frm, text="Señal max").grid(row=1, column=2, padx=6, pady=2, sticky="e")
-        ttk.Entry(frm, textvariable=self.var_sig_max, width=8).grid(row=1, column=3, padx=6, pady=2, sticky="w")
+        self.btn_sig_max = ttk.Button(frm, text=f"[{self.var_sig_max.get()}]", command=lambda: self._open_edit_dialog(self.var_sig_max, "Señal max", 0, 100, self.btn_sig_max))
+        self.btn_sig_max.grid(row=1, column=3, padx=6, pady=2, sticky="w")
 
         ttk.Label(frm, text="P min (kPa)").grid(row=2, column=0, padx=6, pady=2, sticky="e")
-        ttk.Entry(frm, textvariable=self.var_pmin, width=8).grid(row=2, column=1, padx=6, pady=2, sticky="w")
+        self.btn_pmin = ttk.Button(frm, text=f"[{self.var_pmin.get()}]", command=lambda: self._open_edit_dialog(self.var_pmin, "P min (kPa)", 0, 500, self.btn_pmin))
+        self.btn_pmin.grid(row=2, column=1, padx=6, pady=2, sticky="w")
+
         ttk.Label(frm, text="P max (kPa)").grid(row=2, column=2, padx=6, pady=2, sticky="e")
-        ttk.Entry(frm, textvariable=self.var_pmax, width=8).grid(row=2, column=3, padx=6, pady=2, sticky="w")
+        self.btn_pmax = ttk.Button(frm, text=f"[{self.var_pmax.get()}]", command=lambda: self._open_edit_dialog(self.var_pmax, "P max (kPa)", 0, 500, self.btn_pmax))
+        self.btn_pmax.grid(row=2, column=3, padx=6, pady=2, sticky="w")
 
         # Secuencia
         self.var_npts = tk.StringVar(value="5")
@@ -188,9 +194,12 @@ class AutoView(ttk.Frame):
         self.var_tmax = tk.StringVar(value="10")
 
         ttk.Label(frm, text="Asentamiento (s)").grid(row=4, column=0, padx=6, pady=2, sticky="e")
-        ttk.Entry(frm, textvariable=self.var_tsettle, width=8).grid(row=4, column=1, padx=6, pady=2, sticky="w")
+        self.btn_tsettle = ttk.Button(frm, text=f"[{self.var_tsettle.get()}]", command=lambda: self._open_edit_dialog(self.var_tsettle, "Asentamiento (s)", 0, 60, self.btn_tsettle))
+        self.btn_tsettle.grid(row=4, column=1, padx=6, pady=2, sticky="w")
+
         ttk.Label(frm, text="P máx (s)").grid(row=4, column=2, padx=6, pady=2, sticky="e")
-        ttk.Entry(frm, textvariable=self.var_tmax, width=8).grid(row=4, column=3, padx=6, pady=2, sticky="w")
+        self.btn_tmax = ttk.Button(frm, text=f"[{self.var_tmax.get()}]", command=lambda: self._open_edit_dialog(self.var_tmax, "P máx (s)", 0, 60, self.btn_tmax))
+        self.btn_tmax.grid(row=4, column=3, padx=6, pady=2, sticky="w")
 
         ttk.Button(frm, text="Editar condiciones de control", command=self._open_control_window)\
             .grid(row=5, column=0, columnspan=4, padx=6, pady=8, sticky="we")
@@ -203,7 +212,86 @@ class AutoView(ttk.Frame):
         ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=10)
 
     # ========================================================
-    # Control window (igual)
+    # Modal Edit Dialog
+    # ========================================================
+    def _open_edit_dialog(self, var: tk.StringVar, label: str, min_val: float, max_val: float, button: ttk.Button):
+        """
+        Abre un diálogo modal para editar un valor numérico.
+        """
+        dialog = tk.Toplevel(self)
+        dialog.title(f"Editar: {label}")
+        dialog.geometry("300x180")
+        dialog.resizable(False, False)
+        dialog.attributes("-topmost", True)
+
+        # Centrar en la pantalla
+        dialog.update_idletasks()
+        x = dialog.winfo_screenwidth() // 2 - 150
+        y = dialog.winfo_screenheight() // 2 - 90
+        dialog.geometry(f"300x180+{x}+{y}")
+
+        # Frame principal
+        frm = ttk.Frame(dialog, padding=20)
+        frm.pack(fill="both", expand=True)
+
+        # Etiqueta
+        ttk.Label(frm, text=label, font=("Arial", 12, "bold")).pack(pady=(0, 10))
+        ttk.Label(frm, text=f"Rango: {min_val} - {max_val}", font=("Arial", 10)).pack(pady=(0, 15))
+
+        # Entry para editar
+        var_edit = tk.StringVar(value=var.get())
+        entry = ttk.Entry(frm, textvariable=var_edit, font=("Arial", 14), justify="center")
+        entry.pack(fill="x", ipady=8, pady=(0, 20))
+        entry.select_range(0, len(var_edit.get()))
+        entry.focus()
+
+        # Frame de botones
+        btns = ttk.Frame(frm)
+        btns.pack(fill="x", pady=(10, 0))
+
+        def on_save():
+            try:
+                valor = float(var_edit.get().strip().replace(",", "."))
+
+                # Validar rango
+                if valor < min_val or valor > max_val:
+                    raise ValueError(f"Valor fuera de rango [{min_val}, {max_val}]")
+
+                # Guardar en la variable
+                var.set(str(valor))
+
+                # Actualizar el botón inmediatamente
+                button.config(text=f"[{valor}]")
+
+                dialog.destroy()
+            except ValueError as e:
+                messagebox.showerror("Error", f"Valor inválido: {str(e)}")
+
+        def on_cancel():
+            dialog.destroy()
+
+        # Botones
+        ttk.Button(btns, text="Guardar", command=on_save, width=12).pack(side="left", padx=5)
+        ttk.Button(btns, text="Cancelar", command=on_cancel, width=12).pack(side="left", padx=5)
+
+        # Enter para guardar
+        entry.bind("<Return>", lambda e: on_save())
+        # Escape para cancelar
+        entry.bind("<Escape>", lambda e: on_cancel())
+
+        # Hacer modal
+        dialog.grab_set()
+        dialog.wait_window()
+
+    def _update_button_display(self):
+        """
+        Actualiza el texto de los botones para mostrar el valor actual.
+        Esto es un placeholder que se puede mejorar si es necesario.
+        """
+        pass
+
+    # ========================================================
+    # Control window
     # ========================================================
     def _open_control_window(self):
         if self._control_win is not None and self._control_win.winfo_exists():
@@ -229,30 +317,36 @@ class AutoView(ttk.Frame):
 
         r = 0
         ttk.Label(frm, text="Banda muerta (kPa)").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        ttk.Entry(frm, textvariable=self.var_deadband, width=10).grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        self.btn_deadband = ttk.Button(frm, text=f"[{self.var_deadband.get()}]", command=lambda: self._open_edit_dialog(self.var_deadband, "Banda muerta (kPa)", 0, 20, self.btn_deadband))
+        self.btn_deadband.grid(row=r, column=1, sticky="w", padx=6, pady=4)
         r += 1
 
         ttk.Label(frm, text="Tiempo en banda SUBIDA (s)").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        ttk.Entry(frm, textvariable=self.var_inband_up, width=10).grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        self.btn_inband_up = ttk.Button(frm, text=f"[{self.var_inband_up.get()}]", command=lambda: self._open_edit_dialog(self.var_inband_up, "Tiempo en banda SUBIDA (s)", 0, 30, self.btn_inband_up))
+        self.btn_inband_up.grid(row=r, column=1, sticky="w", padx=6, pady=4)
         r += 1
 
         ttk.Label(frm, text="Tiempo en banda BAJADA (s)").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        ttk.Entry(frm, textvariable=self.var_inband_down, width=10).grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        self.btn_inband_down = ttk.Button(frm, text=f"[{self.var_inband_down.get()}]", command=lambda: self._open_edit_dialog(self.var_inband_down, "Tiempo en banda BAJADA (s)", 0, 30, self.btn_inband_down))
+        self.btn_inband_down.grid(row=r, column=1, sticky="w", padx=6, pady=4)
         r += 1
 
         ttk.Separator(frm).grid(row=r, column=0, columnspan=2, sticky="we", pady=8)
         r += 1
 
         ttk.Label(frm, text="U mínima").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        ttk.Entry(frm, textvariable=self.var_u_min, width=10).grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        self.btn_u_min = ttk.Button(frm, text=f"[{self.var_u_min.get()}]", command=lambda: self._open_edit_dialog(self.var_u_min, "U mínima", 0, 1, self.btn_u_min))
+        self.btn_u_min.grid(row=r, column=1, sticky="w", padx=6, pady=4)
         r += 1
 
         ttk.Label(frm, text="U máxima").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        ttk.Entry(frm, textvariable=self.var_u_max, width=10).grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        self.btn_u_max = ttk.Button(frm, text=f"[{self.var_u_max.get()}]", command=lambda: self._open_edit_dialog(self.var_u_max, "U máxima", 0, 1, self.btn_u_max))
+        self.btn_u_max.grid(row=r, column=1, sticky="w", padx=6, pady=4)
         r += 1
 
         ttk.Label(frm, text="U feedforward (Uff)").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        ttk.Entry(frm, textvariable=self.var_u_ff, width=10).grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        self.btn_u_ff = ttk.Button(frm, text=f"[{self.var_u_ff.get()}]", command=lambda: self._open_edit_dialog(self.var_u_ff, "U feedforward (Uff)", 0, 1, self.btn_u_ff))
+        self.btn_u_ff.grid(row=r, column=1, sticky="w", padx=6, pady=4)
         r += 1
 
         ttk.Label(frm, text="Nota: en BAJADA la electroválvula se cierra 0.5 s después de llegar al deadband.")\
@@ -853,3 +947,4 @@ class AutoView(ttk.Frame):
             self.pi.freeze()
         except Exception:
             pass
+
