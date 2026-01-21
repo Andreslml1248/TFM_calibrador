@@ -1,4 +1,4 @@
-# control_pi.py
+# core/control.py
 # -*- coding: utf-8 -*-
 
 from dataclasses import dataclass
@@ -98,3 +98,4 @@ class PIController:
         self.last_sp = sp
         self.last_p = p_use
         return u
+
