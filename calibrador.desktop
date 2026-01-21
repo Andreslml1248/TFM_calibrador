@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Calibrador de Presión
+Comment=Aplicación de calibración de presión
+Exec=/home/pi/TFM_calibrador/main.py
+Icon=document-properties
+Terminal=false
+Categories=Utility;
+Path=/home/pi/TFM_calibrador
+
