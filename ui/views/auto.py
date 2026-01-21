@@ -3,7 +3,7 @@
 
 import time
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, font as tkFont
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, Any, List
 
@@ -216,38 +216,114 @@ class AutoView(ttk.Frame):
     # ========================================================
     def _open_edit_dialog(self, var: tk.StringVar, label: str, min_val: float, max_val: float, button: ttk.Button):
         """
-        Abre un diálogo modal para editar un valor numérico.
+        Abre un diálogo modal para editar un valor numérico con teclado integrado.
         """
         dialog = tk.Toplevel(self)
         dialog.title(f"Editar: {label}")
-        dialog.geometry("300x180")
+        dialog.geometry("350x420")
         dialog.resizable(False, False)
         dialog.attributes("-topmost", True)
 
         # Centrar en la pantalla
         dialog.update_idletasks()
-        x = dialog.winfo_screenwidth() // 2 - 150
-        y = dialog.winfo_screenheight() // 2 - 90
-        dialog.geometry(f"300x180+{x}+{y}")
+        x = dialog.winfo_screenwidth() // 2 - 175
+        y = dialog.winfo_screenheight() // 2 - 210
+        dialog.geometry(f"350x420+{x}+{y}")
 
         # Frame principal
-        frm = ttk.Frame(dialog, padding=20)
+        frm = ttk.Frame(dialog, padding=15)
         frm.pack(fill="both", expand=True)
 
         # Etiqueta
-        ttk.Label(frm, text=label, font=("Arial", 12, "bold")).pack(pady=(0, 10))
-        ttk.Label(frm, text=f"Rango: {min_val} - {max_val}", font=("Arial", 10)).pack(pady=(0, 15))
+        ttk.Label(frm, text=label, font=("Arial", 12, "bold")).pack(pady=(0, 5))
+        ttk.Label(frm, text=f"Rango: {min_val} - {max_val}", font=("Arial", 10)).pack(pady=(0, 10))
 
-        # Entry para editar
+        # Entry para editar (más grande) - usar fuente compatible
         var_edit = tk.StringVar(value=var.get())
-        entry = ttk.Entry(frm, textvariable=var_edit, font=("Arial", 14), justify="center")
-        entry.pack(fill="x", ipady=8, pady=(0, 20))
+        entry_font = tkFont.Font(family="Arial", size=16, weight="bold")
+        entry = tk.Entry(frm, textvariable=var_edit, justify="center")
+        entry.config(font=entry_font)
+        entry.pack(fill="x", ipady=10, pady=(0, 15))
         entry.select_range(0, len(var_edit.get()))
         entry.focus()
 
-        # Frame de botones
-        btns = ttk.Frame(frm)
-        btns.pack(fill="x", pady=(10, 0))
+        # Frame para teclado numérico
+        kbd_frm = ttk.LabelFrame(frm, text="Teclado numérico", padding=10)
+        kbd_frm.pack(fill="both", expand=True, pady=(0, 10))
+
+        def add_digit(digit):
+            """Agrega un dígito al campo"""
+            current = var_edit.get()
+            var_edit.set(current + str(digit))
+            entry.focus()
+
+        def add_decimal():
+            """Agrega un punto decimal"""
+            current = var_edit.get()
+            if "." not in current:
+                var_edit.set(current + ".")
+            entry.focus()
+
+        def delete_last():
+            """Borra el último carácter"""
+            current = var_edit.get()
+            var_edit.set(current[:-1] if current else "")
+            entry.focus()
+
+        def clear_all():
+            """Borra todo"""
+            var_edit.set("")
+            entry.focus()
+
+        # Crear botones del teclado (0-9 en grid 3x3 + punto)
+        btn_width = 8
+
+        # Fila 1: 7, 8, 9
+        row_frm = ttk.Frame(kbd_frm)
+        row_frm.pack(fill="x", padx=5, pady=2)
+        ttk.Button(row_frm, text="7", width=btn_width, command=lambda: add_digit(7),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        ttk.Button(row_frm, text="8", width=btn_width, command=lambda: add_digit(8),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        ttk.Button(row_frm, text="9", width=btn_width, command=lambda: add_digit(9),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+
+        # Fila 2: 4, 5, 6
+        row_frm = ttk.Frame(kbd_frm)
+        row_frm.pack(fill="x", padx=5, pady=2)
+        ttk.Button(row_frm, text="4", width=btn_width, command=lambda: add_digit(4),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        ttk.Button(row_frm, text="5", width=btn_width, command=lambda: add_digit(5),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        ttk.Button(row_frm, text="6", width=btn_width, command=lambda: add_digit(6),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+
+        # Fila 3: 1, 2, 3
+        row_frm = ttk.Frame(kbd_frm)
+        row_frm.pack(fill="x", padx=5, pady=2)
+        ttk.Button(row_frm, text="1", width=btn_width, command=lambda: add_digit(1),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        ttk.Button(row_frm, text="2", width=btn_width, command=lambda: add_digit(2),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        ttk.Button(row_frm, text="3", width=btn_width, command=lambda: add_digit(3),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+
+        # Fila 4: 0, punto, borrar
+        row_frm = ttk.Frame(kbd_frm)
+        row_frm.pack(fill="x", padx=5, pady=2)
+        ttk.Button(row_frm, text="0", width=btn_width, command=lambda: add_digit(0),
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        ttk.Button(row_frm, text=".", width=btn_width, command=add_decimal,
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        ttk.Button(row_frm, text="←", width=btn_width, command=delete_last,
+                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+
+        # Fila 5: Borrar todo
+        ttk.Button(kbd_frm, text="Borrar todo", command=clear_all, width=28).pack(fill="x", padx=5, pady=5)
+
+        # Frame para botones de guardar/cancelar
+        action_frm = ttk.Frame(frm)
+        action_frm.pack(fill="x", pady=(10, 0))
 
         def on_save():
             try:
@@ -270,9 +346,9 @@ class AutoView(ttk.Frame):
         def on_cancel():
             dialog.destroy()
 
-        # Botones
-        ttk.Button(btns, text="Guardar", command=on_save, width=12).pack(side="left", padx=5)
-        ttk.Button(btns, text="Cancelar", command=on_cancel, width=12).pack(side="left", padx=5)
+        # Botones de acción grandes
+        ttk.Button(action_frm, text="✓ Guardar", command=on_save, width=16).pack(side="left", padx=5)
+        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel, width=16).pack(side="left", padx=5)
 
         # Enter para guardar
         entry.bind("<Return>", lambda e: on_save())
