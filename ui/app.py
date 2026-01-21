@@ -21,7 +21,25 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Calibrador de Presión")
-        self.geometry("1000x600")
+
+        # Obtener dimensiones de la pantalla
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        # Establecer geometría a tamaño máximo de pantalla
+        self.geometry(f"{screen_width}x{screen_height}+0+0")
+
+        # Maximizar ventana
+        self.state('zoomed')  # Windows
+        try:
+            self.state('zoomed')
+        except:
+            try:
+                self.state('normal')
+                self.attributes('-zoomed', True)  # Linux
+            except:
+                pass
+
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.hw = HW()
