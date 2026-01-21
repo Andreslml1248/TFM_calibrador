@@ -29,16 +29,19 @@ class App(tk.Tk):
         # Establecer geometría a tamaño máximo de pantalla
         self.geometry(f"{screen_width}x{screen_height}+0+0")
 
-        # Maximizar ventana
-        self.state('zoomed')  # Windows
+        # Maximizar ventana (compatible con Windows, Linux y Raspberry Pi)
         try:
-            self.state('zoomed')
+            self.state('zoomed')  # Windows
         except:
             try:
-                self.state('normal')
                 self.attributes('-zoomed', True)  # Linux
             except:
-                pass
+                try:
+                    # Fallback: usar estado normal y forzar tamaño máximo
+                    self.state('normal')
+                    self.update_idletasks()
+                except:
+                    pass
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
