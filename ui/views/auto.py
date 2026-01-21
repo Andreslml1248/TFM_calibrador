@@ -221,9 +221,14 @@ class AutoView(ttk.Frame):
         """
         dialog = tk.Toplevel(self)
         dialog.title(f"Editar: {label}")
-        dialog.geometry("360x480")
+        dialog.geometry("320x420")
         dialog.resizable(False, False)
+
+        # CRÍTICO para pantalla táctil: establecer atributos antes de geometry
         dialog.attributes("-topmost", True)
+
+        # Hacer el dialog modal (bloquea eventos en la ventana principal)
+        dialog.transient(self.winfo_toplevel())
 
         # Centrar respecto a la ventana principal (no la pantalla física)
         dialog.update_idletasks()
@@ -240,33 +245,39 @@ class AutoView(ttk.Frame):
         center_y = main_y + main_height // 2
 
         # Posicionar modal en el centro
-        modal_width = 360
-        modal_height = 480
-        x = center_x - modal_width // 2
-        y = center_y - modal_height // 2
+        modal_width = 320
+        modal_height = 420
+        x = max(0, center_x - modal_width // 2)
+        y = max(0, center_y - modal_height // 2)
 
         dialog.geometry(f"{modal_width}x{modal_height}+{x}+{y}")
 
-        # Frame principal
-        frm = ttk.Frame(dialog, padding=12)
+        # CRÍTICO: Capture el foco ANTES de crear los widgets
+        dialog.focus_force()
+        dialog.grab_set()
+        dialog.update_idletasks()
+        dialog.update()
+
+        # Frame principal con padding mínimo
+        frm = ttk.Frame(dialog, padding=8)
         frm.pack(fill="both", expand=True)
 
-        # Etiqueta
-        ttk.Label(frm, text=label, font=("Arial", 12, "bold")).pack(pady=(0, 3))
-        ttk.Label(frm, text=f"Rango: {min_val} - {max_val}", font=("Arial", 9)).pack(pady=(0, 10))
+        # Etiqueta pequeña
+        ttk.Label(frm, text=label, font=("Arial", 11, "bold")).pack(pady=(0, 2))
+        ttk.Label(frm, text=f"Rango: {min_val} - {max_val}", font=("Arial", 8)).pack(pady=(0, 8))
 
-        # Entry para editar (GRANDE)
+        # Entry para editar
         var_edit = tk.StringVar(value=var.get())
-        entry_font = tkFont.Font(family="Arial", size=16, weight="bold")
+        entry_font = tkFont.Font(family="Arial", size=14, weight="bold")
         entry = tk.Entry(frm, textvariable=var_edit, justify="center", relief="solid", borderwidth=2)
         entry.config(font=entry_font)
-        entry.pack(fill="x", ipady=12, pady=(0, 12))
+        entry.pack(fill="x", ipady=10, pady=(0, 10))
         entry.select_range(0, len(var_edit.get()))
         entry.focus()
 
         # Frame para teclado numérico
-        kbd_frm = ttk.LabelFrame(frm, text="Teclado", padding=8)
-        kbd_frm.pack(fill="both", expand=True, pady=(0, 10))
+        kbd_frm = ttk.LabelFrame(frm, text="Teclado", padding=6)
+        kbd_frm.pack(fill="both", expand=True, pady=(0, 8))
 
         def add_digit(digit):
             """Agrega un dígito al campo"""
@@ -296,14 +307,14 @@ class AutoView(ttk.Frame):
             entry.focus()
             entry.update()
 
-        # Crear botones del teclado - optimizados para táctil
-        btn_font = tkFont.Font(family="Arial", size=12, weight="bold")
-        btn_width = 4
-        btn_height = 2
+        # Crear botones del teclado - REDUCIDOS
+        btn_font = tkFont.Font(family="Arial", size=10, weight="bold")
+        btn_width = 3
+        btn_height = 1
 
         # Fila 1: 7, 8, 9
         row_frm = ttk.Frame(kbd_frm)
-        row_frm.pack(fill="both", expand=True, padx=2, pady=2)
+        row_frm.pack(fill="both", expand=True, padx=1, pady=1)
         tk.Button(row_frm, text="7", width=btn_width, height=btn_height, command=lambda: add_digit(7),
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
         tk.Button(row_frm, text="8", width=btn_width, height=btn_height, command=lambda: add_digit(8),
@@ -313,7 +324,7 @@ class AutoView(ttk.Frame):
 
         # Fila 2: 4, 5, 6
         row_frm = ttk.Frame(kbd_frm)
-        row_frm.pack(fill="both", expand=True, padx=2, pady=2)
+        row_frm.pack(fill="both", expand=True, padx=1, pady=1)
         tk.Button(row_frm, text="4", width=btn_width, height=btn_height, command=lambda: add_digit(4),
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
         tk.Button(row_frm, text="5", width=btn_width, height=btn_height, command=lambda: add_digit(5),
@@ -323,7 +334,7 @@ class AutoView(ttk.Frame):
 
         # Fila 3: 1, 2, 3
         row_frm = ttk.Frame(kbd_frm)
-        row_frm.pack(fill="both", expand=True, padx=2, pady=2)
+        row_frm.pack(fill="both", expand=True, padx=1, pady=1)
         tk.Button(row_frm, text="1", width=btn_width, height=btn_height, command=lambda: add_digit(1),
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
         tk.Button(row_frm, text="2", width=btn_width, height=btn_height, command=lambda: add_digit(2),
@@ -333,7 +344,7 @@ class AutoView(ttk.Frame):
 
         # Fila 4: 0, punto, borrar
         row_frm = ttk.Frame(kbd_frm)
-        row_frm.pack(fill="both", expand=True, padx=2, pady=2)
+        row_frm.pack(fill="both", expand=True, padx=1, pady=1)
         tk.Button(row_frm, text="0", width=btn_width, height=btn_height, command=lambda: add_digit(0),
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
         tk.Button(row_frm, text=".", width=btn_width, height=btn_height, command=add_decimal,
@@ -341,12 +352,12 @@ class AutoView(ttk.Frame):
         tk.Button(row_frm, text="←", width=btn_width, height=btn_height, command=delete_last,
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
 
-        # Borrar todo - botón grande
-        ttk.Button(kbd_frm, text="Borrar todo", command=clear_all).pack(fill="x", padx=3, pady=5)
+        # Borrar todo - botón compacto
+        ttk.Button(kbd_frm, text="Borrar todo", command=clear_all).pack(fill="x", padx=2, pady=3)
 
         # Frame para botones de guardar/cancelar
         action_frm = ttk.Frame(frm)
-        action_frm.pack(fill="x", pady=(8, 0))
+        action_frm.pack(fill="x", pady=(6, 0))
 
         def on_save():
             try:
@@ -369,17 +380,16 @@ class AutoView(ttk.Frame):
         def on_cancel():
             dialog.destroy()
 
-        # Botones de acción grandes
-        ttk.Button(action_frm, text="✓ Guardar", command=on_save).pack(side="left", padx=3, pady=3, fill="both", expand=True)
-        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=3, pady=3, fill="both", expand=True)
+        # Botones de acción compactos
+        ttk.Button(action_frm, text="✓ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
 
         # Enter para guardar
         entry.bind("<Return>", lambda e: on_save())
         # Escape para cancelar
         entry.bind("<Escape>", lambda e: on_cancel())
 
-        # Hacer modal
-        dialog.grab_set()
+        # Esperar a que el modal se cierre
         dialog.wait_window()
 
     def _update_button_display(self):
