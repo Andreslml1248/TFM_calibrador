@@ -276,47 +276,48 @@ class AutoView(ttk.Frame):
             entry.focus()
 
         # Crear botones del teclado (0-9 en grid 3x3 + punto)
-        btn_width = 8
+        btn_font = tkFont.Font(family="Arial", size=11, weight="bold")
+        btn_width = 5
 
         # Fila 1: 7, 8, 9
         row_frm = ttk.Frame(kbd_frm)
-        row_frm.pack(fill="x", padx=5, pady=2)
-        ttk.Button(row_frm, text="7", width=btn_width, command=lambda: add_digit(7),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
-        ttk.Button(row_frm, text="8", width=btn_width, command=lambda: add_digit(8),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
-        ttk.Button(row_frm, text="9", width=btn_width, command=lambda: add_digit(9),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        row_frm.pack(fill="x", padx=5, pady=3)
+        tk.Button(row_frm, text="7", width=btn_width, command=lambda: add_digit(7),
+                  font=btn_font).pack(side="left", padx=2)
+        tk.Button(row_frm, text="8", width=btn_width, command=lambda: add_digit(8),
+                  font=btn_font).pack(side="left", padx=2)
+        tk.Button(row_frm, text="9", width=btn_width, command=lambda: add_digit(9),
+                  font=btn_font).pack(side="left", padx=2)
 
         # Fila 2: 4, 5, 6
         row_frm = ttk.Frame(kbd_frm)
-        row_frm.pack(fill="x", padx=5, pady=2)
-        ttk.Button(row_frm, text="4", width=btn_width, command=lambda: add_digit(4),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
-        ttk.Button(row_frm, text="5", width=btn_width, command=lambda: add_digit(5),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
-        ttk.Button(row_frm, text="6", width=btn_width, command=lambda: add_digit(6),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        row_frm.pack(fill="x", padx=5, pady=3)
+        tk.Button(row_frm, text="4", width=btn_width, command=lambda: add_digit(4),
+                  font=btn_font).pack(side="left", padx=2)
+        tk.Button(row_frm, text="5", width=btn_width, command=lambda: add_digit(5),
+                  font=btn_font).pack(side="left", padx=2)
+        tk.Button(row_frm, text="6", width=btn_width, command=lambda: add_digit(6),
+                  font=btn_font).pack(side="left", padx=2)
 
         # Fila 3: 1, 2, 3
         row_frm = ttk.Frame(kbd_frm)
-        row_frm.pack(fill="x", padx=5, pady=2)
-        ttk.Button(row_frm, text="1", width=btn_width, command=lambda: add_digit(1),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
-        ttk.Button(row_frm, text="2", width=btn_width, command=lambda: add_digit(2),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
-        ttk.Button(row_frm, text="3", width=btn_width, command=lambda: add_digit(3),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        row_frm.pack(fill="x", padx=5, pady=3)
+        tk.Button(row_frm, text="1", width=btn_width, command=lambda: add_digit(1),
+                  font=btn_font).pack(side="left", padx=2)
+        tk.Button(row_frm, text="2", width=btn_width, command=lambda: add_digit(2),
+                  font=btn_font).pack(side="left", padx=2)
+        tk.Button(row_frm, text="3", width=btn_width, command=lambda: add_digit(3),
+                  font=btn_font).pack(side="left", padx=2)
 
         # Fila 4: 0, punto, borrar
         row_frm = ttk.Frame(kbd_frm)
-        row_frm.pack(fill="x", padx=5, pady=2)
-        ttk.Button(row_frm, text="0", width=btn_width, command=lambda: add_digit(0),
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
-        ttk.Button(row_frm, text=".", width=btn_width, command=add_decimal,
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
-        ttk.Button(row_frm, text="←", width=btn_width, command=delete_last,
-                   font=("Arial", 12, "bold")).pack(side="left", padx=2)
+        row_frm.pack(fill="x", padx=5, pady=3)
+        tk.Button(row_frm, text="0", width=btn_width, command=lambda: add_digit(0),
+                  font=btn_font).pack(side="left", padx=2)
+        tk.Button(row_frm, text=".", width=btn_width, command=add_decimal,
+                  font=btn_font).pack(side="left", padx=2)
+        tk.Button(row_frm, text="←", width=btn_width, command=delete_last,
+                  font=btn_font).pack(side="left", padx=2)
 
         # Fila 5: Borrar todo
         ttk.Button(kbd_frm, text="Borrar todo", command=clear_all, width=28).pack(fill="x", padx=5, pady=5)
