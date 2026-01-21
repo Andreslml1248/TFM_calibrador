@@ -1,0 +1,5 @@
+#!/bin/bash
+# Script ejecutable para iniciar el Calibrador
+cd "$(dirname "$0")"
+python3 main.py
+
