@@ -414,59 +414,63 @@ class AutoView(ttk.Frame):
         win.resizable(False, False)
         win.attributes("-topmost", True)
 
-        self.var_deadband = tk.StringVar(value=f"{self.cfg.deadband_kpa:.3f}")
-        self.var_inband_up = tk.StringVar(value=f"{self.cfg.inband_up_s:.3f}")
-        self.var_inband_down = tk.StringVar(value=f"{self.cfg.inband_down_s:.3f}")
-        self.var_u_min = tk.StringVar(value=f"{self.cfg.u_min:.3f}")
-        self.var_u_max = tk.StringVar(value=f"{self.cfg.u_max:.3f}")
-        self.var_u_ff  = tk.StringVar(value=f"{self.cfg.u_ff:.3f}")
+        self.var_deadband = tk.DoubleVar(value=self.cfg.deadband_kpa)
+        self.var_inband_up = tk.DoubleVar(value=self.cfg.inband_up_s)
+        self.var_inband_down = tk.DoubleVar(value=self.cfg.inband_down_s)
+        self.var_u_min = tk.DoubleVar(value=self.cfg.u_min)
+        self.var_u_max = tk.DoubleVar(value=self.cfg.u_max)
+        self.var_u_ff = tk.DoubleVar(value=self.cfg.u_ff)
 
-        frm = ttk.Frame(win, padding=12)
+        frm = ttk.Frame(win, padding=20)
         frm.grid(row=0, column=0)
 
+        # Fuente más grande
+        lbl_font = ("Arial", 13)
+        spinbox_font = ("Arial", 14, "bold")
+
         r = 0
-        ttk.Label(frm, text="Banda muerta (kPa)").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        self.btn_deadband = ttk.Button(frm, text=f"[{self.var_deadband.get()}]", command=lambda: self._open_edit_dialog(self.var_deadband, "Banda muerta (kPa)", 0, 20, self.btn_deadband))
-        self.btn_deadband.grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        ttk.Label(frm, text="Banda muerta (kPa)", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
+        sb_deadband = tk.Spinbox(frm, from_=0, to=20, increment=0.1, textvariable=self.var_deadband, width=18, format="%.3f", font=spinbox_font)
+        sb_deadband.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
         r += 1
 
-        ttk.Label(frm, text="Tiempo en banda SUBIDA (s)").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        self.btn_inband_up = ttk.Button(frm, text=f"[{self.var_inband_up.get()}]", command=lambda: self._open_edit_dialog(self.var_inband_up, "Tiempo en banda SUBIDA (s)", 0, 30, self.btn_inband_up))
-        self.btn_inband_up.grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        ttk.Label(frm, text="Tiempo en banda SUBIDA (s)", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
+        sb_inband_up = tk.Spinbox(frm, from_=0, to=30, increment=0.1, textvariable=self.var_inband_up, width=18, format="%.3f", font=spinbox_font)
+        sb_inband_up.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
         r += 1
 
-        ttk.Label(frm, text="Tiempo en banda BAJADA (s)").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        self.btn_inband_down = ttk.Button(frm, text=f"[{self.var_inband_down.get()}]", command=lambda: self._open_edit_dialog(self.var_inband_down, "Tiempo en banda BAJADA (s)", 0, 30, self.btn_inband_down))
-        self.btn_inband_down.grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        ttk.Label(frm, text="Tiempo en banda BAJADA (s)", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
+        sb_inband_down = tk.Spinbox(frm, from_=0, to=30, increment=0.1, textvariable=self.var_inband_down, width=18, format="%.3f", font=spinbox_font)
+        sb_inband_down.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
         r += 1
 
-        ttk.Separator(frm).grid(row=r, column=0, columnspan=2, sticky="we", pady=8)
+        ttk.Separator(frm).grid(row=r, column=0, columnspan=2, sticky="we", pady=12)
         r += 1
 
-        ttk.Label(frm, text="U mínima").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        self.btn_u_min = ttk.Button(frm, text=f"[{self.var_u_min.get()}]", command=lambda: self._open_edit_dialog(self.var_u_min, "U mínima", 0, 1, self.btn_u_min))
-        self.btn_u_min.grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        ttk.Label(frm, text="U mínima", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
+        sb_u_min = tk.Spinbox(frm, from_=0, to=1, increment=0.01, textvariable=self.var_u_min, width=18, format="%.3f", font=spinbox_font)
+        sb_u_min.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
         r += 1
 
-        ttk.Label(frm, text="U máxima").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        self.btn_u_max = ttk.Button(frm, text=f"[{self.var_u_max.get()}]", command=lambda: self._open_edit_dialog(self.var_u_max, "U máxima", 0, 1, self.btn_u_max))
-        self.btn_u_max.grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        ttk.Label(frm, text="U máxima", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
+        sb_u_max = tk.Spinbox(frm, from_=0, to=1, increment=0.01, textvariable=self.var_u_max, width=18, format="%.3f", font=spinbox_font)
+        sb_u_max.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
         r += 1
 
-        ttk.Label(frm, text="U feedforward (Uff)").grid(row=r, column=0, sticky="e", padx=6, pady=4)
-        self.btn_u_ff = ttk.Button(frm, text=f"[{self.var_u_ff.get()}]", command=lambda: self._open_edit_dialog(self.var_u_ff, "U feedforward (Uff)", 0, 1, self.btn_u_ff))
-        self.btn_u_ff.grid(row=r, column=1, sticky="w", padx=6, pady=4)
+        ttk.Label(frm, text="U feedforward (Uff)", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
+        sb_u_ff = tk.Spinbox(frm, from_=0, to=1, increment=0.01, textvariable=self.var_u_ff, width=18, format="%.3f", font=spinbox_font)
+        sb_u_ff.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
         r += 1
 
-        ttk.Label(frm, text="Nota: en BAJADA la electroválvula se cierra 0.5 s después de llegar al deadband.")\
-            .grid(row=r, column=0, columnspan=2, sticky="w", padx=2, pady=(10, 2))
+        ttk.Label(frm, text="Nota: en BAJADA la electroválvula se cierra 0.5 s después de llegar al deadband.", font=("Arial", 10))\
+            .grid(row=r, column=0, columnspan=2, sticky="w", padx=6, pady=(15, 5))
         r += 1
 
         btns = ttk.Frame(frm)
-        btns.grid(row=r, column=0, columnspan=2, pady=(10, 0))
+        btns.grid(row=r, column=0, columnspan=2, pady=(15, 0))
 
-        ttk.Button(btns, text="Guardar", command=self._save_control_window).grid(row=0, column=0, padx=8)
-        ttk.Button(btns, text="Cerrar", command=win.destroy).grid(row=0, column=1, padx=8)
+        ttk.Button(btns, text="Guardar", command=self._save_control_window).grid(row=0, column=0, padx=12, ipady=8)
+        ttk.Button(btns, text="Cerrar", command=win.destroy).grid(row=0, column=1, padx=12, ipady=8)
 
         def _on_close():
             try:
@@ -478,12 +482,12 @@ class AutoView(ttk.Frame):
 
     def _save_control_window(self):
         try:
-            dead = float(self.var_deadband.get().strip().replace(",", "."))
-            inu = float(self.var_inband_up.get().strip().replace(",", "."))
-            ind = float(self.var_inband_down.get().strip().replace(",", "."))
-            umin = float(self.var_u_min.get().strip().replace(",", "."))
-            umax = float(self.var_u_max.get().strip().replace(",", "."))
-            uff  = float(self.var_u_ff.get().strip().replace(",", "."))
+            dead = float(self.var_deadband.get())
+            inu = float(self.var_inband_up.get())
+            ind = float(self.var_inband_down.get())
+            umin = float(self.var_u_min.get())
+            umax = float(self.var_u_max.get())
+            uff = float(self.var_u_ff.get())
 
             if dead <= 0:
                 raise ValueError("La banda muerta debe ser > 0.")
@@ -501,7 +505,7 @@ class AutoView(ttk.Frame):
             self.cfg.inband_down_s = float(ind)
             self.cfg.u_min = float(umin)
             self.cfg.u_max = float(umax)
-            self.cfg.u_ff  = float(uff)
+            self.cfg.u_ff = float(uff)
 
             messagebox.showinfo("Control", "Condiciones de control guardadas.")
         except Exception as e:
