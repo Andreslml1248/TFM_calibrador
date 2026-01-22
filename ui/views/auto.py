@@ -885,9 +885,10 @@ class AutoView(ttk.Frame):
     def _show_results_window(self):
         """
         Ventana final con:
-        - Tabla de resultados
-        - Gráfica lineal con ecuación y R² (tipo Excel)
-        - Botón para exportar a PDF
+        - Tabla de resultados (compacta)
+        - Gráfica lineal con ecuación y R²
+        - Botones para exportar a PDF y cerrar
+        Optimizada para pantalla 7"
         """
         if not self.results:
             return
@@ -901,18 +902,29 @@ class AutoView(ttk.Frame):
         win = tk.Toplevel(self)
         self._results_win = win
         win.title("Resultados de calibración (Auto)")
-        win.geometry("1050x750")
+        # Adaptado a pantalla 7": 800x480 o menos
+        win.geometry("800x470")
 
-        # ---- Layout principal
-        top = ttk.Frame(win, padding=10)
-        top.pack(fill="both", expand=True)
+        # ---- Layout principal con scroll
+        main_canvas = tk.Canvas(win, bg="white")
+        main_canvas.pack(side="left", fill="both", expand=True)
 
-        # ---- Tabla (altura fija para no expandirse demasiado)
-        frm_tbl = ttk.LabelFrame(top, text="Tabla de resultados")
-        frm_tbl.pack(fill="x", expand=False, pady=(0, 10))
+        scrollbar = ttk.Scrollbar(win, orient="vertical", command=main_canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+
+        main_canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Frame dentro del canvas
+        top = ttk.Frame(main_canvas, padding=5)
+        main_canvas.create_window((0, 0), window=top, anchor="nw")
+
+        # ---- Tabla (altura fija, compacta)
+        frm_tbl = ttk.LabelFrame(top, text="Tabla de resultados", padding=2)
+        frm_tbl.pack(fill="x", expand=False, pady=(0, 5))
 
         cols = ("i", "sp_kpa", "p_kpa", "p_std", "dut", "dut_std", "span_pct", "err_pct", "u_last")
-        tv = ttk.Treeview(frm_tbl, columns=cols, show="headings", height=8)
+        # Altura reducida y fuente más pequeña
+        tv = ttk.Treeview(frm_tbl, columns=cols, show="headings", height=5)
         tv.pack(side="left", fill="both", expand=True)
 
         vsb = ttk.Scrollbar(frm_tbl, orient="vertical", command=tv.yview)
@@ -929,9 +941,15 @@ class AutoView(ttk.Frame):
         tv.heading("err_pct", text="%ERROR")
         tv.heading("u_last", text="u")
 
+        # Columnas más estrechas para caber en 7"
         for c in cols:
-            tv.column(c, width=110, anchor="center")
-        tv.column("i", width=50)
+            tv.column(c, width=75, anchor="center")
+        tv.column("i", width=30)
+
+        # Fuente pequeña para la tabla
+        style = ttk.Style()
+        style.configure("Treeview", rowheight=18, font=("Arial", 8))
+        style.configure("Treeview.Heading", font=("Arial", 8, "bold"))
 
         for r in self.results:
             dut_txt = f"{r['dut_eng']:.3f}" if r["dut_mode"] == "A0" else f"{r['dut_eng']:.3f}"
@@ -950,9 +968,9 @@ class AutoView(ttk.Frame):
                 )
             )
 
-        # ---- Gráfica (expandible)
-        frm_plot = ttk.LabelFrame(top, text="Gráfica lineal (tipo Excel) + ecuación")
-        frm_plot.pack(fill="both", expand=True, pady=(0, 10))
+        # ---- Gráfica (reducida)
+        frm_plot = ttk.LabelFrame(top, text="Gráfica lineal + ecuación", padding=2)
+        frm_plot.pack(fill="both", expand=True, pady=(0, 5))
 
         # Datos
         x = np.array([r["p_kpa"] for r in self.results], dtype=float)
@@ -967,26 +985,27 @@ class AutoView(ttk.Frame):
         ss_tot = float(np.sum((y - float(np.mean(y))) ** 2))
         r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
 
-        # Figura
-        fig = Figure(figsize=(6.5, 4), dpi=100)
+        # Figura más pequeña (4.5" x 2.5")
+        fig = Figure(figsize=(4.5, 2.5), dpi=100)
         ax = fig.add_subplot(111)
-        ax.scatter(x, y, s=50, alpha=0.7)
-        ax.plot(x, y_hat, "r-", linewidth=2)
-        ax.set_xlabel("Presión medida (kPa)", fontsize=10)
-        ax.set_ylabel("DUT (mA)" if self.results[0]["dut_mode"] == "A1" else "DUT (V)", fontsize=10)
+        ax.scatter(x, y, s=40, alpha=0.7, color="blue")
+        ax.plot(x, y_hat, "r-", linewidth=1.5)
+        ax.set_xlabel("P (kPa)", fontsize=8)
+        ax.set_ylabel("DUT (mA/V)", fontsize=8)
+        ax.tick_params(labelsize=7)
         ax.grid(True, alpha=0.3)
 
-        eq = f"y = {m:.6f} x + {b:.6f}    |    R² = {r2:.6f}"
-        ax.set_title(eq, fontsize=11, fontweight="bold")
-        fig.tight_layout()
+        eq = f"y={m:.4f}x+{b:.4f} | R²={r2:.4f}"
+        ax.set_title(eq, fontsize=8, fontweight="bold")
+        fig.tight_layout(pad=0.5)
 
         canvas = FigureCanvasTkAgg(fig, master=frm_plot)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
-        # ---- Botones de acción
+        # ---- Botones de acción (compactos)
         frm_btns = ttk.Frame(top)
-        frm_btns.pack(fill="x")
+        frm_btns.pack(fill="x", pady=3)
 
         def export_pdf():
             from tkinter import filedialog
@@ -1001,11 +1020,22 @@ class AutoView(ttk.Frame):
                 except Exception as e:
                     messagebox.showerror("Error", f"Fallo al exportar: {e}")
 
-        ttk.Button(frm_btns, text="📊 Exportar a PDF", command=export_pdf).pack(side="left", padx=5)
-        ttk.Button(frm_btns, text="Cerrar", command=win.destroy).pack(side="left", padx=5)
+        ttk.Button(frm_btns, text="📊 PDF", command=export_pdf).pack(side="left", padx=2)
+        ttk.Button(frm_btns, text="Cerrar", command=win.destroy).pack(side="left", padx=2)
+
+        # Actualizar scroll region
+        top.update_idletasks()
+        main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+
+        # Bind de scroll con mouse wheel
+        def _on_mousewheel(event):
+            main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        main_canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
         def _on_close():
             try:
+                main_canvas.unbind_all("<MouseWheel>")
                 win.destroy()
             finally:
                 self._results_win = None
