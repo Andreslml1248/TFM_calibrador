@@ -6,6 +6,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, font as tkFont
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, Any, List
+import os
+from datetime import datetime
 
 from config import hardware as config
 from core.control import PIController, PIConfig
@@ -1012,17 +1014,25 @@ class AutoView(ttk.Frame):
         frm_btns.pack(fill="x", pady=1)
 
         def export_pdf():
-            from tkinter import filedialog
-            filepath = filedialog.asksaveasfilename(
-                defaultextension=".pdf",
-                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
-            )
-            if filepath:
-                try:
-                    fig.savefig(filepath, format="pdf", dpi=300, bbox_inches="tight")
-                    messagebox.showinfo("Exportar", f"Gráfica guardada en:\n{filepath}")
-                except Exception as e:
-                    messagebox.showerror("Error", f"Fallo al exportar: {e}")
+            try:
+                # Obtener directorio de ejecución
+                base_dir = os.getcwd()
+                results_dir = os.path.join(base_dir, "resultados_calibracion")
+
+                # Crear directorio si no existe
+                if not os.path.exists(results_dir):
+                    os.makedirs(results_dir)
+
+                # Generar nombre con timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"calibracion_{timestamp}.pdf"
+                filepath = os.path.join(results_dir, filename)
+
+                # Guardar PDF
+                fig.savefig(filepath, format="pdf", dpi=300, bbox_inches="tight")
+                messagebox.showinfo("Exportar", f"Gráfica guardada en:\n{filepath}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Fallo al exportar: {e}")
 
         ttk.Button(frm_btns, text="📊 PDF", command=export_pdf).pack(side="left", padx=2)
         ttk.Button(frm_btns, text="Cerrar", command=win.destroy).pack(side="left", padx=2)
