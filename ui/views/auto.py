@@ -915,16 +915,16 @@ class AutoView(ttk.Frame):
         main_canvas.configure(yscrollcommand=scrollbar.set)
 
         # Frame dentro del canvas
-        top = ttk.Frame(main_canvas, padding=5)
+        top = ttk.Frame(main_canvas, padding=3)
         main_canvas.create_window((0, 0), window=top, anchor="nw")
 
         # ---- Tabla (altura fija, compacta)
         frm_tbl = ttk.LabelFrame(top, text="Tabla de resultados", padding=2)
-        frm_tbl.pack(fill="x", expand=False, pady=(0, 5))
+        frm_tbl.pack(fill="x", expand=False, pady=(0, 3))
 
         cols = ("i", "sp_kpa", "p_kpa", "p_std", "dut", "dut_std", "span_pct", "err_pct", "u_last")
         # Altura reducida y fuente más pequeña
-        tv = ttk.Treeview(frm_tbl, columns=cols, show="headings", height=5)
+        tv = ttk.Treeview(frm_tbl, columns=cols, show="headings", height=4)
         tv.pack(side="left", fill="both", expand=True)
 
         vsb = ttk.Scrollbar(frm_tbl, orient="vertical", command=tv.yview)
@@ -970,7 +970,7 @@ class AutoView(ttk.Frame):
 
         # ---- Gráfica (reducida)
         frm_plot = ttk.LabelFrame(top, text="Gráfica lineal + ecuación", padding=2)
-        frm_plot.pack(fill="both", expand=True, pady=(0, 5))
+        frm_plot.pack(fill="both", expand=True, pady=(0, 2))
 
         # Datos
         x = np.array([r["p_kpa"] for r in self.results], dtype=float)
@@ -1005,7 +1005,7 @@ class AutoView(ttk.Frame):
 
         # ---- Botones de acción (compactos)
         frm_btns = ttk.Frame(top)
-        frm_btns.pack(fill="x", pady=3)
+        frm_btns.pack(fill="x", pady=1)
 
         def export_pdf():
             from tkinter import filedialog
