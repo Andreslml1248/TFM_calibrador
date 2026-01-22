@@ -39,8 +39,8 @@ class AutoConfig:
 
     # ====== CONDICIONES DE CONTROL (se editan en ventana aparte) ======
     deadband_kpa: float = 3.0
-    inband_up_s: float = 1.5
-    inband_down_s: float = 1.5
+    inband_up_s: float = 1.0
+    inband_down_s: float = 0.5
 
     # Cierre retardado de EV cuando llega al deadband en bajada:
     valve_close_delay_s: float = 0.5  # FIJO por requisito
