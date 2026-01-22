@@ -905,6 +905,10 @@ class AutoView(ttk.Frame):
         # Adaptado a pantalla 7": 800x480 o menos
         win.geometry("800x470")
 
+        # Dar foco a la ventana
+        win.lift()
+        win.focus_force()
+
         # ---- Layout principal con scroll
         main_canvas = tk.Canvas(win, bg="white")
         main_canvas.pack(side="left", fill="both", expand=True)
@@ -919,8 +923,8 @@ class AutoView(ttk.Frame):
         main_canvas.create_window((0, 0), window=top, anchor="nw")
 
         # ---- Tabla (altura fija, compacta)
-        frm_tbl = ttk.LabelFrame(top, text="Tabla de resultados", padding=2)
-        frm_tbl.pack(fill="x", expand=False, pady=(0, 3))
+        frm_tbl = ttk.LabelFrame(top, text="Tabla de resultados", padding=1)
+        frm_tbl.pack(fill="x", expand=False, pady=(0, 1))
 
         cols = ("i", "sp_kpa", "p_kpa", "p_std", "dut", "dut_std", "span_pct", "err_pct", "u_last")
         # Altura reducida y fuente más pequeña
@@ -969,8 +973,8 @@ class AutoView(ttk.Frame):
             )
 
         # ---- Gráfica (reducida)
-        frm_plot = ttk.LabelFrame(top, text="Gráfica lineal + ecuación", padding=2)
-        frm_plot.pack(fill="both", expand=True, pady=(0, 2))
+        frm_plot = ttk.LabelFrame(top, text="Gráfica lineal + ecuación", padding=1)
+        frm_plot.pack(fill="both", expand=False, pady=(0, 1))
 
         # Datos
         x = np.array([r["p_kpa"] for r in self.results], dtype=float)
@@ -985,8 +989,8 @@ class AutoView(ttk.Frame):
         ss_tot = float(np.sum((y - float(np.mean(y))) ** 2))
         r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
 
-        # Figura más pequeña (4.5" x 2.5")
-        fig = Figure(figsize=(4.5, 2.5), dpi=100)
+        # Figura más pequeña (4" x 1.8")
+        fig = Figure(figsize=(4, 1.8), dpi=100)
         ax = fig.add_subplot(111)
         ax.scatter(x, y, s=40, alpha=0.7, color="blue")
         ax.plot(x, y_hat, "r-", linewidth=1.5)
