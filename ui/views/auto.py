@@ -793,7 +793,7 @@ class AutoView(ttk.Frame):
                 self._safe_outputs(valve_open=True)
                 self._goto_state(IDLE)
 
-            self.lbl_status.config(text=f"RUNNING | {self.rt.state} | i={self.rt.step_index+1}/{len(self.rt.points)}")
+            self.lbl_status.config(text=f"RUNNING | {self.rt.state} | i={self.rt.step_index}/{len(self.rt.points)-1}")
 
         except Exception as e:
             self._safe_outputs(valve_open=True)
@@ -848,7 +848,7 @@ class AutoView(ttk.Frame):
         err_pct = self._error_percent_fluke_style(p_mean, dut_mean)
 
         row = {
-            "i": int(self.rt.step_index + 1),
+            "i": int(self.rt.step_index),
             "sp_kpa": float(sp_kpa),
             "p_kpa": float(p_mean),
             "p_std": float(p_std),
@@ -1013,7 +1013,8 @@ class AutoView(ttk.Frame):
         frm_btns = ttk.Frame(top)
         frm_btns.pack(fill="x", pady=1)
 
-        def export_pdf():
+        # Función para exportar PDF
+        def do_export_pdf():
             try:
                 # Obtener directorio de ejecución
                 base_dir = os.getcwd()
@@ -1087,11 +1088,17 @@ class AutoView(ttk.Frame):
 
                 # Guardar PDF
                 fig_pdf.savefig(filepath, format="pdf", dpi=300, bbox_inches="tight")
-                messagebox.showinfo("Exportar", f"PDF guardado en:\n{filepath}")
+                return filepath
             except Exception as e:
                 messagebox.showerror("Error", f"Fallo al exportar: {e}")
+                return None
 
-        ttk.Button(frm_btns, text="📊 PDF", command=export_pdf).pack(side="left", padx=2)
+        # Exportar PDF automáticamente
+        pdf_path = do_export_pdf()
+        if pdf_path:
+            messagebox.showinfo("Exportar", f"PDF guardado en:\n{pdf_path}")
+
+        # Solo botón Cerrar
         ttk.Button(frm_btns, text="Cerrar", command=win.destroy).pack(side="left", padx=2)
 
         # Actualizar scroll region
