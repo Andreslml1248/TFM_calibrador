@@ -706,7 +706,7 @@ class AutoView(ttk.Frame):
                 self.set_valve(False)
 
                 if dt_st >= float(self.cfg.settle_time_s):
-                    self._advance_point()
+                    self._goto_state(GOTO_SP)
 
             elif st == GOTO_SP:
                 is_down = self._is_down_step(sp, p)
