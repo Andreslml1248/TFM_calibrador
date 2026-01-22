@@ -6,6 +6,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, font as tkFont
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, Any, List
+import os
+from datetime import datetime
 
 from config import hardware as config
 from core.control import PIController, PIConfig
@@ -1012,17 +1014,82 @@ class AutoView(ttk.Frame):
         frm_btns.pack(fill="x", pady=1)
 
         def export_pdf():
-            from tkinter import filedialog
-            filepath = filedialog.asksaveasfilename(
-                defaultextension=".pdf",
-                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
-            )
-            if filepath:
-                try:
-                    fig.savefig(filepath, format="pdf", dpi=300, bbox_inches="tight")
-                    messagebox.showinfo("Exportar", f"Gráfica guardada en:\n{filepath}")
-                except Exception as e:
-                    messagebox.showerror("Error", f"Fallo al exportar: {e}")
+            try:
+                # Obtener directorio de ejecución
+                base_dir = os.getcwd()
+                results_dir = os.path.join(base_dir, "resultados_calibracion")
+
+                # Crear directorio si no existe
+                if not os.path.exists(results_dir):
+                    os.makedirs(results_dir)
+
+                # Generar nombre con timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"calibracion_{timestamp}.pdf"
+                filepath = os.path.join(results_dir, filename)
+
+                # Crear figura con tabla y gráfica
+                from matplotlib.gridspec import GridSpec
+                fig_pdf = Figure(figsize=(10, 12), dpi=100)
+                gs = GridSpec(3, 1, figure=fig_pdf, height_ratios=[1, 1.5, 2], hspace=0.3)
+
+                # ---- Subtítulo con información
+                ax_title = fig_pdf.add_subplot(gs[0])
+                ax_title.axis('off')
+                titulo = f"Calibración - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                ax_title.text(0.5, 0.7, titulo, ha='center', va='center', fontsize=14, fontweight='bold')
+                ax_title.text(0.5, 0.3, f"DUT Mode: {self.results[0]['dut_mode']}", ha='center', va='center', fontsize=10)
+
+                # ---- Tabla de resultados
+                ax_table = fig_pdf.add_subplot(gs[1])
+                ax_table.axis('tight')
+                ax_table.axis('off')
+
+                # Preparar datos de la tabla
+                table_data = [['#', 'SP (kPa)', 'P med (kPa)', 'σP', f"DUT ({self.results[0]['dut_mode']})", 'σDUT', '%SPAN', '%ERROR', 'u']]
+                for r in self.results:
+                    dut_txt = f"{r['dut_eng']:.3f}"
+                    table_data.append([
+                        str(r["i"]),
+                        f"{r['sp_kpa']:.2f}",
+                        f"{r['p_kpa']:.2f}",
+                        f"{r['p_std']:.3f}",
+                        dut_txt,
+                        f"{r['dut_std']:.3f}",
+                        f"{r['span_pct']:.2f}",
+                        f"{r['err_pct']:+.2f}",
+                        f"{r['u_last']:.3f}",
+                    ])
+
+                # Crear tabla
+                table = ax_table.table(cellText=table_data, cellLoc='center', loc='center',
+                                      colWidths=[0.08, 0.12, 0.12, 0.08, 0.12, 0.08, 0.1, 0.1, 0.1])
+                table.auto_set_font_size(False)
+                table.set_fontsize(8)
+                table.scale(1, 1.5)
+
+                # Estilo de encabezado
+                for i in range(len(table_data[0])):
+                    table[(0, i)].set_facecolor('#4CAF50')
+                    table[(0, i)].set_text_props(weight='bold', color='white')
+
+                # ---- Gráfica
+                ax_plot = fig_pdf.add_subplot(gs[2])
+                ax_plot.scatter(x, y, s=50, alpha=0.7, color="blue", label="Datos medidos")
+                ax_plot.plot(x, y_hat, "r-", linewidth=2, label="Ajuste lineal")
+                ax_plot.set_xlabel("Presión medida (kPa)", fontsize=10)
+                ax_plot.set_ylabel(f"DUT ({'mA' if self.results[0]['dut_mode'] == 'A1' else 'V'})", fontsize=10)
+                ax_plot.grid(True, alpha=0.3)
+                ax_plot.legend(fontsize=9)
+
+                eq = f"y = {m:.6f}x + {b:.6f}    R² = {r2:.6f}"
+                ax_plot.set_title(eq, fontsize=10, fontweight="bold")
+
+                # Guardar PDF
+                fig_pdf.savefig(filepath, format="pdf", dpi=300, bbox_inches="tight")
+                messagebox.showinfo("Exportar", f"PDF guardado en:\n{filepath}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Fallo al exportar: {e}")
 
         ttk.Button(frm_btns, text="📊 PDF", command=export_pdf).pack(side="left", padx=2)
         ttk.Button(frm_btns, text="Cerrar", command=win.destroy).pack(side="left", padx=2)
