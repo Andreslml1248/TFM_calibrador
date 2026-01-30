@@ -86,6 +86,14 @@ A1_IMA_GAIN: float = 4.945630
 A1_IMA_OFFSET: float = 4.038358
 USE_A1_CAL: bool = True
 
+# Calibracion 2PT (A0/A1) aplicada en todo el sistema
+A0_CAL_M: float = A0_VIN_GAIN
+A0_CAL_B: float = A0_VIN_OFFSET
+A1_CAL_M: float = A1_IMA_GAIN
+A1_CAL_B: float = A1_IMA_OFFSET
+A2_CAL_M: float = 1.0
+A2_CAL_B: float = 0.0
+
 # ============================
 # MUESTREO
 # ============================
@@ -96,6 +104,27 @@ SAMPLE_DT_AVG_S: float = 0.01
 # Medición oficial por punto (S8)
 N_SAMPLES_MEASURE: int = 50
 SAMPLE_DT_MEASURE_S: float = 0.01
+
+# Medicion oficial: anti-picos (solo estadistica por ventana)
+MEASURE_MEDIAN_ENABLE: bool = True
+MEASURE_MEDIAN_N: int = 3
+
+# ============================
+# FILTRADO LIVE (Median PtByPt + Mean PtByPt)
+# ============================
+FILTER_LIVE_ENABLE: bool = True
+
+# A0 (DUT V)
+A0_MEDIAN_N: int = 3
+A0_MEAN_N: int = 16
+
+# A1 (DUT mA)
+A1_MEDIAN_N: int = 3
+A1_MEAN_N: int = 16
+
+# A2 (MPX)
+A2_MEDIAN_N: int = 5
+A2_MEAN_N: int = 32
 
 # ============================
 # MPX5500DP (V -> kPa)
@@ -123,6 +152,12 @@ U_MAX: float = 1.0
 DEADBAND_KPA: float = 1
 U_FF: float = 0.38
 P_FILT_ALPHA: float = 1.0  # 1.0 = sin filtro
+
+# ============================
+# FFT / RUIDO
+# ============================
+FFT_N_SAMPLES: int = 1024
+FFT_USE_WINDOW: bool = True
 
 @dataclass
 class PIConfig:

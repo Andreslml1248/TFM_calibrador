@@ -7,10 +7,11 @@ Interfaz gráfica principal de la aplicación
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 from config import hardware as config
 from core.hw import HW
+from core.calibration import load_calibration
 from ui.views.auto import AutoView
 from ui.views.manual import ManualView
 from ui.event_handler import EventHandler
@@ -45,6 +46,10 @@ class App(tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
+        _cal, loaded = load_calibration()
+        if not loaded:
+            messagebox.showwarning("Calibracion", "A0/A1/A2 no calibrado (usando defaults).")
+
         self.hw = HW()
         self.event_handler = EventHandler(self.hw)
 
@@ -57,6 +62,7 @@ class App(tk.Tk):
         manual = ManualView(
             nb,
             read_vadc=self.hw.read_vadc,
+            read_vadc_live=self.hw.read_channel_live_filtered,
             set_pump=self.hw.set_pump,
             set_relay=self.hw.set_relay,
             set_valve=self.hw.set_valve,
@@ -69,6 +75,7 @@ class App(tk.Tk):
         auto = AutoView(
             nb,
             read_vadc=self.hw.read_vadc,
+            read_vadc_live=self.hw.read_channel_live_filtered,
             set_pump=self.hw.set_pump,
             set_relay=self.hw.set_relay,
             set_valve=self.hw.set_valve,
