@@ -1,7 +1,7 @@
 # TFM Calibrador - Estructura del Proyecto y Fórmulas
 
 ## Descripción General
-adjlfjaslfjsfj
+
 Sistema automático de calibración de transductores de presión (0-230 kPa) en Raspberry Pi con interfaz gráfica. El proyecto controla una bomba hidráulica mediante un controlador PI de presión, aplica puntos de calibración automáticamente y registra los resultados en PDF.
 
 ---
