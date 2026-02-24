@@ -7,7 +7,12 @@ Funciones de bajo nivel para el ADC ADS1115
 """
 
 import time
-from smbus2 import SMBus
+import platform
+
+if platform.system() == "Windows":
+    from core.smbus_mock import SMBus
+else:
+    from smbus2 import SMBus
 from config import hardware as config
 
 

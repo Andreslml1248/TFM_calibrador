@@ -11,6 +11,7 @@ from datetime import datetime
 
 from config import hardware as config
 from core.control import PIController, PIConfig
+from core.filters import MedianPtByPt
 
 # Matplotlib embebido en Tk (para gráfica tipo Excel)
 import matplotlib
@@ -96,6 +97,7 @@ class AutoView(ttk.Frame):
         master,
         *,
         read_vadc: Callable[[int], float],
+        read_vadc_live: Callable[[int], float],
         set_pump: Callable[[float], None],
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
@@ -105,6 +107,7 @@ class AutoView(ttk.Frame):
         super().__init__(master)
 
         self.read_vadc = read_vadc
+        self.read_vadc_live = read_vadc_live
         self.set_pump = set_pump
         self.set_relay = set_relay
         self.set_valve = set_valve
@@ -813,7 +816,11 @@ class AutoView(ttk.Frame):
         No toca control, solo lee y registra.
         """
         n = int(getattr(config, "N_SAMPLES_MEASURE", 50))
-        dt_s = float(getattr(config, "SAMPLE_DT_MEASURE_S", 0.01))
+        use_med = bool(getattr(config, "MEASURE_MEDIAN_ENABLE", True))
+        med_n = int(getattr(config, "MEASURE_MEDIAN_N", 3))
+
+        med_ref = MedianPtByPt(med_n) if use_med else None
+        med_dut = MedianPtByPt(med_n) if use_med else None
 
         p_list: List[float] = []
         dut_list: List[float] = []
@@ -824,20 +831,19 @@ class AutoView(ttk.Frame):
         ch_dut = config.ADS_CH_DUT_V if mode == "A0" else config.ADS_CH_DUT_mA
 
         for _ in range(max(1, n)):
-            vadc_ref = float(self.read_vadc(config.ADS_CH_REF))
+            vadc_ref_raw = float(self.read_vadc(config.ADS_CH_REF))
+            vadc_ref = med_ref.update(vadc_ref_raw) if med_ref else vadc_ref_raw
             p_corr = float(self._mpx_vadc_to_kpa(vadc_ref))
             p = max(0.0, p_corr - float(self.rt.p_zero_kpa))
 
-            vadc_dut = float(self.read_vadc(ch_dut))
+            vadc_dut_raw = float(self.read_vadc(ch_dut))
+            vadc_dut = med_dut.update(vadc_dut_raw) if med_dut else vadc_dut_raw
             dut_eng = float(self._dut_vadc_to_eng(vadc_dut, mode))
 
             vadc_ref_list.append(vadc_ref)
             vadc_dut_list.append(vadc_dut)
             p_list.append(p)
             dut_list.append(dut_eng)
-
-            if dt_s > 0:
-                time.sleep(dt_s)
 
         p_mean = float(np.mean(p_list)) if p_list else 0.0
         dut_mean = float(np.mean(dut_list)) if dut_list else 0.0
@@ -1126,17 +1132,17 @@ class AutoView(ttk.Frame):
     def _read_dut_vadc(self) -> float:
         mode = (self.cfg.dut_mode or "A1").upper()
         ch = config.ADS_CH_DUT_V if mode == "A0" else config.ADS_CH_DUT_mA
-        return float(self.read_vadc(ch))
+        return float(self.read_vadc_live(ch))
 
     def _dut_vadc_to_eng(self, vadc: float, mode: str) -> float:
         mode = (mode or "A1").upper()
         if mode == "A0":
             if bool(getattr(config, "USE_A0_CAL", True)):
-                return float(getattr(config, "A0_VIN_GAIN", 1.0)) * float(vadc) + float(getattr(config, "A0_VIN_OFFSET", 0.0))
+                return float(getattr(config, "A0_CAL_M", 1.0)) * float(vadc) + float(getattr(config, "A0_CAL_B", 0.0))
             return float(vadc)
 
         if bool(getattr(config, "USE_A1_CAL", True)):
-            return float(getattr(config, "A1_IMA_GAIN", 1.0)) * float(vadc) + float(getattr(config, "A1_IMA_OFFSET", 0.0))
+            return float(getattr(config, "A1_CAL_M", 1.0)) * float(vadc) + float(getattr(config, "A1_CAL_B", 0.0))
         return float(vadc)
 
     def _dut_text_live(self) -> str:
@@ -1154,7 +1160,7 @@ class AutoView(ttk.Frame):
     # PRESSURE UTILS
     # ========================================================
     def _read_pressure_corr_kpa(self) -> float:
-        vadc = float(self.read_vadc(config.ADS_CH_REF))
+        vadc = float(self.read_vadc_live(config.ADS_CH_REF))
         return float(self._mpx_vadc_to_kpa(vadc))
 
     def _mpx_vadc_to_kpa(self, vadc: float) -> float:
