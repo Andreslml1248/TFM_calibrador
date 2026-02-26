@@ -550,9 +550,35 @@ class ManualView(ttk.Frame):
                     var_b.set(f"{config.OFFSET_2PT:.6f}")
 
             ttk.Label(frm, text="Canal", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", padx=6, pady=4)
-            ttk.Combobox(frm, textvariable=var_chan, values=["A0", "A1", "A2"], width=8, state="readonly").grid(
-                row=0, column=1, sticky="w", padx=6, pady=4
-            )
+            chan_box = ttk.Frame(frm)
+            chan_box.grid(row=0, column=1, columnspan=2, sticky="w", padx=6, pady=4)
+            chan_btns = {}
+
+            def _set_chan(mode_sel: str):
+                var_chan.set(mode_sel)
+
+            def _refresh_chan_buttons(*_):
+                current = var_chan.get().strip().upper()
+                for mode_sel, btn in chan_btns.items():
+                    if mode_sel == current:
+                        btn.configure(relief="sunken", bg="#d9edf7")
+                    else:
+                        btn.configure(relief="raised", bg="#f0f0f0")
+
+            for mode_sel in ("A0", "A1", "A2"):
+                btn = tk.Button(
+                    chan_box,
+                    text=mode_sel,
+                    width=5,
+                    height=2,
+                    font=("Arial", 11, "bold"),
+                    command=lambda m=mode_sel: _set_chan(m),
+                )
+                btn.pack(side="left", padx=3)
+                chan_btns[mode_sel] = btn
+
+            var_chan.trace_add("write", _refresh_chan_buttons)
+            _refresh_chan_buttons()
 
             ttk.Label(frm, text="Punto 1 (y_real)", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky="w", padx=6, pady=4)
             ttk.Entry(frm, textvariable=var_y1, width=12).grid(row=1, column=1, sticky="w", padx=6, pady=4)
@@ -670,9 +696,35 @@ class ManualView(ttk.Frame):
 
             var_chan = tk.StringVar(value="A2")
             ttk.Label(top, text="Canal:").pack(side="left", padx=4)
-            ttk.Combobox(top, textvariable=var_chan, values=["A0", "A1", "A2"], width=6, state="readonly").pack(
-                side="left", padx=4
-            )
+            chan_box = ttk.Frame(top)
+            chan_box.pack(side="left", padx=4)
+            chan_btns = {}
+
+            def _set_chan(mode_sel: str):
+                var_chan.set(mode_sel)
+
+            def _refresh_chan_buttons(*_):
+                current = var_chan.get().strip().upper()
+                for mode_sel, btn in chan_btns.items():
+                    if mode_sel == current:
+                        btn.configure(relief="sunken", bg="#d9edf7")
+                    else:
+                        btn.configure(relief="raised", bg="#f0f0f0")
+
+            for mode_sel in ("A0", "A1", "A2"):
+                btn = tk.Button(
+                    chan_box,
+                    text=mode_sel,
+                    width=4,
+                    height=2,
+                    font=("Arial", 10, "bold"),
+                    command=lambda m=mode_sel: _set_chan(m),
+                )
+                btn.pack(side="left", padx=2)
+                chan_btns[mode_sel] = btn
+
+            var_chan.trace_add("write", _refresh_chan_buttons)
+            _refresh_chan_buttons()
 
             var_n = tk.IntVar(value=int(getattr(config, "FFT_N_SAMPLES", 1024)))
             ttk.Label(top, text="N muestras:").pack(side="left", padx=4)
