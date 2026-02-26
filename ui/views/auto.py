@@ -279,36 +279,48 @@ class AutoView(ttk.Frame):
         entry.pack(fill="x", ipady=10, pady=(0, 10))
         entry.select_range(0, len(var_edit.get()))
         entry.focus()
+        replace_on_first_input = True
 
         # Frame para teclado numérico
         kbd_frm = ttk.LabelFrame(frm, text="Teclado", padding=6)
         kbd_frm.pack(fill="both", expand=True, pady=(0, 8))
-
         def add_digit(digit):
-            """Agrega un dígito al campo"""
-            current = var_edit.get()
-            var_edit.set(current + str(digit))
+            nonlocal replace_on_first_input
+            if replace_on_first_input:
+                var_edit.set(str(digit))
+                replace_on_first_input = False
+            else:
+                current = var_edit.get()
+                var_edit.set(current + str(digit))
             entry.focus()
             entry.update()
 
         def add_decimal():
-            """Agrega un punto decimal"""
-            current = var_edit.get()
-            if "." not in current:
-                var_edit.set(current + ".")
+            nonlocal replace_on_first_input
+            if replace_on_first_input:
+                var_edit.set("0.")
+                replace_on_first_input = False
+            else:
+                current = var_edit.get()
+                if "." not in current:
+                    var_edit.set(current + ".")
             entry.focus()
             entry.update()
 
         def delete_last():
-            """Borra el último carácter"""
-            current = var_edit.get()
-            var_edit.set(current[:-1] if current else "")
+            nonlocal replace_on_first_input
+            if replace_on_first_input:
+                var_edit.set("")
+            else:
+                current = var_edit.get()
+                var_edit.set(current[:-1] if current else "")
             entry.focus()
             entry.update()
 
         def clear_all():
-            """Borra todo"""
+            nonlocal replace_on_first_input
             var_edit.set("")
+            replace_on_first_input = False
             entry.focus()
             entry.update()
 
