@@ -501,181 +501,82 @@ class ManualView(ttk.Frame):
     # Calibracion 2 puntos (A0/A1)
     # -------------------------
     def _open_calibration_2pt(self):
-        win = tk.Toplevel(self)
-        win.title("Calibracion 2 puntos (A0/A1/A2)")
-        win.resizable(False, False)
-        win.attributes("-topmost", True)
-
-        frm = ttk.Frame(win, padding=12)
-        frm.grid(row=0, column=0)
-
-        var_chan = tk.StringVar(value="A0")
-        var_x1 = tk.StringVar(value="--")
-        var_x2 = tk.StringVar(value="--")
-        var_y1 = tk.StringVar(value="")
-        var_y2 = tk.StringVar(value="")
-        var_m = tk.StringVar(value="--")
-        var_b = tk.StringVar(value="--")
-        var_units = tk.StringVar(value="V")
-
-        def _update_units():
-            mode = var_chan.get().strip().upper()
-            if mode == "A0":
-                var_units.set("V")
-            elif mode == "A1":
-                var_units.set("mA")
-            else:
-                var_units.set("kPa")
-            if mode == "A0":
-                var_m.set(f"{config.A0_CAL_M:.6f}")
-                var_b.set(f"{config.A0_CAL_B:.6f}")
-            elif mode == "A1":
-                var_m.set(f"{config.A1_CAL_M:.6f}")
-                var_b.set(f"{config.A1_CAL_B:.6f}")
-            else:
-                var_m.set(f"{config.GAIN_2PT:.6f}")
-                var_b.set(f"{config.OFFSET_2PT:.6f}")
-
-        ttk.Label(frm, text="Canal", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", padx=6, pady=4)
-        ttk.Combobox(frm, textvariable=var_chan, values=["A0", "A1", "A2"], width=8, state="readonly").grid(
-            row=0, column=1, sticky="w", padx=6, pady=4
-        )
-
-        ttk.Label(frm, text="Punto 1 (y_real)", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky="w", padx=6, pady=4)
-        ttk.Entry(frm, textvariable=var_y1, width=12).grid(row=1, column=1, sticky="w", padx=6, pady=4)
-        ttk.Label(frm, textvariable=var_units).grid(row=1, column=2, sticky="w")
-
-        ttk.Button(frm, text="Capturar Punto 1 (x1=Vadc)", command=lambda: _capture_point(1)).grid(
-            row=2, column=0, columnspan=3, sticky="ew", padx=6, pady=4
-        )
-        ttk.Label(frm, text="x1 (Vadc):").grid(row=3, column=0, sticky="w", padx=6, pady=2)
-        ttk.Label(frm, textvariable=var_x1).grid(row=3, column=1, sticky="w", padx=6, pady=2)
-
-        ttk.Label(frm, text="Punto 2 (y_real)", font=("Arial", 10, "bold")).grid(row=4, column=0, sticky="w", padx=6, pady=4)
-        ttk.Entry(frm, textvariable=var_y2, width=12).grid(row=4, column=1, sticky="w", padx=6, pady=4)
-        ttk.Label(frm, textvariable=var_units).grid(row=4, column=2, sticky="w")
-
-        ttk.Button(frm, text="Capturar Punto 2 (x2=Vadc)", command=lambda: _capture_point(2)).grid(
-            row=5, column=0, columnspan=3, sticky="ew", padx=6, pady=4
-        )
-        ttk.Label(frm, text="x2 (Vadc):").grid(row=6, column=0, sticky="w", padx=6, pady=2)
-        ttk.Label(frm, textvariable=var_x2).grid(row=6, column=1, sticky="w", padx=6, pady=2)
-
-        ttk.Separator(frm).grid(row=7, column=0, columnspan=3, sticky="ew", pady=6)
-
-        ttk.Label(frm, text="m:").grid(row=8, column=0, sticky="w", padx=6, pady=2)
-        ttk.Label(frm, textvariable=var_m).grid(row=8, column=1, sticky="w", padx=6, pady=2)
-        ttk.Label(frm, text="b:").grid(row=9, column=0, sticky="w", padx=6, pady=2)
-        ttk.Label(frm, textvariable=var_b).grid(row=9, column=1, sticky="w", padx=6, pady=2)
-
-        def _capture_point(idx: int):
-            mode = var_chan.get().strip().upper()
-            if mode == "A0":
-                ch = config.ADS_CH_DUT_V
-            elif mode == "A1":
-                ch = config.ADS_CH_DUT_mA
-            else:
-                ch = config.ADS_CH_REF
-            x = float(self.read_vadc(ch))
-            if idx == 1:
-                var_x1.set(f"{x:.6f}")
-            else:
-                var_x2.set(f"{x:.6f}")
-
-        def _calc_and_save():
+        try:
+            win = tk.Toplevel(self)
+            win.title("Calibracion 2 puntos (A0/A1/A2)")
+            win.resizable(False, False)
             try:
-                x1 = float(var_x1.get())
-                x2 = float(var_x2.get())
-                y1 = float(var_y1.get().strip().replace(",", "."))
-                y2 = float(var_y2.get().strip().replace(",", "."))
+                win.attributes("-topmost", True)
+            except tk.TclError:
+                pass
+            win.transient(self.winfo_toplevel())
+            win.lift()
+            win.focus_force()
+            win.grab_set()
+
+            frm = ttk.Frame(win, padding=12)
+            frm.grid(row=0, column=0)
+
+            var_chan = tk.StringVar(value="A0")
+            var_x1 = tk.StringVar(value="--")
+            var_x2 = tk.StringVar(value="--")
+            var_y1 = tk.StringVar(value="")
+            var_y2 = tk.StringVar(value="")
+            var_m = tk.StringVar(value="--")
+            var_b = tk.StringVar(value="--")
+            var_units = tk.StringVar(value="V")
+
+            def _update_units():
                 mode = var_chan.get().strip().upper()
-                if mode == "A2":
-                    p1 = config.MPX_A2 * x1 * x1 + config.MPX_B2 * x1 + config.MPX_C2
-                    p2 = config.MPX_A2 * x2 * x2 + config.MPX_B2 * x2 + config.MPX_C2
-                    if p1 < 0:
-                        p1 = 0.0
-                    if p2 < 0:
-                        p2 = 0.0
-                    m, b = two_point_cal(p1, y1, p2, y2)
-                else:
-                    m, b = two_point_cal(x1, y1, x2, y2)
                 if mode == "A0":
-                    config.A0_CAL_M = float(m)
-                    config.A0_CAL_B = float(b)
+                    var_units.set("V")
                 elif mode == "A1":
-                    config.A1_CAL_M = float(m)
-                    config.A1_CAL_B = float(b)
+                    var_units.set("mA")
                 else:
-                    config.GAIN_2PT = float(m)
-                    config.OFFSET_2PT = float(b)
-                    config.A2_CAL_M = float(m)
-                    config.A2_CAL_B = float(b)
+                    var_units.set("kPa")
+                if mode == "A0":
+                    var_m.set(f"{config.A0_CAL_M:.6f}")
+                    var_b.set(f"{config.A0_CAL_B:.6f}")
+                elif mode == "A1":
+                    var_m.set(f"{config.A1_CAL_M:.6f}")
+                    var_b.set(f"{config.A1_CAL_B:.6f}")
+                else:
+                    var_m.set(f"{config.GAIN_2PT:.6f}")
+                    var_b.set(f"{config.OFFSET_2PT:.6f}")
 
-                cal = {
-                    "A0": {"m": float(config.A0_CAL_M), "b": float(config.A0_CAL_B), "units": "V_in"},
-                    "A1": {"m": float(config.A1_CAL_M), "b": float(config.A1_CAL_B), "units": "mA"},
-                    "A2": {"m": float(config.GAIN_2PT), "b": float(config.OFFSET_2PT), "units": "kPa"},
-                }
-                save_calibration(cal)
+            ttk.Label(frm, text="Canal", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", padx=6, pady=4)
+            ttk.Combobox(frm, textvariable=var_chan, values=["A0", "A1", "A2"], width=8, state="readonly").grid(
+                row=0, column=1, sticky="w", padx=6, pady=4
+            )
 
-                var_m.set(f"{m:.6f}")
-                var_b.set(f"{b:.6f}")
-                messagebox.showinfo("Calibracion", "Guardado OK.")
-            except Exception as e:
-                messagebox.showerror("Calibracion", f"Error: {e}")
+            ttk.Label(frm, text="Punto 1 (y_real)", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky="w", padx=6, pady=4)
+            ttk.Entry(frm, textvariable=var_y1, width=12).grid(row=1, column=1, sticky="w", padx=6, pady=4)
+            ttk.Label(frm, textvariable=var_units).grid(row=1, column=2, sticky="w")
 
-        ttk.Button(frm, text="Calcular y Guardar", command=_calc_and_save).grid(
-            row=10, column=0, columnspan=3, sticky="ew", padx=6, pady=6
-        )
+            ttk.Button(frm, text="Capturar Punto 1 (x1=Vadc)", command=lambda: _capture_point(1)).grid(
+                row=2, column=0, columnspan=3, sticky="ew", padx=6, pady=4
+            )
+            ttk.Label(frm, text="x1 (Vadc):").grid(row=3, column=0, sticky="w", padx=6, pady=2)
+            ttk.Label(frm, textvariable=var_x1).grid(row=3, column=1, sticky="w", padx=6, pady=2)
 
-        def _on_chan_change(*_):
-            _update_units()
+            ttk.Label(frm, text="Punto 2 (y_real)", font=("Arial", 10, "bold")).grid(row=4, column=0, sticky="w", padx=6, pady=4)
+            ttk.Entry(frm, textvariable=var_y2, width=12).grid(row=4, column=1, sticky="w", padx=6, pady=4)
+            ttk.Label(frm, textvariable=var_units).grid(row=4, column=2, sticky="w")
 
-        var_chan.trace_add("write", _on_chan_change)
-        _update_units()
+            ttk.Button(frm, text="Capturar Punto 2 (x2=Vadc)", command=lambda: _capture_point(2)).grid(
+                row=5, column=0, columnspan=3, sticky="ew", padx=6, pady=4
+            )
+            ttk.Label(frm, text="x2 (Vadc):").grid(row=6, column=0, sticky="w", padx=6, pady=2)
+            ttk.Label(frm, textvariable=var_x2).grid(row=6, column=1, sticky="w", padx=6, pady=2)
 
-    # -------------------------
-    # FFT / Ruido
-    # -------------------------
-    def _open_fft_window(self):
-        win = tk.Toplevel(self)
-        win.title("FFT / Ruido")
-        win.geometry("800x480")
-        win.lift()
-        win.focus_force()
+            ttk.Separator(frm).grid(row=7, column=0, columnspan=3, sticky="ew", pady=6)
 
-        frm = ttk.Frame(win, padding=8)
-        frm.pack(fill="both", expand=True)
+            ttk.Label(frm, text="m:").grid(row=8, column=0, sticky="w", padx=6, pady=2)
+            ttk.Label(frm, textvariable=var_m).grid(row=8, column=1, sticky="w", padx=6, pady=2)
+            ttk.Label(frm, text="b:").grid(row=9, column=0, sticky="w", padx=6, pady=2)
+            ttk.Label(frm, textvariable=var_b).grid(row=9, column=1, sticky="w", padx=6, pady=2)
 
-        top = ttk.Frame(frm)
-        top.pack(fill="x", pady=(0, 6))
-
-        var_chan = tk.StringVar(value="A2")
-        ttk.Label(top, text="Canal:").pack(side="left", padx=4)
-        ttk.Combobox(top, textvariable=var_chan, values=["A0", "A1", "A2"], width=6, state="readonly").pack(
-            side="left", padx=4
-        )
-
-        var_n = tk.IntVar(value=int(getattr(config, "FFT_N_SAMPLES", 1024)))
-        ttk.Label(top, text="N muestras:").pack(side="left", padx=4)
-        ttk.Entry(top, textvariable=var_n, width=8).pack(side="left", padx=4)
-
-        lbl_metrics = ttk.Label(top, text="RMS=-- | STD=-- | Pico=-- Hz @ --")
-        lbl_metrics.pack(side="left", padx=10)
-
-        fig = Figure(figsize=(7.5, 3.0), dpi=100)
-        ax = fig.add_subplot(111)
-        ax.set_title("FFT Magnitud")
-        ax.set_xlabel("Frecuencia (Hz)")
-        ax.set_ylabel("Magnitud")
-        ax.grid(True, alpha=0.3)
-
-        canvas = FigureCanvasTkAgg(fig, master=frm)
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-
-        def _run_fft():
-            try:
-                n = max(64, int(var_n.get()))
+            def _capture_point(idx: int):
                 mode = var_chan.get().strip().upper()
                 if mode == "A0":
                     ch = config.ADS_CH_DUT_V
@@ -683,48 +584,162 @@ class ManualView(ttk.Frame):
                     ch = config.ADS_CH_DUT_mA
                 else:
                     ch = config.ADS_CH_REF
-
-                samples = np.zeros(n, dtype=float)
-                for i in range(n):
-                    samples[i] = float(self.read_vadc(ch))
-
-                fs = float(getattr(config, "ADS_SPS", 128))
-                samples = samples - float(np.mean(samples))
-
-                if bool(getattr(config, "FFT_USE_WINDOW", True)):
-                    win = np.hanning(n)
-                    samples_win = samples * win
+                x = float(self.read_vadc(ch))
+                if idx == 1:
+                    var_x1.set(f"{x:.6f}")
                 else:
-                    samples_win = samples
+                    var_x2.set(f"{x:.6f}")
 
-                fft_vals = np.fft.rfft(samples_win)
-                mag = np.abs(fft_vals) / max(1, n)
-                freqs = np.fft.rfftfreq(n, d=1.0 / fs)
+            def _calc_and_save():
+                try:
+                    x1 = float(var_x1.get())
+                    x2 = float(var_x2.get())
+                    y1 = float(var_y1.get().strip().replace(",", "."))
+                    y2 = float(var_y2.get().strip().replace(",", "."))
+                    mode = var_chan.get().strip().upper()
+                    if mode == "A2":
+                        p1 = config.MPX_A2 * x1 * x1 + config.MPX_B2 * x1 + config.MPX_C2
+                        p2 = config.MPX_A2 * x2 * x2 + config.MPX_B2 * x2 + config.MPX_C2
+                        if p1 < 0:
+                            p1 = 0.0
+                        if p2 < 0:
+                            p2 = 0.0
+                        m, b = two_point_cal(p1, y1, p2, y2)
+                    else:
+                        m, b = two_point_cal(x1, y1, x2, y2)
+                    if mode == "A0":
+                        config.A0_CAL_M = float(m)
+                        config.A0_CAL_B = float(b)
+                    elif mode == "A1":
+                        config.A1_CAL_M = float(m)
+                        config.A1_CAL_B = float(b)
+                    else:
+                        config.GAIN_2PT = float(m)
+                        config.OFFSET_2PT = float(b)
+                        config.A2_CAL_M = float(m)
+                        config.A2_CAL_B = float(b)
 
-                if len(mag) > 1:
-                    idx = int(np.argmax(mag[1:])) + 1
-                    peak_f = float(freqs[idx])
-                    peak_a = float(mag[idx])
-                else:
-                    peak_f = 0.0
-                    peak_a = 0.0
+                    cal = {
+                        "A0": {"m": float(config.A0_CAL_M), "b": float(config.A0_CAL_B), "units": "V_in"},
+                        "A1": {"m": float(config.A1_CAL_M), "b": float(config.A1_CAL_B), "units": "mA"},
+                        "A2": {"m": float(config.GAIN_2PT), "b": float(config.OFFSET_2PT), "units": "kPa"},
+                    }
+                    save_calibration(cal)
 
-                rms = float(np.sqrt(np.mean(samples * samples)))
-                std = float(np.std(samples, ddof=1)) if n > 1 else 0.0
+                    var_m.set(f"{m:.6f}")
+                    var_b.set(f"{b:.6f}")
+                    messagebox.showinfo("Calibracion", "Guardado OK.")
+                except Exception as e:
+                    messagebox.showerror("Calibracion", f"Error: {e}")
 
-                ax.clear()
-                ax.plot(freqs, mag, color="blue")
-                ax.set_title("FFT Magnitud")
-                ax.set_xlabel("Frecuencia (Hz)")
-                ax.set_ylabel("Magnitud")
-                ax.grid(True, alpha=0.3)
-                canvas.draw()
+            ttk.Button(frm, text="Calcular y Guardar", command=_calc_and_save).grid(
+                row=10, column=0, columnspan=3, sticky="ew", padx=6, pady=6
+            )
 
-                lbl_metrics.config(text=f"RMS={rms:.6f} | STD={std:.6f} | Pico={peak_f:.2f} Hz @ {peak_a:.6f}")
-            except Exception as e:
-                messagebox.showerror("FFT", f"Error: {e}")
+            def _on_chan_change(*_):
+                _update_units()
 
-        ttk.Button(top, text="Capturar y Calcular", command=_run_fft).pack(side="left", padx=6)
+            var_chan.trace_add("write", _on_chan_change)
+            _update_units()
+        except Exception as e:
+            messagebox.showerror("Calibracion", f"No se pudo abrir la ventana: {e}")
+
+    # -------------------------
+    # FFT / Ruido
+    # -------------------------
+    def _open_fft_window(self):
+        try:
+            win = tk.Toplevel(self)
+            win.title("FFT / Ruido")
+            win.geometry("800x480")
+            win.transient(self.winfo_toplevel())
+            win.lift()
+            win.focus_force()
+            win.grab_set()
+
+            frm = ttk.Frame(win, padding=8)
+            frm.pack(fill="both", expand=True)
+
+            top = ttk.Frame(frm)
+            top.pack(fill="x", pady=(0, 6))
+
+            var_chan = tk.StringVar(value="A2")
+            ttk.Label(top, text="Canal:").pack(side="left", padx=4)
+            ttk.Combobox(top, textvariable=var_chan, values=["A0", "A1", "A2"], width=6, state="readonly").pack(
+                side="left", padx=4
+            )
+
+            var_n = tk.IntVar(value=int(getattr(config, "FFT_N_SAMPLES", 1024)))
+            ttk.Label(top, text="N muestras:").pack(side="left", padx=4)
+            ttk.Entry(top, textvariable=var_n, width=8).pack(side="left", padx=4)
+
+            lbl_metrics = ttk.Label(top, text="RMS=-- | STD=-- | Pico=-- Hz @ --")
+            lbl_metrics.pack(side="left", padx=10)
+
+            fig = Figure(figsize=(7.5, 3.0), dpi=100)
+            ax = fig.add_subplot(111)
+            ax.set_title("FFT Magnitud")
+            ax.set_xlabel("Frecuencia (Hz)")
+            ax.set_ylabel("Magnitud")
+            ax.grid(True, alpha=0.3)
+
+            canvas = FigureCanvasTkAgg(fig, master=frm)
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+
+            def _run_fft():
+                try:
+                    n = max(64, int(var_n.get()))
+                    mode = var_chan.get().strip().upper()
+                    if mode == "A0":
+                        ch = config.ADS_CH_DUT_V
+                    elif mode == "A1":
+                        ch = config.ADS_CH_DUT_mA
+                    else:
+                        ch = config.ADS_CH_REF
+
+                    samples = np.zeros(n, dtype=float)
+                    for i in range(n):
+                        samples[i] = float(self.read_vadc(ch))
+
+                    fs = float(getattr(config, "ADS_SPS", 128))
+                    samples = samples - float(np.mean(samples))
+
+                    if bool(getattr(config, "FFT_USE_WINDOW", True)):
+                        wnd = np.hanning(n)
+                        samples_win = samples * wnd
+                    else:
+                        samples_win = samples
+
+                    fft_vals = np.fft.rfft(samples_win)
+                    mag = np.abs(fft_vals) / max(1, n)
+                    freqs = np.fft.rfftfreq(n, d=1.0 / fs)
+
+                    if len(mag) > 1:
+                        idx = int(np.argmax(mag[1:])) + 1
+                        peak_f = float(freqs[idx])
+                        peak_a = float(mag[idx])
+                    else:
+                        peak_f = 0.0
+                        peak_a = 0.0
+
+                    rms = float(np.sqrt(np.mean(samples * samples)))
+                    std = float(np.std(samples, ddof=1)) if n > 1 else 0.0
+
+                    ax.clear()
+                    ax.plot(freqs, mag, color="blue")
+                    ax.set_title("FFT Magnitud")
+                    ax.set_xlabel("Frecuencia (Hz)")
+                    ax.set_ylabel("Magnitud")
+                    ax.grid(True, alpha=0.3)
+                    canvas.draw()
+
+                    lbl_metrics.config(text=f"RMS={rms:.6f} | STD={std:.6f} | Pico={peak_f:.2f} Hz @ {peak_a:.6f}")
+                except Exception as e:
+                    messagebox.showerror("FFT", f"Error: {e}")
+
+            ttk.Button(top, text="Capturar y Calcular", command=_run_fft).pack(side="left", padx=6)
+        except Exception as e:
+            messagebox.showerror("FFT", f"No se pudo abrir la ventana: {e}")
 
     def _open_edit_dialog_sp(self):
         """Abre modal para editar SP con aplicación automática"""
