@@ -229,11 +229,11 @@ class ManualView(ttk.Frame):
 
         self.btn_zero = ttk.Button(btns, text="TARA", command=self._do_tare)
         self.btn_start = ttk.Button(btns, text="START", command=self._start)
-        self.btn_back = ttk.Button(btns, text="BACK", command=self._back_to_idle)
+        self.btn_stop_cfg = ttk.Button(btns, text="STOP", command=self._stop_and_back)
 
         self.btn_zero.grid(row=0, column=0, sticky="ew", padx=4)
         self.btn_start.grid(row=0, column=1, sticky="ew", padx=4)
-        self.btn_back.grid(row=0, column=2, sticky="ew", padx=4)
+        self.btn_stop_cfg.grid(row=0, column=2, sticky="ew", padx=4)
 
         # Herramientas
         tools = ttk.Frame(frm_cfg)
@@ -282,11 +282,9 @@ class ManualView(ttk.Frame):
         frm_run_btn.grid_columnconfigure(0, weight=1)
         frm_run_btn.grid_columnconfigure(1, weight=1)
 
-        self.btn_stop = ttk.Button(frm_run_btn, text="STOP", command=self._stop_to_config)
-        self.btn_back2 = ttk.Button(frm_run_btn, text="BACK", command=self._back_to_idle)
+        self.btn_stop = ttk.Button(frm_run_btn, text="STOP", command=self._stop_and_back)
 
-        self.btn_stop.grid(row=0, column=0, sticky="ew", padx=4)
-        self.btn_back2.grid(row=0, column=1, sticky="ew", padx=4)
+        self.btn_stop.grid(row=0, column=0, columnspan=2, sticky="ew", padx=4)
 
         self._on_mode_changed()
 
@@ -1097,6 +1095,11 @@ class ManualView(ttk.Frame):
     def _stop_to_config(self):
         self._safe_outputs(valve_open=True)
         self._apply_state_config()
+
+    def _stop_and_back(self):
+        self._safe_outputs(valve_open=True)
+        self._apply_state_config()
+        self.request_event("EV_BACK", None)
 
     def _back_to_idle(self):
         self._safe_outputs(valve_open=True)
