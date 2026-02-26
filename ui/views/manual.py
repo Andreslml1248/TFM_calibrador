@@ -273,9 +273,6 @@ class ManualView(ttk.Frame):
         ttk.Label(frm_live, text="%ERROR:", font=normal).grid(row=3, column=0, sticky="w", padx=8, pady=2)
         ttk.Label(frm_live, textvariable=self.var_err, font=normal).grid(row=3, column=1, sticky="w", padx=8, pady=2)
 
-        ttk.Label(frm_live, text="CONTROL:", font=normal).grid(row=4, column=0, sticky="w", padx=8, pady=(2, 8))
-        ttk.Label(frm_live, textvariable=self.var_pwm, font=normal).grid(row=4, column=1, sticky="w", padx=8, pady=(2, 8))
-
         self._on_mode_changed()
 
     # -------------------------
