@@ -276,16 +276,6 @@ class ManualView(ttk.Frame):
         ttk.Label(frm_live, text="CONTROL:", font=normal).grid(row=4, column=0, sticky="w", padx=8, pady=(2, 8))
         ttk.Label(frm_live, textvariable=self.var_pwm, font=normal).grid(row=4, column=1, sticky="w", padx=8, pady=(2, 8))
 
-        # Botones RUN abajo en la columna derecha
-        frm_run_btn = ttk.Frame(frm_live)
-        frm_run_btn.grid(row=5, column=0, columnspan=2, sticky="ew", padx=8, pady=(6, 10))
-        frm_run_btn.grid_columnconfigure(0, weight=1)
-        frm_run_btn.grid_columnconfigure(1, weight=1)
-
-        self.btn_stop = ttk.Button(frm_run_btn, text="STOP", command=self._stop_and_back)
-
-        self.btn_stop.grid(row=0, column=0, columnspan=2, sticky="ew", padx=4)
-
         self._on_mode_changed()
 
     # -------------------------
@@ -298,7 +288,7 @@ class ManualView(ttk.Frame):
         self.rt.last_update_ts = 0.0
         self._safe_outputs(valve_open=True)
         self._set_config_widgets_state(enabled=True)
-        self.btn_stop.state(["disabled"])
+        self.btn_stop_cfg.state(["disabled"])
 
     def _apply_state_run(self):
         self.rt.running = True
@@ -308,7 +298,7 @@ class ManualView(ttk.Frame):
         self.set_valve(True)
         self.set_relay(True)
         self._set_config_widgets_state(enabled=False)
-        self.btn_stop.state(["!disabled"])
+        self.btn_stop_cfg.state(["!disabled"])
 
     def _set_config_widgets_state(self, enabled: bool):
         state = "normal" if enabled else "disabled"
