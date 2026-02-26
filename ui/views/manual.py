@@ -80,6 +80,11 @@ class ManualRuntime:
 # Frame GUI del modo manual
 # =========================
 class ManualView(ttk.Frame):
+    _A0_SIG_MIN_DEFAULT = 0.0
+    _A0_SIG_MAX_DEFAULT = 10.0
+    _A1_SIG_MIN_DEFAULT = 4.0
+    _A1_SIG_MAX_DEFAULT = 20.0
+
     def __init__(
         self,
         master,
@@ -906,15 +911,40 @@ class ManualView(ttk.Frame):
             self.var_mode.set(mode)
         self.cfg.dut_mode = mode
 
+        def _parse_sig(var: tk.StringVar, fallback: float) -> float:
+            try:
+                return float(var.get().strip().replace(",", "."))
+            except Exception:
+                return float(fallback)
+
+        def _is_close_pair(vmin: float, vmax: float, rmin: float, rmax: float, tol: float = 1e-6) -> bool:
+            return abs(vmin - rmin) <= tol and abs(vmax - rmax) <= tol
+
+        sig_min = _parse_sig(self.var_sigmin, self.cfg.sig_min)
+        sig_max = _parse_sig(self.var_sigmax, self.cfg.sig_max)
+
         if mode == "A0":
             self.lbl_sigmin.configure(text="V mín")
             self.lbl_sigmax.configure(text="V máx")
-            # defaults típicos (solo si quieres):
-            # self.var_sigmin.set("0.000"); self.var_sigmax.set("10.000")
+            # Si viene del rango típico A1 (4-20), conmutar a 0-10 V.
+            if _is_close_pair(sig_min, sig_max, self._A1_SIG_MIN_DEFAULT, self._A1_SIG_MAX_DEFAULT):
+                sig_min = self._A0_SIG_MIN_DEFAULT
+                sig_max = self._A0_SIG_MAX_DEFAULT
+                self.var_sigmin.set(f"{sig_min:.3f}")
+                self.var_sigmax.set(f"{sig_max:.3f}")
         else:
             self.lbl_sigmin.configure(text="I mín")
             self.lbl_sigmax.configure(text="I máx")
-            # self.var_sigmin.set("4.000"); self.var_sigmax.set("20.000")
+            # Si viene del rango típico A0 (0-10), conmutar a 4-20 mA.
+            if _is_close_pair(sig_min, sig_max, self._A0_SIG_MIN_DEFAULT, self._A0_SIG_MAX_DEFAULT):
+                sig_min = self._A1_SIG_MIN_DEFAULT
+                sig_max = self._A1_SIG_MAX_DEFAULT
+                self.var_sigmin.set(f"{sig_min:.3f}")
+                self.var_sigmax.set(f"{sig_max:.3f}")
+
+        # Sincronizar cálculo live sin esperar START.
+        self.cfg.sig_min = float(sig_min)
+        self.cfg.sig_max = float(sig_max)
 
     def _do_tare(self):
         try:
