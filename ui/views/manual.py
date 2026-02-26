@@ -173,11 +173,11 @@ class ManualView(ttk.Frame):
         mode_box.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=0)
 
         rb_a1 = ttk.Radiobutton(
-            mode_box, text="A1 (4–20 mA)", value="A1",
+            mode_box, text="Transmisor de presion P/I", value="A1",
             variable=self.var_mode, command=self._on_mode_changed
         )
         rb_a0 = ttk.Radiobutton(
-            mode_box, text="A0 (0–10 V)", value="A0",
+            mode_box, text="Transmisor de presion P/V", value="A0",
             variable=self.var_mode, command=self._on_mode_changed
         )
         rb_a1.grid(row=0, column=0, sticky="w", padx=8, pady=(4, 2))
@@ -1230,4 +1230,5 @@ class ManualView(ttk.Frame):
             self.pi.freeze()
         except Exception:
             pass
+
 
