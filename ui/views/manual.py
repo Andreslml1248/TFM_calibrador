@@ -525,8 +525,8 @@ class ManualView(ttk.Frame):
             var_chan = tk.StringVar(value="A0")
             var_x1 = tk.StringVar(value="--")
             var_x2 = tk.StringVar(value="--")
-            var_y1 = tk.StringVar(value="")
-            var_y2 = tk.StringVar(value="")
+            var_y1 = tk.StringVar(value="0.000")
+            var_y2 = tk.StringVar(value="0.000")
             var_m = tk.StringVar(value="--")
             var_b = tk.StringVar(value="--")
             var_units = tk.StringVar(value="V")
@@ -581,7 +581,17 @@ class ManualView(ttk.Frame):
             _refresh_chan_buttons()
 
             ttk.Label(frm, text="Punto 1 (y_real)", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky="w", padx=6, pady=4)
-            ttk.Entry(frm, textvariable=var_y1, width=12).grid(row=1, column=1, sticky="w", padx=6, pady=4)
+            btn_y1 = ttk.Button(frm, text=f"[{var_y1.get()}]")
+            btn_y1.grid(row=1, column=1, sticky="w", padx=6, pady=4)
+            btn_y1.configure(
+                command=lambda: self._open_edit_dialog(
+                    var_y1,
+                    f"Punto 1 (y_real) [{var_units.get()}]",
+                    -1000.0,
+                    1000.0,
+                    btn_y1
+                )
+            )
             ttk.Label(frm, textvariable=var_units).grid(row=1, column=2, sticky="w")
 
             ttk.Button(frm, text="Capturar Punto 1 (x1=Vadc)", command=lambda: _capture_point(1)).grid(
@@ -591,7 +601,17 @@ class ManualView(ttk.Frame):
             ttk.Label(frm, textvariable=var_x1).grid(row=3, column=1, sticky="w", padx=6, pady=2)
 
             ttk.Label(frm, text="Punto 2 (y_real)", font=("Arial", 10, "bold")).grid(row=4, column=0, sticky="w", padx=6, pady=4)
-            ttk.Entry(frm, textvariable=var_y2, width=12).grid(row=4, column=1, sticky="w", padx=6, pady=4)
+            btn_y2 = ttk.Button(frm, text=f"[{var_y2.get()}]")
+            btn_y2.grid(row=4, column=1, sticky="w", padx=6, pady=4)
+            btn_y2.configure(
+                command=lambda: self._open_edit_dialog(
+                    var_y2,
+                    f"Punto 2 (y_real) [{var_units.get()}]",
+                    -1000.0,
+                    1000.0,
+                    btn_y2
+                )
+            )
             ttk.Label(frm, textvariable=var_units).grid(row=4, column=2, sticky="w")
 
             ttk.Button(frm, text="Capturar Punto 2 (x2=Vadc)", command=lambda: _capture_point(2)).grid(
@@ -728,7 +748,18 @@ class ManualView(ttk.Frame):
 
             var_n = tk.IntVar(value=int(getattr(config, "FFT_N_SAMPLES", 1024)))
             ttk.Label(top, text="N muestras:").pack(side="left", padx=4)
-            ttk.Entry(top, textvariable=var_n, width=8).pack(side="left", padx=4)
+            var_n_txt = tk.StringVar(value=str(var_n.get()))
+            btn_n = ttk.Button(top, text=f"[{var_n_txt.get()}]")
+            btn_n.pack(side="left", padx=4)
+            btn_n.configure(
+                command=lambda: self._open_edit_dialog(
+                    var_n_txt,
+                    "N muestras FFT",
+                    64,
+                    16384,
+                    btn_n
+                )
+            )
 
             lbl_metrics = ttk.Label(top, text="RMS=-- | STD=-- | Pico=-- Hz @ --")
             lbl_metrics.pack(side="left", padx=10)
@@ -746,6 +777,11 @@ class ManualView(ttk.Frame):
             def _run_fft():
                 try:
                     n = max(64, int(var_n.get()))
+                    try:
+                        n = max(64, int(float(var_n_txt.get().strip().replace(",", "."))))
+                        var_n.set(n)
+                    except Exception:
+                        n = max(64, int(var_n.get()))
                     mode = var_chan.get().strip().upper()
                     if mode == "A0":
                         ch = config.ADS_CH_DUT_V
