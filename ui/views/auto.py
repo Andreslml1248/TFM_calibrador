@@ -231,7 +231,7 @@ class AutoView(ttk.Frame):
         self.btn_npts = ttk.Button(frm, text=self.var_npts.get(), width=8, command=self._open_npts_selector)
         self.btn_npts.grid(row=3, column=1, padx=6, pady=2, sticky="w")
         ttk.Label(frm, text="Dirección").grid(row=3, column=2, padx=6, pady=2, sticky="e")
-        self.btn_dir = ttk.Button(frm, text=self.var_dir.get(), width=8, command=self._open_direction_selector)
+        self.btn_dir = ttk.Button(frm, text=self._direction_label(self.var_dir.get()), width=8, command=self._open_direction_selector)
         self.btn_dir.grid(row=3, column=3, padx=6, pady=2, sticky="w")
 
         # Tiempos (NO control)
@@ -699,20 +699,74 @@ class AutoView(ttk.Frame):
         if hasattr(self, "btn_npts"):
             self.btn_npts.configure(text=value)
 
+    def _direction_label(self, value: str) -> str:
+        mapping = {
+            "UP": "SUBIDA",
+            "DOWN": "BAJADA",
+            "BOTH": "AMBOS",
+        }
+        return mapping.get((value or "").strip().upper(), "AMBOS")
+
     def _open_direction_selector(self):
         options = ["UP", "DOWN", "BOTH"]
-        self._open_list_selector(
-            title="Seleccionar dirección",
-            label="Dirección",
-            options=options,
-            current_value=self.var_dir.get().strip().upper(),
-            on_save_value=self._set_direction_value,
-        )
+        dialog = tk.Toplevel(self)
+        dialog.title("Seleccionar dirección")
+        dialog.geometry("280x360")
+        dialog.resizable(False, False)
+        dialog.transient(self.winfo_toplevel())
+        dialog.focus_force()
+        dialog.grab_set()
+
+        frm = ttk.Frame(dialog, padding=10)
+        frm.pack(fill="both", expand=True)
+
+        ttk.Label(frm, text="Dirección", font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 6))
+
+        list_frm = ttk.Frame(frm)
+        list_frm.pack(fill="both", expand=True)
+
+        yscroll = ttk.Scrollbar(list_frm, orient="vertical")
+        yscroll.pack(side="right", fill="y")
+
+        lst_values = tk.Listbox(list_frm, exportselection=False, yscrollcommand=yscroll.set, height=3)
+        lst_values.pack(side="left", fill="both", expand=True)
+        yscroll.configure(command=lst_values.yview)
+
+        for option in options:
+            lst_values.insert("end", self._direction_label(option))
+
+        current_value = self.var_dir.get().strip().upper()
+        try:
+            idx = options.index(current_value)
+        except ValueError:
+            idx = 0
+        lst_values.selection_set(idx)
+        lst_values.activate(idx)
+        lst_values.see(idx)
+
+        action_frm = ttk.Frame(frm)
+        action_frm.pack(fill="x", pady=(8, 0))
+
+        def _save():
+            sel = lst_values.curselection()
+            if not sel:
+                return
+            self._set_direction_value(options[int(sel[0])])
+            dialog.destroy()
+
+        def _cancel():
+            dialog.destroy()
+
+        ttk.Button(action_frm, text="Guardar", command=_save).pack(side="left", fill="x", expand=True, padx=(0, 4))
+        ttk.Button(action_frm, text="Cancelar", command=_cancel).pack(side="left", fill="x", expand=True, padx=(4, 0))
+
+        lst_values.bind("<Double-Button-1>", lambda _e: _save())
+        dialog.wait_window()
 
     def _set_direction_value(self, value: str):
         self.var_dir.set(value)
         if hasattr(self, "btn_dir"):
-            self.btn_dir.configure(text=value)
+            self.btn_dir.configure(text=self._direction_label(value))
 
     # ========================================================
     # Control window
