@@ -160,8 +160,8 @@ class AutoView(ttk.Frame):
 
         # DUT
         self.var_mode = tk.StringVar(value="A1")
-        ttk.Radiobutton(frm, text="A1 (4–20 mA)", variable=self.var_mode, value="A1").grid(row=0, column=0, sticky="w", padx=6)
-        ttk.Radiobutton(frm, text="A0 (0–10 V)", variable=self.var_mode, value="A0").grid(row=0, column=1, sticky="w", padx=6)
+        ttk.Radiobutton(frm, text="Transmisor de presion P/I", variable=self.var_mode, value="A1").grid(row=0, column=0, sticky="w", padx=6)
+        ttk.Radiobutton(frm, text="Transmisor de presion P/V", variable=self.var_mode, value="A0").grid(row=0, column=1, sticky="w", padx=6)
 
         # Señal / Presión
         self.var_sig_min = tk.StringVar(value="4.0")
