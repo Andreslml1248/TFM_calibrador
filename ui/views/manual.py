@@ -852,6 +852,9 @@ class ManualView(ttk.Frame):
             lbl_metrics = ttk.Label(top, text="RMS=-- | STD=-- | Pico=-- Hz @ --")
             lbl_metrics.pack(side="left", padx=10)
 
+            actions = ttk.Frame(frm)
+            actions.pack(fill="x", pady=(0, 6))
+
             fig = Figure(figsize=(7.5, 3.0), dpi=100)
             ax = fig.add_subplot(111)
             ax.set_title("FFT Magnitud")
@@ -916,7 +919,7 @@ class ManualView(ttk.Frame):
                 except Exception as e:
                     messagebox.showerror("FFT", f"Error: {e}")
 
-            ttk.Button(top, text="Capturar y Calcular", command=_run_fft).pack(side="left", padx=6)
+            ttk.Button(actions, text="Capturar y Calcular", command=_run_fft).pack(side="left", padx=6)
         except Exception as e:
             messagebox.showerror("FFT", f"No se pudo abrir la ventana: {e}")
 
