@@ -405,6 +405,7 @@ class ManualView(ttk.Frame):
 
     def _apply_state_run(self):
         self.rt.running = True
+        self._reset_live_plot()
         self.pi.reset()
         self.pi.unfreeze()
         self.rt.last_update_ts = 0.0
@@ -1508,6 +1509,18 @@ class ManualView(ttk.Frame):
             # Fallo de render no debe tumbar el ciclo de adquisicion.
             pass
 
+    def _reset_live_plot(self):
+        self._live_plot_t0 = None
+        self._live_plot_last_draw_ts = 0.0
+        self._live_plot_t.clear()
+        self._live_plot_p_pat.clear()
+        self._live_plot_p_dut.clear()
+        self._line_pat.set_data([], [])
+        self._line_dut.set_data([], [])
+        self._live_ax.set_xlim(0.0, 1.0)
+        self._live_ax.set_ylim(0.0, 1.0)
+        self._live_canvas.draw_idle()
+
     # -------------------------
     # Loop
     # -------------------------
@@ -1526,15 +1539,6 @@ class ManualView(ttk.Frame):
                 p = 0.0
 
             dut_eng = self._read_dut_eng()
-            sig_min_live, sig_max_live = self._get_live_signal_bounds()
-            p_dut_est = self._dut_est_pressure_kpa(
-                x_meas=dut_eng,
-                x_min=sig_min_live,
-                x_max=sig_max_live,
-                p_min=self.cfg.p_min_kpa,
-                p_max=self.cfg.p_max_kpa,
-            )
-            self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
 
             self.var_p_source.set(f"{p:,.2f} kPa".replace(",", ""))
             if self.cfg.dut_mode == "A0":
@@ -1555,6 +1559,16 @@ class ManualView(ttk.Frame):
                 return
 
             if self.rt.running:
+                sig_min_live, sig_max_live = self._get_live_signal_bounds()
+                p_dut_est = self._dut_est_pressure_kpa(
+                    x_meas=dut_eng,
+                    x_min=sig_min_live,
+                    x_max=sig_max_live,
+                    p_min=self.cfg.p_min_kpa,
+                    p_max=self.cfg.p_max_kpa,
+                )
+                self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
+
                 sp = float(self.cfg.sp_kpa)  # SP aplicado
                 u_cmd = self.pi.step(sp_kpa=sp, p_kpa=p, dt=dt_real)
                 self.set_pump(u_cmd)
