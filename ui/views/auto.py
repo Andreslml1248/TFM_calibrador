@@ -228,9 +228,11 @@ class AutoView(ttk.Frame):
         self.var_npts = tk.StringVar(value="5")
         self.var_dir = tk.StringVar(value="BOTH")
         ttk.Label(frm, text="Puntos").grid(row=3, column=0, padx=6, pady=2, sticky="e")
-        ttk.Combobox(frm, textvariable=self.var_npts, values=["2", "3", "5"], width=6, state="readonly").grid(row=3, column=1, padx=6, pady=2, sticky="w")
+        self.btn_npts = ttk.Button(frm, text=self.var_npts.get(), width=8, command=self._open_npts_selector)
+        self.btn_npts.grid(row=3, column=1, padx=6, pady=2, sticky="w")
         ttk.Label(frm, text="Dirección").grid(row=3, column=2, padx=6, pady=2, sticky="e")
-        ttk.Combobox(frm, textvariable=self.var_dir, values=["UP", "DOWN", "BOTH"], width=8, state="readonly").grid(row=3, column=3, padx=6, pady=2, sticky="w")
+        self.btn_dir = ttk.Button(frm, text=self.var_dir.get(), width=8, command=self._open_direction_selector)
+        self.btn_dir.grid(row=3, column=3, padx=6, pady=2, sticky="w")
 
         # Tiempos (NO control)
         self.var_tsettle = tk.StringVar(value="5")
@@ -627,6 +629,90 @@ class AutoView(ttk.Frame):
 
         lst_units.bind("<Double-Button-1>", lambda _e: on_save())
         dialog.wait_window()
+
+    def _open_list_selector(self, *, title: str, label: str, options: List[str], current_value: str, on_save_value: Callable[[str], None]):
+        dialog = tk.Toplevel(self)
+        dialog.title(title)
+        dialog.geometry("280x360")
+        dialog.resizable(False, False)
+        dialog.transient(self.winfo_toplevel())
+        dialog.focus_force()
+        dialog.grab_set()
+
+        frm = ttk.Frame(dialog, padding=10)
+        frm.pack(fill="both", expand=True)
+
+        ttk.Label(frm, text=label, font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 6))
+
+        list_frm = ttk.Frame(frm)
+        list_frm.pack(fill="both", expand=True)
+
+        yscroll = ttk.Scrollbar(list_frm, orient="vertical")
+        yscroll.pack(side="right", fill="y")
+
+        lst_values = tk.Listbox(list_frm, exportselection=False, yscrollcommand=yscroll.set, height=min(11, max(3, len(options))))
+        lst_values.pack(side="left", fill="both", expand=True)
+        yscroll.configure(command=lst_values.yview)
+
+        for option in options:
+            lst_values.insert("end", option)
+
+        try:
+            idx = options.index(current_value)
+        except ValueError:
+            idx = 0
+        lst_values.selection_set(idx)
+        lst_values.activate(idx)
+        lst_values.see(idx)
+
+        action_frm = ttk.Frame(frm)
+        action_frm.pack(fill="x", pady=(8, 0))
+
+        def _save():
+            sel = lst_values.curselection()
+            if not sel:
+                return
+            on_save_value(options[int(sel[0])])
+            dialog.destroy()
+
+        def _cancel():
+            dialog.destroy()
+
+        ttk.Button(action_frm, text="Guardar", command=_save).pack(side="left", fill="x", expand=True, padx=(0, 4))
+        ttk.Button(action_frm, text="Cancelar", command=_cancel).pack(side="left", fill="x", expand=True, padx=(4, 0))
+
+        lst_values.bind("<Double-Button-1>", lambda _e: _save())
+        dialog.wait_window()
+
+    def _open_npts_selector(self):
+        options = ["2", "3", "5"]
+        self._open_list_selector(
+            title="Seleccionar puntos",
+            label="Cantidad de puntos",
+            options=options,
+            current_value=self.var_npts.get().strip(),
+            on_save_value=self._set_npts_value,
+        )
+
+    def _set_npts_value(self, value: str):
+        self.var_npts.set(value)
+        if hasattr(self, "btn_npts"):
+            self.btn_npts.configure(text=value)
+
+    def _open_direction_selector(self):
+        options = ["UP", "DOWN", "BOTH"]
+        self._open_list_selector(
+            title="Seleccionar dirección",
+            label="Dirección",
+            options=options,
+            current_value=self.var_dir.get().strip().upper(),
+            on_save_value=self._set_direction_value,
+        )
+
+    def _set_direction_value(self, value: str):
+        self.var_dir.set(value)
+        if hasattr(self, "btn_dir"):
+            self.btn_dir.configure(text=value)
 
     # ========================================================
     # Control window
