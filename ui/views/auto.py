@@ -91,6 +91,34 @@ HOLD_MEASURE = "HOLD_MEASURE"
 # VIEW
 # ============================================================
 class AutoView(ttk.Frame):
+    _PRESSURE_MIN_KPA = 0.0
+    _PRESSURE_MAX_KPA = 200.0
+    _UNIT_TO_KPA = {
+        "kPa": 1.0,
+        "bar": 100.0,
+        "mbar": 0.1,
+        "MPa": 1000.0,
+        "psi": 6.894757,
+        "kgf/cm²": 98.0665,
+        "mmH2O": 0.00980665,
+        "cmH2O": 0.0980665,
+        "inH2O": 0.2490889,
+        "mmHg": 0.133322,
+        "inHg": 3.386389,
+    }
+    _PRESSURE_UNITS = (
+        "psi",
+        "bar",
+        "mbar",
+        "kPa",
+        "MPa",
+        "kgf/cm²",
+        "mmH2O",
+        "cmH2O",
+        "inH2O",
+        "mmHg",
+        "inHg",
+    )
 
     def __init__(
         self,
@@ -160,14 +188,19 @@ class AutoView(ttk.Frame):
 
         # DUT
         self.var_mode = tk.StringVar(value="A1")
+        self.var_pressure_unit = tk.StringVar(value="kPa")
+        self.var_pmin_label = tk.StringVar(value="P min (kPa)")
+        self.var_pmax_label = tk.StringVar(value="P max (kPa)")
         ttk.Radiobutton(frm, text="Transmisor de presion P/I", variable=self.var_mode, value="A1").grid(row=0, column=0, sticky="w", padx=6)
         ttk.Radiobutton(frm, text="Transmisor de presion P/V", variable=self.var_mode, value="A0").grid(row=0, column=1, sticky="w", padx=6)
+        self.btn_pressure_unit = ttk.Button(frm, text=self.var_pressure_unit.get(), width=10, command=self._open_pressure_unit_selector)
+        self.btn_pressure_unit.grid(row=0, column=2, padx=6, pady=2, sticky="w")
 
         # Señal / Presión
         self.var_sig_min = tk.StringVar(value="4.0")
         self.var_sig_max = tk.StringVar(value="20.0")
-        self.var_pmin = tk.StringVar(value="0.0")
-        self.var_pmax = tk.StringVar(value="200.0")
+        self.var_pmin = tk.StringVar(value=self._fmt_display_pressure(self.cfg.p_min_kpa))
+        self.var_pmax = tk.StringVar(value=self._fmt_display_pressure(self.cfg.p_max_kpa))
 
         ttk.Label(frm, text="Señal min").grid(row=1, column=0, padx=6, pady=2, sticky="e")
         self.btn_sig_min = ttk.Button(frm, text=f"[{self.var_sig_min.get()}]", command=lambda: self._open_edit_dialog(self.var_sig_min, "Señal min", 0, 100, self.btn_sig_min))
@@ -177,12 +210,12 @@ class AutoView(ttk.Frame):
         self.btn_sig_max = ttk.Button(frm, text=f"[{self.var_sig_max.get()}]", command=lambda: self._open_edit_dialog(self.var_sig_max, "Señal max", 0, 100, self.btn_sig_max))
         self.btn_sig_max.grid(row=1, column=3, padx=6, pady=2, sticky="w")
 
-        ttk.Label(frm, text="P min (kPa)").grid(row=2, column=0, padx=6, pady=2, sticky="e")
-        self.btn_pmin = ttk.Button(frm, text=f"[{self.var_pmin.get()}]", command=lambda: self._open_edit_dialog(self.var_pmin, "P min (kPa)", 0, 500, self.btn_pmin))
+        ttk.Label(frm, textvariable=self.var_pmin_label).grid(row=2, column=0, padx=6, pady=2, sticky="e")
+        self.btn_pmin = ttk.Button(frm, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
         self.btn_pmin.grid(row=2, column=1, padx=6, pady=2, sticky="w")
 
-        ttk.Label(frm, text="P max (kPa)").grid(row=2, column=2, padx=6, pady=2, sticky="e")
-        self.btn_pmax = ttk.Button(frm, text=f"[{self.var_pmax.get()}]", command=lambda: self._open_edit_dialog(self.var_pmax, "P max (kPa)", 0, 500, self.btn_pmax))
+        ttk.Label(frm, textvariable=self.var_pmax_label).grid(row=2, column=2, padx=6, pady=2, sticky="e")
+        self.btn_pmax = ttk.Button(frm, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
         self.btn_pmax.grid(row=2, column=3, padx=6, pady=2, sticky="w")
 
         # Secuencia
@@ -214,6 +247,7 @@ class AutoView(ttk.Frame):
         ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=10)
         ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=10)
         ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=10)
+        self._update_pressure_unit_ui()
 
     # ========================================================
     # Modal Edit Dialog
@@ -415,6 +449,135 @@ class AutoView(ttk.Frame):
         """
         pass
 
+    def _pressure_display_to_kpa(self, display_value: float, unit: Optional[str] = None) -> float:
+        active_unit = (unit or self.var_pressure_unit.get().strip() or "kPa")
+        factor = float(self._UNIT_TO_KPA.get(active_unit, 1.0))
+        return float(display_value) * factor
+
+    def _pressure_kpa_to_display(self, kpa_value: float, unit: Optional[str] = None) -> float:
+        active_unit = (unit or self.var_pressure_unit.get().strip() or "kPa")
+        factor = float(self._UNIT_TO_KPA.get(active_unit, 1.0))
+        return float(kpa_value) / factor if abs(factor) > 1e-12 else float(kpa_value)
+
+    def _fmt_display_pressure(self, value: float) -> str:
+        txt = f"{float(value):.4f}".rstrip("0").rstrip(".")
+        return txt if txt else "0"
+
+    def _parse_display_pressure_kpa(self, raw: str, field_name: str, unit: Optional[str] = None) -> float:
+        try:
+            display_value = float(raw.strip().replace(",", "."))
+        except Exception:
+            raise ValueError(f"{field_name}: valor inválido.")
+
+        value_kpa = self._pressure_display_to_kpa(display_value, unit=unit)
+        if value_kpa < self._PRESSURE_MIN_KPA or value_kpa > self._PRESSURE_MAX_KPA:
+            active_unit = unit or self.var_pressure_unit.get().strip() or "kPa"
+            raise ValueError(
+                f"{field_name}: fuera de rango físico 0-200 kPa. "
+                f"({display_value:.4f} {active_unit} = {value_kpa:.4f} kPa)"
+            )
+        return float(value_kpa)
+
+    def _sync_pressure_display_from_kpa(self):
+        self.var_pmin.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.p_min_kpa)))
+        self.var_pmax.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.p_max_kpa)))
+        if hasattr(self, "btn_pmin"):
+            self.btn_pmin.configure(text=f"[{self.var_pmin.get()}]")
+        if hasattr(self, "btn_pmax"):
+            self.btn_pmax.configure(text=f"[{self.var_pmax.get()}]")
+
+    def _update_pressure_unit_ui(self):
+        unit = self.var_pressure_unit.get().strip() or "kPa"
+        if unit not in self._UNIT_TO_KPA:
+            unit = "kPa"
+        self.var_pressure_unit.set(unit)
+        self.var_pmin_label.set(f"P min ({unit})")
+        self.var_pmax_label.set(f"P max ({unit})")
+        if hasattr(self, "btn_pressure_unit"):
+            self.btn_pressure_unit.configure(text=unit)
+        self._sync_pressure_display_from_kpa()
+
+    def _set_pressure_unit(self, new_unit: str):
+        current_unit = self.var_pressure_unit.get().strip() or "kPa"
+        if current_unit not in self._UNIT_TO_KPA:
+            current_unit = "kPa"
+        try:
+            self.cfg.p_min_kpa = self._parse_display_pressure_kpa(self.var_pmin.get(), "P min", unit=current_unit)
+            self.cfg.p_max_kpa = self._parse_display_pressure_kpa(self.var_pmax.get(), "P max", unit=current_unit)
+        except ValueError:
+            pass
+        self.var_pressure_unit.set(new_unit)
+        self._update_pressure_unit_ui()
+
+    def _open_edit_dialog_pmin(self):
+        unit = self.var_pressure_unit.get().strip() or "kPa"
+        min_val = self._pressure_kpa_to_display(self._PRESSURE_MIN_KPA, unit=unit)
+        max_val = self._pressure_kpa_to_display(self._PRESSURE_MAX_KPA, unit=unit)
+        self._open_edit_dialog(self.var_pmin, f"P min ({unit})", min_val, max_val, self.btn_pmin)
+        self.cfg.p_min_kpa = self._parse_display_pressure_kpa(self.var_pmin.get(), "P min", unit=unit)
+
+    def _open_edit_dialog_pmax(self):
+        unit = self.var_pressure_unit.get().strip() or "kPa"
+        min_val = self._pressure_kpa_to_display(self._PRESSURE_MIN_KPA, unit=unit)
+        max_val = self._pressure_kpa_to_display(self._PRESSURE_MAX_KPA, unit=unit)
+        self._open_edit_dialog(self.var_pmax, f"P max ({unit})", min_val, max_val, self.btn_pmax)
+        self.cfg.p_max_kpa = self._parse_display_pressure_kpa(self.var_pmax.get(), "P max", unit=unit)
+
+    def _open_pressure_unit_selector(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Seleccionar unidad")
+        dialog.geometry("280x360")
+        dialog.resizable(False, False)
+        dialog.transient(self.winfo_toplevel())
+        dialog.focus_force()
+        dialog.grab_set()
+
+        frm = ttk.Frame(dialog, padding=10)
+        frm.pack(fill="both", expand=True)
+
+        ttk.Label(frm, text="Unidad de presión", font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 6))
+
+        list_frm = ttk.Frame(frm)
+        list_frm.pack(fill="both", expand=True)
+
+        yscroll = ttk.Scrollbar(list_frm, orient="vertical")
+        yscroll.pack(side="right", fill="y")
+
+        lst_units = tk.Listbox(list_frm, exportselection=False, yscrollcommand=yscroll.set, height=11)
+        lst_units.pack(side="left", fill="both", expand=True)
+        yscroll.configure(command=lst_units.yview)
+
+        for unit in self._PRESSURE_UNITS:
+            lst_units.insert("end", unit)
+
+        current = self.var_pressure_unit.get().strip() or "kPa"
+        try:
+            idx = self._PRESSURE_UNITS.index(current)
+        except ValueError:
+            idx = self._PRESSURE_UNITS.index("kPa")
+        lst_units.selection_set(idx)
+        lst_units.activate(idx)
+        lst_units.see(idx)
+
+        action_frm = ttk.Frame(frm)
+        action_frm.pack(fill="x", pady=(8, 0))
+
+        def on_save():
+            sel = lst_units.curselection()
+            if not sel:
+                return
+            self._set_pressure_unit(self._PRESSURE_UNITS[int(sel[0])])
+            dialog.destroy()
+
+        def on_cancel():
+            dialog.destroy()
+
+        ttk.Button(action_frm, text="Guardar", command=on_save).pack(side="left", fill="x", expand=True, padx=(0, 4))
+        ttk.Button(action_frm, text="Cancelar", command=on_cancel).pack(side="left", fill="x", expand=True, padx=(4, 0))
+
+        lst_units.bind("<Double-Button-1>", lambda _e: on_save())
+        dialog.wait_window()
+
     # ========================================================
     # Control window
     # ========================================================
@@ -534,8 +697,8 @@ class AutoView(ttk.Frame):
         self.cfg.dut_mode = self.var_mode.get().strip().upper()
         self.cfg.sig_min = float(self.var_sig_min.get().strip().replace(",", "."))
         self.cfg.sig_max = float(self.var_sig_max.get().strip().replace(",", "."))
-        self.cfg.p_min_kpa = float(self.var_pmin.get().strip().replace(",", "."))
-        self.cfg.p_max_kpa = float(self.var_pmax.get().strip().replace(",", "."))
+        self.cfg.p_min_kpa = self._parse_display_pressure_kpa(self.var_pmin.get(), "P min")
+        self.cfg.p_max_kpa = self._parse_display_pressure_kpa(self.var_pmax.get(), "P max")
         self.cfg.n_points = int(self.var_npts.get().strip())
         self.cfg.direction = self.var_dir.get().strip().upper()
         self.cfg.settle_time_s = float(self.var_tsettle.get().strip().replace(",", "."))
