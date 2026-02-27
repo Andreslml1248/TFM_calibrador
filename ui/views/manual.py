@@ -801,7 +801,7 @@ class ManualView(ttk.Frame):
             top = ttk.Frame(frm)
             top.pack(fill="x", pady=(0, 6))
 
-            var_chan = tk.StringVar(value="A2")
+            var_chan = tk.StringVar(value="A1")
             ttk.Label(top, text="Canal:").pack(side="left", padx=4)
             chan_box = ttk.Frame(top)
             chan_box.pack(side="left", padx=4)
@@ -818,7 +818,7 @@ class ManualView(ttk.Frame):
                     else:
                         btn.configure(relief="raised", bg="#f0f0f0")
 
-            for mode_sel in ("A0", "A1", "A2"):
+            for mode_sel in ("A0", "A1"):
                 btn = tk.Button(
                     chan_box,
                     text=mode_sel,
@@ -872,10 +872,8 @@ class ManualView(ttk.Frame):
                     mode = var_chan.get().strip().upper()
                     if mode == "A0":
                         ch = config.ADS_CH_DUT_V
-                    elif mode == "A1":
-                        ch = config.ADS_CH_DUT_mA
                     else:
-                        ch = config.ADS_CH_REF
+                        ch = config.ADS_CH_DUT_mA
 
                     samples = np.zeros(n, dtype=float)
                     for i in range(n):
