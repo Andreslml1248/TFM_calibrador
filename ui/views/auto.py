@@ -91,6 +91,10 @@ HOLD_MEASURE = "HOLD_MEASURE"
 # VIEW
 # ============================================================
 class AutoView(ttk.Frame):
+    _A0_SIG_MIN_DEFAULT = 0.0
+    _A0_SIG_MAX_DEFAULT = 10.0
+    _A1_SIG_MIN_DEFAULT = 4.0
+    _A1_SIG_MAX_DEFAULT = 20.0
     _PRESSURE_MIN_KPA = 0.0
     _PRESSURE_MAX_KPA = 200.0
     _UNIT_TO_KPA = {
@@ -188,11 +192,13 @@ class AutoView(ttk.Frame):
 
         # DUT
         self.var_mode = tk.StringVar(value="A1")
+        self.var_sigmin_label = tk.StringVar(value="I mín")
+        self.var_sigmax_label = tk.StringVar(value="I máx")
         self.var_pressure_unit = tk.StringVar(value="kPa")
         self.var_pmin_label = tk.StringVar(value="P min (kPa)")
         self.var_pmax_label = tk.StringVar(value="P max (kPa)")
-        ttk.Radiobutton(frm, text="Transmisor de presion P/I", variable=self.var_mode, value="A1").grid(row=0, column=0, sticky="w", padx=6)
-        ttk.Radiobutton(frm, text="Transmisor de presion P/V", variable=self.var_mode, value="A0").grid(row=0, column=1, sticky="w", padx=6)
+        ttk.Radiobutton(frm, text="Transmisor de presion P/I", variable=self.var_mode, value="A1", command=self._on_mode_changed).grid(row=0, column=0, sticky="w", padx=6)
+        ttk.Radiobutton(frm, text="Transmisor de presion P/V", variable=self.var_mode, value="A0", command=self._on_mode_changed).grid(row=0, column=1, sticky="w", padx=6)
         self.btn_pressure_unit = ttk.Button(frm, text=self.var_pressure_unit.get(), width=10, command=self._open_pressure_unit_selector)
         self.btn_pressure_unit.grid(row=0, column=2, padx=6, pady=2, sticky="w")
 
@@ -202,11 +208,11 @@ class AutoView(ttk.Frame):
         self.var_pmin = tk.StringVar(value=self._fmt_display_pressure(self.cfg.p_min_kpa))
         self.var_pmax = tk.StringVar(value=self._fmt_display_pressure(self.cfg.p_max_kpa))
 
-        ttk.Label(frm, text="Señal min").grid(row=1, column=0, padx=6, pady=2, sticky="e")
+        ttk.Label(frm, textvariable=self.var_sigmin_label).grid(row=1, column=0, padx=6, pady=2, sticky="e")
         self.btn_sig_min = ttk.Button(frm, text=f"[{self.var_sig_min.get()}]", command=lambda: self._open_edit_dialog(self.var_sig_min, "Señal min", 0, 100, self.btn_sig_min))
         self.btn_sig_min.grid(row=1, column=1, padx=6, pady=2, sticky="w")
 
-        ttk.Label(frm, text="Señal max").grid(row=1, column=2, padx=6, pady=2, sticky="e")
+        ttk.Label(frm, textvariable=self.var_sigmax_label).grid(row=1, column=2, padx=6, pady=2, sticky="e")
         self.btn_sig_max = ttk.Button(frm, text=f"[{self.var_sig_max.get()}]", command=lambda: self._open_edit_dialog(self.var_sig_max, "Señal max", 0, 100, self.btn_sig_max))
         self.btn_sig_max.grid(row=1, column=3, padx=6, pady=2, sticky="w")
 
@@ -247,6 +253,7 @@ class AutoView(ttk.Frame):
         ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=10)
         ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=10)
         ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=10)
+        self._on_mode_changed()
         self._update_pressure_unit_ui()
 
     # ========================================================
@@ -448,6 +455,49 @@ class AutoView(ttk.Frame):
         Esto es un placeholder que se puede mejorar si es necesario.
         """
         pass
+
+    def _on_mode_changed(self):
+        mode = self.var_mode.get().strip()
+        if mode not in ("A0", "A1"):
+            mode = "A1"
+            self.var_mode.set(mode)
+        self.cfg.dut_mode = mode
+
+        def _parse_sig(var: tk.StringVar, fallback: float) -> float:
+            try:
+                return float(var.get().strip().replace(",", "."))
+            except Exception:
+                return float(fallback)
+
+        def _is_close_pair(vmin: float, vmax: float, rmin: float, rmax: float, tol: float = 1e-6) -> bool:
+            return abs(vmin - rmin) <= tol and abs(vmax - rmax) <= tol
+
+        sig_min = _parse_sig(self.var_sig_min, self.cfg.sig_min)
+        sig_max = _parse_sig(self.var_sig_max, self.cfg.sig_max)
+
+        if mode == "A0":
+            self.var_sigmin_label.set("V mín")
+            self.var_sigmax_label.set("V máx")
+            if _is_close_pair(sig_min, sig_max, self._A1_SIG_MIN_DEFAULT, self._A1_SIG_MAX_DEFAULT):
+                sig_min = self._A0_SIG_MIN_DEFAULT
+                sig_max = self._A0_SIG_MAX_DEFAULT
+                self.var_sig_min.set(f"{sig_min:.3f}")
+                self.var_sig_max.set(f"{sig_max:.3f}")
+        else:
+            self.var_sigmin_label.set("I mín")
+            self.var_sigmax_label.set("I máx")
+            if _is_close_pair(sig_min, sig_max, self._A0_SIG_MIN_DEFAULT, self._A0_SIG_MAX_DEFAULT):
+                sig_min = self._A1_SIG_MIN_DEFAULT
+                sig_max = self._A1_SIG_MAX_DEFAULT
+                self.var_sig_min.set(f"{sig_min:.3f}")
+                self.var_sig_max.set(f"{sig_max:.3f}")
+
+        self.cfg.sig_min = float(sig_min)
+        self.cfg.sig_max = float(sig_max)
+        if hasattr(self, "btn_sig_min"):
+            self.btn_sig_min.configure(text=f"[{self.var_sig_min.get()}]")
+        if hasattr(self, "btn_sig_max"):
+            self.btn_sig_max.configure(text=f"[{self.var_sig_max.get()}]")
 
     def _pressure_display_to_kpa(self, display_value: float, unit: Optional[str] = None) -> float:
         active_unit = (unit or self.var_pressure_unit.get().strip() or "kPa")
