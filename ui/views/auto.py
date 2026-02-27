@@ -212,7 +212,7 @@ class AutoView(ttk.Frame):
         btns = ttk.Frame(self)
         btns.pack(pady=10)
 
-        ttk.Button(btns, text="TARA (0 kPa)", command=self._do_tare).grid(row=0, column=0, padx=10)
+        ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=10)
         ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=10)
         ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=10)
 

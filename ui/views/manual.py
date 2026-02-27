@@ -260,7 +260,7 @@ class ManualView(ttk.Frame):
         btns.grid_columnconfigure(1, weight=1)
         btns.grid_columnconfigure(2, weight=1)
 
-        self.btn_zero = ttk.Button(btns, text="TARA", command=self._do_tare)
+        self.btn_zero = ttk.Button(btns, text="P=0", command=self._do_tare)
         self.btn_start = ttk.Button(btns, text="START", command=self._start)
         self.btn_stop_cfg = ttk.Button(btns, text="STOP", command=self._stop_and_back)
 
