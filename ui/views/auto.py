@@ -240,7 +240,7 @@ class AutoView(ttk.Frame):
         self.btn_tsettle = ttk.Button(frm, text=f"[{self.var_tsettle.get()}]", command=lambda: self._open_edit_dialog(self.var_tsettle, "Asentamiento (s)", 0, 60, self.btn_tsettle))
         self.btn_tsettle.grid(row=4, column=1, padx=6, pady=2, sticky="w")
 
-        ttk.Label(frm, text="P máx (s)").grid(row=4, column=2, padx=6, pady=2, sticky="e")
+        ttk.Label(frm, text="tiempo asentamiento Pmax").grid(row=4, column=2, padx=6, pady=2, sticky="e")
         self.btn_tmax = ttk.Button(frm, text=f"[{self.var_tmax.get()}]", command=lambda: self._open_edit_dialog(self.var_tmax, "P máx (s)", 0, 60, self.btn_tmax))
         self.btn_tmax.grid(row=4, column=3, padx=6, pady=2, sticky="w")
 
