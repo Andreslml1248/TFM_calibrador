@@ -85,6 +85,21 @@ class ManualView(ttk.Frame):
     _A0_SIG_MAX_DEFAULT = 10.0
     _A1_SIG_MIN_DEFAULT = 4.0
     _A1_SIG_MAX_DEFAULT = 20.0
+    _PRESSURE_MIN_KPA = 0.0
+    _PRESSURE_MAX_KPA = 200.0
+    _UNIT_TO_KPA = {
+        "kPa": 1.0,
+        "bar": 100.0,
+        "mbar": 0.1,
+        "MPa": 1000.0,
+        "psi": 6.894757,
+        "kgf/cm²": 98.0665,
+        "mmH2O": 0.00980665,
+        "cmH2O": 0.0980665,
+        "inH2O": 0.2490889,
+        "mmHg": 0.133322,
+        "inHg": 3.386389,
+    }
     _SP_UNITS = (
         "psi",
         "bar",
@@ -206,11 +221,11 @@ class ManualView(ttk.Frame):
 
         # Hacemos 2 columnas compactas
         ttk.Label(rng_box, text="P mín").grid(row=0, column=0, sticky="w", padx=6, pady=(4, 2))
-        self.btn_pmin = ttk.Button(rng_box, text=f"[{self.var_pmin.get()}]", command=lambda: self._open_edit_dialog(self.var_pmin, "P mín (kPa)", 0, 500, self.btn_pmin))
+        self.btn_pmin = ttk.Button(rng_box, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
         self.btn_pmin.grid(row=0, column=1, sticky="w", padx=6, pady=(4, 2))
 
         ttk.Label(rng_box, text="P máx").grid(row=1, column=0, sticky="w", padx=6, pady=2)
-        self.btn_pmax = ttk.Button(rng_box, text=f"[{self.var_pmax.get()}]", command=lambda: self._open_edit_dialog(self.var_pmax, "P máx (kPa)", 0, 500, self.btn_pmax))
+        self.btn_pmax = ttk.Button(rng_box, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
         self.btn_pmax.grid(row=1, column=1, sticky="w", padx=6, pady=2)
 
         self.lbl_sigmin = ttk.Label(rng_box, text="I mín")
@@ -296,11 +311,55 @@ class ManualView(ttk.Frame):
 
     def _update_sp_unit_ui(self):
         unit = self.var_sp_unit.get().strip() or "kPa"
+        if unit not in self._UNIT_TO_KPA:
+            unit = "kPa"
         self.var_sp_unit.set(unit)
         self.cfg.sp_unit = unit
         self.var_sp_label.set(f"SP ({unit}):")
         if hasattr(self, "btn_sp_unit"):
             self.btn_sp_unit.configure(text=unit)
+        self._sync_pressure_display_from_kpa()
+
+    def _pressure_display_to_kpa(self, display_value: float) -> float:
+        unit = self.var_sp_unit.get().strip() or "kPa"
+        factor = float(self._UNIT_TO_KPA.get(unit, 1.0))
+        return float(display_value) * factor
+
+    def _pressure_kpa_to_display(self, kpa_value: float) -> float:
+        unit = self.var_sp_unit.get().strip() or "kPa"
+        factor = float(self._UNIT_TO_KPA.get(unit, 1.0))
+        return float(kpa_value) / factor if abs(factor) > 1e-12 else float(kpa_value)
+
+    def _fmt_display_pressure(self, value: float) -> str:
+        txt = f"{float(value):.4f}".rstrip("0").rstrip(".")
+        return txt if txt else "0"
+
+    def _parse_display_pressure_kpa(self, raw: str, field_name: str) -> float:
+        try:
+            display_value = float(raw.strip().replace(",", "."))
+        except Exception:
+            raise ValueError(f"{field_name}: valor inválido.")
+
+        value_kpa = self._pressure_display_to_kpa(display_value)
+        if value_kpa < self._PRESSURE_MIN_KPA or value_kpa > self._PRESSURE_MAX_KPA:
+            unit = self.var_sp_unit.get().strip() or "kPa"
+            raise ValueError(
+                f"{field_name}: fuera de rango físico 0-200 kPa. "
+                f"({display_value:.4f} {unit} = {value_kpa:.4f} kPa)"
+            )
+        return float(value_kpa)
+
+    def _sync_pressure_display_from_kpa(self):
+        self.var_sp.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.sp_kpa)))
+        self.var_pmin.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.p_min_kpa)))
+        self.var_pmax.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.p_max_kpa)))
+
+        if hasattr(self, "btn_sp"):
+            self.btn_sp.configure(text=f"[{self.var_sp.get()}]")
+        if hasattr(self, "btn_pmin"):
+            self.btn_pmin.configure(text=f"[{self.var_pmin.get()}]")
+        if hasattr(self, "btn_pmax"):
+            self.btn_pmax.configure(text=f"[{self.var_pmax.get()}]")
 
     # -------------------------
     # Estados internos
@@ -864,12 +923,10 @@ class ManualView(ttk.Frame):
 
     def _open_edit_dialog_sp(self):
         """Abre modal para editar SP con aplicación automática"""
-        button = self.btn_sp
-        var = self.var_sp
         unit = self.var_sp_unit.get().strip() or "kPa"
         label = f"SP ({unit})"
-        min_val = 0
-        max_val = 500
+        min_val = self._pressure_kpa_to_display(self._PRESSURE_MIN_KPA)
+        max_val = self._pressure_kpa_to_display(self._PRESSURE_MAX_KPA)
 
         dialog = tk.Toplevel(self)
         dialog.title(f"Editar: {label}")
@@ -906,9 +963,9 @@ class ManualView(ttk.Frame):
         frm.pack(fill="both", expand=True)
 
         ttk.Label(frm, text=label, font=("Arial", 11, "bold")).pack(pady=(0, 2))
-        ttk.Label(frm, text=f"Rango: {min_val} - {max_val}", font=("Arial", 8)).pack(pady=(0, 8))
+        ttk.Label(frm, text=f"Rango: {self._fmt_display_pressure(min_val)} - {self._fmt_display_pressure(max_val)} {unit}", font=("Arial", 8)).pack(pady=(0, 8))
 
-        var_edit = tk.StringVar(value=var.get())
+        var_edit = tk.StringVar(value=self.var_sp.get())
         entry_font = tkFont.Font(family="Arial", size=14, weight="bold")
         entry = tk.Entry(frm, textvariable=var_edit, justify="center", relief="solid", borderwidth=2)
         entry.config(font=entry_font)
@@ -1010,18 +1067,12 @@ class ManualView(ttk.Frame):
 
         def on_save():
             try:
-                valor = float(var_edit.get().strip().replace(",", "."))
-
-                if valor < min_val or valor > max_val:
-                    raise ValueError(f"Valor fuera de rango [{min_val}, {max_val}]")
-
-                var.set(str(valor))
-                button.config(text=f"[{valor}]")
-                self._apply_sp()
+                self.cfg.sp_kpa = self._parse_display_pressure_kpa(var_edit.get(), "SP")
+                self._sync_pressure_display_from_kpa()
 
                 dialog.destroy()
             except ValueError as e:
-                messagebox.showerror("Error", f"Valor inválido: {str(e)}")
+                messagebox.showwarning("Rango inválido", str(e))
 
         def on_cancel():
             dialog.destroy()
@@ -1030,6 +1081,174 @@ class ManualView(ttk.Frame):
         ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
 
         entry.bind("<Return>", lambda e: on_save())
+        entry.bind("<Escape>", lambda e: on_cancel())
+
+        dialog.wait_window()
+
+    def _open_edit_dialog_pmin(self):
+        self._open_edit_dialog_pressure_bound("p_min_kpa", "P mín")
+
+    def _open_edit_dialog_pmax(self):
+        self._open_edit_dialog_pressure_bound("p_max_kpa", "P máx")
+
+    def _open_edit_dialog_pressure_bound(self, attr_name: str, field_label: str):
+        unit = self.var_sp_unit.get().strip() or "kPa"
+        min_val = self._pressure_kpa_to_display(self._PRESSURE_MIN_KPA)
+        max_val = self._pressure_kpa_to_display(self._PRESSURE_MAX_KPA)
+        current_kpa = float(getattr(self.cfg, attr_name))
+        current_disp = self._fmt_display_pressure(self._pressure_kpa_to_display(current_kpa))
+
+        if attr_name == "p_min_kpa":
+            button = self.btn_pmin
+        elif attr_name == "p_max_kpa":
+            button = self.btn_pmax
+        else:
+            raise ValueError("Campo de presión inválido.")
+
+        def _on_save(raw_value: str):
+            value_kpa = self._parse_display_pressure_kpa(raw_value, field_label)
+            setattr(self.cfg, attr_name, value_kpa)
+            self._sync_pressure_display_from_kpa()
+            button.configure(text=f"[{self.var_pmin.get() if attr_name == 'p_min_kpa' else self.var_pmax.get()}]")
+
+        self._open_numeric_keypad_dialog(
+            title=f"{field_label} ({unit})",
+            range_text=f"Rango: {self._fmt_display_pressure(min_val)} - {self._fmt_display_pressure(max_val)} {unit}",
+            initial_value=current_disp,
+            on_save=_on_save,
+        )
+
+    def _open_numeric_keypad_dialog(self, title: str, range_text: str, initial_value: str, on_save):
+        dialog = tk.Toplevel(self)
+        dialog.title(f"Editar: {title}")
+        dialog.geometry("320x420")
+        dialog.resizable(False, False)
+        dialog.attributes("-topmost", True)
+        dialog.transient(self.winfo_toplevel())
+        dialog.update_idletasks()
+
+        main_window = self.master if self.master else self
+        main_x = main_window.winfo_x()
+        main_y = main_window.winfo_y()
+        main_width = main_window.winfo_width()
+        main_height = main_window.winfo_height()
+        center_x = main_x + main_width // 2
+        center_y = main_y + main_height // 2
+        modal_width = 320
+        modal_height = 420
+        x = max(0, center_x - modal_width // 2)
+        y = max(0, center_y - modal_height // 2)
+        dialog.geometry(f"{modal_width}x{modal_height}+{x}+{y}")
+
+        dialog.focus_force()
+        dialog.grab_set()
+        dialog.update_idletasks()
+        dialog.update()
+
+        frm = ttk.Frame(dialog, padding=8)
+        frm.pack(fill="both", expand=True)
+        ttk.Label(frm, text=title, font=("Arial", 11, "bold")).pack(pady=(0, 2))
+        ttk.Label(frm, text=range_text, font=("Arial", 8)).pack(pady=(0, 8))
+
+        var_edit = tk.StringVar(value=initial_value)
+        entry_font = tkFont.Font(family="Arial", size=14, weight="bold")
+        entry = tk.Entry(frm, textvariable=var_edit, justify="center", relief="solid", borderwidth=2)
+        entry.config(font=entry_font)
+        entry.pack(fill="x", ipady=10, pady=(0, 10))
+        entry.select_range(0, len(var_edit.get()))
+        entry.focus()
+        replace_on_first_input = True
+
+        kbd_frm = ttk.LabelFrame(frm, text="Teclado", padding=6)
+        kbd_frm.pack(fill="both", expand=True, pady=(0, 8))
+
+        def add_digit(digit):
+            nonlocal replace_on_first_input
+            if replace_on_first_input:
+                var_edit.set(str(digit))
+                replace_on_first_input = False
+            else:
+                current = var_edit.get()
+                var_edit.set(current + str(digit))
+            entry.focus()
+            entry.update()
+
+        def add_decimal():
+            nonlocal replace_on_first_input
+            if replace_on_first_input:
+                var_edit.set("0.")
+                replace_on_first_input = False
+            else:
+                current = var_edit.get()
+                if "." not in current:
+                    var_edit.set(current + ".")
+            entry.focus()
+            entry.update()
+
+        def delete_last():
+            nonlocal replace_on_first_input
+            if replace_on_first_input:
+                var_edit.set("")
+            else:
+                current = var_edit.get()
+                var_edit.set(current[:-1] if current else "")
+            entry.focus()
+            entry.update()
+
+        def clear_all():
+            nonlocal replace_on_first_input
+            var_edit.set("")
+            replace_on_first_input = False
+            entry.focus()
+            entry.update()
+
+        btn_font = tkFont.Font(family="Arial", size=10, weight="bold")
+        btn_width = 3
+        btn_height = 1
+
+        row_frm = ttk.Frame(kbd_frm)
+        row_frm.pack(fill="both", expand=True, padx=1, pady=1)
+        tk.Button(row_frm, text="7", width=btn_width, height=btn_height, command=lambda: add_digit(7), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text="8", width=btn_width, height=btn_height, command=lambda: add_digit(8), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text="9", width=btn_width, height=btn_height, command=lambda: add_digit(9), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+
+        row_frm = ttk.Frame(kbd_frm)
+        row_frm.pack(fill="both", expand=True, padx=1, pady=1)
+        tk.Button(row_frm, text="4", width=btn_width, height=btn_height, command=lambda: add_digit(4), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text="5", width=btn_width, height=btn_height, command=lambda: add_digit(5), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text="6", width=btn_width, height=btn_height, command=lambda: add_digit(6), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+
+        row_frm = ttk.Frame(kbd_frm)
+        row_frm.pack(fill="both", expand=True, padx=1, pady=1)
+        tk.Button(row_frm, text="1", width=btn_width, height=btn_height, command=lambda: add_digit(1), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text="2", width=btn_width, height=btn_height, command=lambda: add_digit(2), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text="3", width=btn_width, height=btn_height, command=lambda: add_digit(3), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+
+        row_frm = ttk.Frame(kbd_frm)
+        row_frm.pack(fill="both", expand=True, padx=1, pady=1)
+        tk.Button(row_frm, text="0", width=btn_width, height=btn_height, command=lambda: add_digit(0), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text=".", width=btn_width, height=btn_height, command=add_decimal, font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text="←", width=btn_width, height=btn_height, command=delete_last, font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+
+        ttk.Button(kbd_frm, text="Borrar todo", command=clear_all).pack(fill="x", padx=2, pady=3)
+
+        action_frm = ttk.Frame(frm)
+        action_frm.pack(fill="x", pady=(6, 0))
+
+        def save_and_close():
+            try:
+                on_save(var_edit.get())
+                dialog.destroy()
+            except ValueError as e:
+                messagebox.showwarning("Rango inválido", str(e))
+
+        def on_cancel():
+            dialog.destroy()
+
+        ttk.Button(action_frm, text="✓ Guardar", command=save_and_close).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+
+        entry.bind("<Return>", lambda e: save_and_close())
         entry.bind("<Escape>", lambda e: on_cancel())
 
         dialog.wait_window()
@@ -1146,11 +1365,8 @@ class ManualView(ttk.Frame):
     # Solo aplica SP con botón/Enter
     def _apply_sp(self):
         try:
-            s = self.var_sp.get().strip().replace(",", ".")
-            sp = float(s)
-            if sp < 0:
-                sp = 0.0
-            self.cfg.sp_kpa = float(sp)
+            self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
+            self._sync_pressure_display_from_kpa()
         except Exception:
             pass
 
@@ -1271,14 +1487,21 @@ class ManualView(ttk.Frame):
             except:
                 return default
 
-        self.cfg.sp_kpa = f(self.var_sp, self.cfg.sp_kpa)
-        self.cfg.p_min_kpa = f(self.var_pmin, self.cfg.p_min_kpa)
-        self.cfg.p_max_kpa = f(self.var_pmax, self.cfg.p_max_kpa)
+        self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
+        self.cfg.p_min_kpa = self._parse_display_pressure_kpa(self.var_pmin.get(), "P mín")
+        self.cfg.p_max_kpa = self._parse_display_pressure_kpa(self.var_pmax.get(), "P máx")
         self.cfg.sig_min = f(self.var_sigmin, self.cfg.sig_min)
         self.cfg.sig_max = f(self.var_sigmax, self.cfg.sig_max)
         self.cfg.p_max_seguridad_kpa = f(self.var_pmaxseg, self.cfg.p_max_seguridad_kpa)
+        self._sync_pressure_display_from_kpa()
 
     def _validate_config(self):
+        if not (self._PRESSURE_MIN_KPA <= self.cfg.sp_kpa <= self._PRESSURE_MAX_KPA):
+            raise ValueError("SP fuera de rango físico (0-200 kPa).")
+        if not (self._PRESSURE_MIN_KPA <= self.cfg.p_min_kpa <= self._PRESSURE_MAX_KPA):
+            raise ValueError("P mín fuera de rango físico (0-200 kPa).")
+        if not (self._PRESSURE_MIN_KPA <= self.cfg.p_max_kpa <= self._PRESSURE_MAX_KPA):
+            raise ValueError("P máx fuera de rango físico (0-200 kPa).")
         if self.cfg.p_max_kpa <= self.cfg.p_min_kpa:
             raise ValueError("Presión máx debe ser mayor que presión mín.")
         if self.cfg.sig_max <= self.cfg.sig_min:
