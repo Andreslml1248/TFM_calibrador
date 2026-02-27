@@ -301,30 +301,31 @@ class ManualView(ttk.Frame):
         self.frm_live = frm_live
 
         # Letras un pelín más pequeñas para que quepa
-        big = ("Arial", 13, "bold")
-        normal = ("Arial", 11)
+        big = ("Arial", 11, "bold")
+        normal = ("Arial", 10)
 
-        ttk.Label(frm_live, text="PRESIÓN:", font=normal).grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
-        ttk.Label(frm_live, textvariable=self.var_p_source, font=big).grid(row=0, column=1, sticky="w", padx=8, pady=(8, 4))
+        ttk.Label(frm_live, text="PRESIÓN:", font=normal).grid(row=0, column=0, sticky="w", padx=8, pady=(4, 2))
+        ttk.Label(frm_live, textvariable=self.var_p_source, font=big).grid(row=0, column=1, sticky="w", padx=8, pady=(4, 2))
 
-        ttk.Label(frm_live, text="DUT:", font=normal).grid(row=1, column=0, sticky="w", padx=8, pady=4)
-        ttk.Label(frm_live, textvariable=self.var_sig, font=big).grid(row=1, column=1, sticky="w", padx=8, pady=4)
+        ttk.Label(frm_live, text="DUT:", font=normal).grid(row=1, column=0, sticky="w", padx=8, pady=2)
+        ttk.Label(frm_live, textvariable=self.var_sig, font=big).grid(row=1, column=1, sticky="w", padx=8, pady=2)
 
-        ttk.Label(frm_live, text="%SPAN:", font=normal).grid(row=2, column=0, sticky="w", padx=8, pady=2)
-        ttk.Label(frm_live, textvariable=self.var_span, font=normal).grid(row=2, column=1, sticky="w", padx=8, pady=2)
+        ttk.Label(frm_live, text="%SPAN:", font=normal).grid(row=2, column=0, sticky="w", padx=8, pady=1)
+        ttk.Label(frm_live, textvariable=self.var_span, font=normal).grid(row=2, column=1, sticky="w", padx=8, pady=1)
 
-        ttk.Label(frm_live, text="%ERROR:", font=normal).grid(row=3, column=0, sticky="w", padx=8, pady=2)
-        ttk.Label(frm_live, textvariable=self.var_err, font=normal).grid(row=3, column=1, sticky="w", padx=8, pady=2)
+        ttk.Label(frm_live, text="%ERROR:", font=normal).grid(row=3, column=0, sticky="w", padx=8, pady=1)
+        ttk.Label(frm_live, textvariable=self.var_err, font=normal).grid(row=3, column=1, sticky="w", padx=8, pady=1)
 
-        ttk.Label(frm_live, text="PWM:", font=normal).grid(row=4, column=0, sticky="w", padx=8, pady=(2, 6))
-        ttk.Label(frm_live, textvariable=self.var_pwm, font=normal).grid(row=4, column=1, sticky="w", padx=8, pady=(2, 6))
+        ttk.Label(frm_live, text="PWM:", font=normal).grid(row=4, column=0, sticky="w", padx=8, pady=(1, 3))
+        ttk.Label(frm_live, textvariable=self.var_pwm, font=normal).grid(row=4, column=1, sticky="w", padx=8, pady=(1, 3))
 
         plot_frm = ttk.Frame(frm_live)
-        plot_frm.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=8, pady=(2, 8))
+        plot_frm.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=8, pady=(0, 6))
         plot_frm.grid_rowconfigure(0, weight=1)
         plot_frm.grid_columnconfigure(0, weight=1)
 
-        self._live_fig = Figure(figsize=(4.6, 2.9), dpi=100)
+        self._live_fig = Figure(figsize=(4.6, 2.5), dpi=100)
+        self._live_fig.subplots_adjust(left=0.11, right=0.98, top=0.90, bottom=0.22)
         self._live_ax = self._live_fig.add_subplot(111)
         self._live_ax.set_title("Patron vs DUT estimado")
         self._live_ax.set_xlabel("Tiempo (s)")
@@ -1637,5 +1638,6 @@ class ManualView(ttk.Frame):
             self.pi.freeze()
         except Exception:
             pass
+
 
 
