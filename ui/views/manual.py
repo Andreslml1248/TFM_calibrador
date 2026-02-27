@@ -818,10 +818,11 @@ class ManualView(ttk.Frame):
                     else:
                         btn.configure(relief="raised", bg="#f0f0f0")
 
+            chan_labels = {"A0": "Señal V", "A1": "Señal I"}
             for mode_sel in ("A0", "A1"):
                 btn = tk.Button(
                     chan_box,
-                    text=mode_sel,
+                    text=chan_labels[mode_sel],
                     width=4,
                     height=2,
                     font=("Arial", 10, "bold"),
