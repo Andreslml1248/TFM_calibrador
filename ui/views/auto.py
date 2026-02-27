@@ -150,7 +150,6 @@ class AutoView(ttk.Frame):
         ttk.Label(self, text="MODO AUTOMÁTICO", font=("Arial", 16, "bold")).pack(pady=8)
 
         self.lbl_status = ttk.Label(self, text="IDLE", font=("Arial", 12, "bold"))
-        self.lbl_status.pack(pady=4)
 
         # LIVE con DUT
         self.lbl_live = ttk.Label(self, text="P=--.- kPa | SP=--.- | u=-- | DUT=--", font=("Arial", 11))
