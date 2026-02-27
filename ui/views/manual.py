@@ -330,6 +330,7 @@ class ManualView(ttk.Frame):
         self._live_ax.set_title("Patron vs DUT estimado")
         self._live_ax.set_xlabel("Tiempo (s)")
         self._live_ax.set_ylabel("Presion (kPa)")
+        self._live_ax.tick_params(axis="both", labelsize=8)
         self._live_ax.grid(True, alpha=0.30)
         (self._line_pat,) = self._live_ax.plot([], [], color="#1f77b4", linewidth=1.8, label="Patron")
         (self._line_dut,) = self._live_ax.plot([], [], color="#d62728", linewidth=1.8, label="DUT estimado")
