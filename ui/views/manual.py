@@ -5,6 +5,7 @@ import time
 import tkinter as tk
 from tkinter import ttk, messagebox, font as tkFont
 from dataclasses import dataclass
+from collections import deque
 from typing import Callable, Optional, Dict, Any
 
 import numpy as np
@@ -113,6 +114,9 @@ class ManualView(ttk.Frame):
         "mmHg",
         "inHg",
     )
+    _LIVE_PLOT_WINDOW_S = 60.0
+    _LIVE_PLOT_MAX_POINTS = 1200
+    _LIVE_PLOT_MIN_REDRAW_S = 0.10
 
     def __init__(
         self,
@@ -149,6 +153,11 @@ class ManualView(ttk.Frame):
 
         self.cfg = ManualConfig()
         self.rt = ManualRuntime()
+        self._live_plot_t0: Optional[float] = None
+        self._live_plot_last_draw_ts: float = 0.0
+        self._live_plot_t = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
+        self._live_plot_p_pat = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
+        self._live_plot_p_dut = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
 
         # Variables Tk
         self.var_sp = tk.StringVar(value=f"{self.cfg.sp_kpa:.2f}")
@@ -288,6 +297,7 @@ class ManualView(ttk.Frame):
         frm_live = ttk.LabelFrame(self, text="Lecturas en vivo")
         frm_live.grid(row=1, column=1, sticky="nsew", padx=(6, 10), pady=(4, 8))
         frm_live.grid_columnconfigure(1, weight=1)
+        frm_live.grid_rowconfigure(5, weight=1)
         self.frm_live = frm_live
 
         # Letras un pelín más pequeñas para que quepa
@@ -305,6 +315,26 @@ class ManualView(ttk.Frame):
 
         ttk.Label(frm_live, text="%ERROR:", font=normal).grid(row=3, column=0, sticky="w", padx=8, pady=2)
         ttk.Label(frm_live, textvariable=self.var_err, font=normal).grid(row=3, column=1, sticky="w", padx=8, pady=2)
+
+        ttk.Label(frm_live, text="PWM:", font=normal).grid(row=4, column=0, sticky="w", padx=8, pady=(2, 6))
+        ttk.Label(frm_live, textvariable=self.var_pwm, font=normal).grid(row=4, column=1, sticky="w", padx=8, pady=(2, 6))
+
+        plot_frm = ttk.Frame(frm_live)
+        plot_frm.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=8, pady=(2, 8))
+        plot_frm.grid_rowconfigure(0, weight=1)
+        plot_frm.grid_columnconfigure(0, weight=1)
+
+        self._live_fig = Figure(figsize=(4.6, 2.9), dpi=100)
+        self._live_ax = self._live_fig.add_subplot(111)
+        self._live_ax.set_title("Patron vs DUT estimado")
+        self._live_ax.set_xlabel("Tiempo (s)")
+        self._live_ax.set_ylabel("Presion (kPa)")
+        self._live_ax.grid(True, alpha=0.30)
+        (self._line_pat,) = self._live_ax.plot([], [], color="#1f77b4", linewidth=1.8, label="Patron")
+        (self._line_dut,) = self._live_ax.plot([], [], color="#d62728", linewidth=1.8, label="DUT estimado")
+        self._live_ax.legend(loc="upper left", fontsize=8)
+        self._live_canvas = FigureCanvasTkAgg(self._live_fig, master=plot_frm)
+        self._live_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
         self._on_mode_changed()
         self._update_sp_unit_ui()
@@ -1424,6 +1454,60 @@ class ManualView(ttk.Frame):
         sig_pct = 100.0 * (dut_eng - self.cfg.sig_min) / sig_span
         return sig_pct - p_pct
 
+    def _get_live_signal_bounds(self) -> tuple[float, float]:
+        def _parse_sig(var: tk.StringVar, default: float) -> float:
+            try:
+                return float(var.get().strip().replace(",", "."))
+            except Exception:
+                return float(default)
+        return _parse_sig(self.var_sigmin, self.cfg.sig_min), _parse_sig(self.var_sigmax, self.cfg.sig_max)
+
+    @staticmethod
+    def _dut_est_pressure_kpa(x_meas: float, x_min: float, x_max: float, p_min: float, p_max: float) -> float:
+        den = x_max - x_min
+        if abs(den) < 1e-9:
+            return float(p_min)
+        return float(p_min + (x_meas - x_min) * (p_max - p_min) / den)
+
+    def _update_live_plot(self, now_ts: float, p_pat_kpa: float, p_dut_est_kpa: float):
+        try:
+            if self._live_plot_t0 is None:
+                self._live_plot_t0 = now_ts
+            t_rel = now_ts - self._live_plot_t0
+            self._live_plot_t.append(float(t_rel))
+            self._live_plot_p_pat.append(float(p_pat_kpa))
+            self._live_plot_p_dut.append(float(p_dut_est_kpa))
+
+            if (now_ts - self._live_plot_last_draw_ts) < self._LIVE_PLOT_MIN_REDRAW_S:
+                return
+
+            x = list(self._live_plot_t)
+            y_pat = list(self._live_plot_p_pat)
+            y_dut = list(self._live_plot_p_dut)
+            if not x:
+                return
+
+            self._line_pat.set_data(x, y_pat)
+            self._line_dut.set_data(x, y_dut)
+
+            x_max = x[-1]
+            x_min = max(0.0, x_max - self._LIVE_PLOT_WINDOW_S)
+            self._live_ax.set_xlim(x_min, max(x_max, x_min + 1.0))
+
+            y_min = min(min(y_pat), min(y_dut))
+            y_max = max(max(y_pat), max(y_dut))
+            if abs(y_max - y_min) < 1e-6:
+                y_pad = 1.0
+            else:
+                y_pad = 0.10 * (y_max - y_min)
+            self._live_ax.set_ylim(y_min - y_pad, y_max + y_pad)
+
+            self._live_canvas.draw_idle()
+            self._live_plot_last_draw_ts = now_ts
+        except Exception:
+            # Fallo de render no debe tumbar el ciclo de adquisicion.
+            pass
+
     # -------------------------
     # Loop
     # -------------------------
@@ -1442,6 +1526,15 @@ class ManualView(ttk.Frame):
                 p = 0.0
 
             dut_eng = self._read_dut_eng()
+            sig_min_live, sig_max_live = self._get_live_signal_bounds()
+            p_dut_est = self._dut_est_pressure_kpa(
+                x_meas=dut_eng,
+                x_min=sig_min_live,
+                x_max=sig_max_live,
+                p_min=self.cfg.p_min_kpa,
+                p_max=self.cfg.p_max_kpa,
+            )
+            self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
 
             self.var_p_source.set(f"{p:,.2f} kPa".replace(",", ""))
             if self.cfg.dut_mode == "A0":
