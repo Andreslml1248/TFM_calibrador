@@ -61,6 +61,7 @@ def dut_vadc_to_eng(vadc: float, dut_mode: str) -> float:
 @dataclass
 class ManualConfig:
     sp_kpa: float = 60.0
+    sp_unit: str = "kPa"
     dut_mode: str = "A1"  # "A0" o "A1"
     p_min_kpa: float = 0.0
     p_max_kpa: float = 200.0
@@ -84,6 +85,19 @@ class ManualView(ttk.Frame):
     _A0_SIG_MAX_DEFAULT = 10.0
     _A1_SIG_MIN_DEFAULT = 4.0
     _A1_SIG_MAX_DEFAULT = 20.0
+    _SP_UNITS = (
+        "psi",
+        "bar",
+        "mbar",
+        "kPa",
+        "MPa",
+        "kgf/cm²",
+        "mmH2O",
+        "cmH2O",
+        "inH2O",
+        "mmHg",
+        "inHg",
+    )
 
     def __init__(
         self,
@@ -123,6 +137,8 @@ class ManualView(ttk.Frame):
 
         # Variables Tk
         self.var_sp = tk.StringVar(value=f"{self.cfg.sp_kpa:.2f}")
+        self.var_sp_unit = tk.StringVar(value=self.cfg.sp_unit)
+        self.var_sp_label = tk.StringVar(value=f"SP ({self.cfg.sp_unit}):")
         self.var_pmin = tk.StringVar(value=f"{self.cfg.p_min_kpa:.2f}")
         self.var_pmax = tk.StringVar(value=f"{self.cfg.p_max_kpa:.2f}")
         self.var_sigmin = tk.StringVar(value=f"{self.cfg.sig_min:.3f}")
@@ -216,9 +232,11 @@ class ManualView(ttk.Frame):
         sp_box.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
         sp_box.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(sp_box, text="SP (kPa):").grid(row=0, column=0, sticky="w", padx=6, pady=6)
+        ttk.Label(sp_box, textvariable=self.var_sp_label).grid(row=0, column=0, sticky="w", padx=6, pady=6)
         self.btn_sp = ttk.Button(sp_box, text=f"[{self.var_sp.get()}]", command=lambda: self._open_edit_dialog_sp())
         self.btn_sp.grid(row=0, column=1, sticky="w", padx=6, pady=6)
+        self.btn_sp_unit = ttk.Button(sp_box, text=self.var_sp_unit.get(), width=10, command=self._open_sp_unit_selector)
+        self.btn_sp_unit.grid(row=0, column=2, sticky="w", padx=(0, 6), pady=6)
 
         # Botones config (fila compacta)
         btns = ttk.Frame(frm_cfg)
@@ -274,6 +292,15 @@ class ManualView(ttk.Frame):
         ttk.Label(frm_live, textvariable=self.var_err, font=normal).grid(row=3, column=1, sticky="w", padx=8, pady=2)
 
         self._on_mode_changed()
+        self._update_sp_unit_ui()
+
+    def _update_sp_unit_ui(self):
+        unit = self.var_sp_unit.get().strip() or "kPa"
+        self.var_sp_unit.set(unit)
+        self.cfg.sp_unit = unit
+        self.var_sp_label.set(f"SP ({unit}):")
+        if hasattr(self, "btn_sp_unit"):
+            self.btn_sp_unit.configure(text=unit)
 
     # -------------------------
     # Estados internos
@@ -839,7 +866,8 @@ class ManualView(ttk.Frame):
         """Abre modal para editar SP con aplicación automática"""
         button = self.btn_sp
         var = self.var_sp
-        label = "SP (kPa)"
+        unit = self.var_sp_unit.get().strip() or "kPa"
+        label = f"SP ({unit})"
         min_val = 0
         max_val = 500
 
@@ -1004,6 +1032,62 @@ class ManualView(ttk.Frame):
         entry.bind("<Return>", lambda e: on_save())
         entry.bind("<Escape>", lambda e: on_cancel())
 
+        dialog.wait_window()
+
+    def _open_sp_unit_selector(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Seleccionar unidad SP")
+        dialog.geometry("280x360")
+        dialog.resizable(False, False)
+        dialog.transient(self.winfo_toplevel())
+        dialog.focus_force()
+        dialog.grab_set()
+
+        frm = ttk.Frame(dialog, padding=10)
+        frm.pack(fill="both", expand=True)
+
+        ttk.Label(frm, text="Unidad de SP", font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 6))
+
+        list_frm = ttk.Frame(frm)
+        list_frm.pack(fill="both", expand=True)
+
+        yscroll = ttk.Scrollbar(list_frm, orient="vertical")
+        yscroll.pack(side="right", fill="y")
+
+        lst_units = tk.Listbox(list_frm, exportselection=False, yscrollcommand=yscroll.set, height=11)
+        lst_units.pack(side="left", fill="both", expand=True)
+        yscroll.configure(command=lst_units.yview)
+
+        for unit in self._SP_UNITS:
+            lst_units.insert("end", unit)
+
+        current = self.var_sp_unit.get().strip() or "kPa"
+        try:
+            idx = self._SP_UNITS.index(current)
+        except ValueError:
+            idx = self._SP_UNITS.index("kPa")
+        lst_units.selection_set(idx)
+        lst_units.activate(idx)
+        lst_units.see(idx)
+
+        action_frm = ttk.Frame(frm)
+        action_frm.pack(fill="x", pady=(8, 0))
+
+        def on_save():
+            sel = lst_units.curselection()
+            if not sel:
+                return
+            self.var_sp_unit.set(self._SP_UNITS[int(sel[0])])
+            self._update_sp_unit_ui()
+            dialog.destroy()
+
+        def on_cancel():
+            dialog.destroy()
+
+        ttk.Button(action_frm, text="Guardar", command=on_save).pack(side="left", fill="x", expand=True, padx=(0, 4))
+        ttk.Button(action_frm, text="Cancelar", command=on_cancel).pack(side="left", fill="x", expand=True, padx=(4, 0))
+
+        lst_units.bind("<Double-Button-1>", lambda _e: on_save())
         dialog.wait_window()
 
     # -------------------------
@@ -1179,6 +1263,7 @@ class ManualView(ttk.Frame):
     # -------------------------
     def _pull_config_from_ui(self):
         self.cfg.dut_mode = self.var_mode.get().strip()
+        self.cfg.sp_unit = self.var_sp_unit.get().strip() or "kPa"
 
         def f(var: tk.StringVar, default: float) -> float:
             try:
