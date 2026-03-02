@@ -183,14 +183,19 @@ class AutoView(ttk.Frame):
 
         self.lbl_status = ttk.Label(self, text="IDLE", font=("Arial", 12, "bold"))
         self.var_flow_notice = tk.StringVar(value="")
-        self.lbl_flow_notice = ttk.Label(
+        self.lbl_flow_notice = tk.Label(
             self,
             textvariable=self.var_flow_notice,
-            font=("Arial", 11, "bold"),
-            foreground="#b00020",
+            font=("Arial", 12, "bold"),
+            fg="#b00020",
+            bg="#fff3cd",
             justify="center",
             anchor="center",
             wraplength=560,
+            relief="solid",
+            bd=1,
+            padx=8,
+            pady=6,
         )
         self.lbl_flow_notice.pack(fill="x", padx=10, pady=(0, 6))
 
@@ -1090,6 +1095,7 @@ class AutoView(ttk.Frame):
 
     def _show_flow_notice(self):
         self.var_flow_notice.set("Abra la valvula reguladora de flujo de la salida de presion")
+        self.lbl_flow_notice.update_idletasks()
 
     def _clear_flow_notice(self):
         if hasattr(self, "var_flow_notice"):
