@@ -262,9 +262,6 @@ class AutoView(ttk.Frame):
         self.btn_tmax = ttk.Button(frm, text=f"[{self.var_tmax.get()}]", command=lambda: self._open_edit_dialog(self.var_tmax, "P máx (s)", 0, 60, self.btn_tmax))
         self.btn_tmax.grid(row=4, column=3, padx=6, pady=2, sticky="w")
 
-        ttk.Button(frm, text="Editar condiciones de control", command=self._open_control_window)\
-            .grid(row=5, column=0, columnspan=4, padx=6, pady=8, sticky="we")
-
         btns = ttk.Frame(self)
         btns.pack(pady=10)
 
