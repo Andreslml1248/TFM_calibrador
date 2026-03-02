@@ -1199,14 +1199,6 @@ class AutoView(ttk.Frame):
             frm.grid_columnconfigure(col, weight=0)
         frm.grid_columnconfigure(1, weight=1)
 
-        uniform_edit_width = 12
-        self.btn_sig_min.configure(width=uniform_edit_width)
-        self.btn_sig_max.configure(width=uniform_edit_width)
-        self.btn_pmin.configure(width=uniform_edit_width)
-        self.btn_pmax.configure(width=uniform_edit_width)
-        self.btn_tsettle.configure(width=uniform_edit_width)
-        self.btn_tmax.configure(width=uniform_edit_width)
-
         sigmin_label = frm.grid_slaves(row=1, column=0)[0]
         sigmax_label = frm.grid_slaves(row=1, column=2)[0]
         pmin_label = frm.grid_slaves(row=2, column=0)[0]
@@ -1216,28 +1208,28 @@ class AutoView(ttk.Frame):
         tsettle_label = frm.grid_slaves(row=4, column=0)[0]
         tmax_label = frm.grid_slaves(row=4, column=2)[0]
 
-        sigmin_label.grid(row=1, column=0, padx=3, pady=1, sticky="e")
+        sigmin_label.grid(row=1, column=0, padx=3, pady=1, sticky="w")
         self.btn_sig_min.grid(row=1, column=1, padx=3, pady=1, sticky="ew")
 
-        sigmax_label.grid(row=2, column=0, padx=3, pady=1, sticky="e")
+        sigmax_label.grid(row=2, column=0, padx=3, pady=1, sticky="w")
         self.btn_sig_max.grid(row=2, column=1, padx=3, pady=1, sticky="ew")
 
-        pmin_label.grid(row=3, column=0, padx=3, pady=1, sticky="e")
+        pmin_label.grid(row=3, column=0, padx=3, pady=1, sticky="w")
         self.btn_pmin.grid(row=3, column=1, padx=3, pady=1, sticky="ew")
 
-        pmax_label.grid(row=4, column=0, padx=3, pady=1, sticky="e")
+        pmax_label.grid(row=4, column=0, padx=3, pady=1, sticky="w")
         self.btn_pmax.grid(row=4, column=1, padx=3, pady=1, sticky="ew")
 
-        npts_label.grid(row=5, column=0, padx=3, pady=1, sticky="e")
+        npts_label.grid(row=5, column=0, padx=3, pady=1, sticky="w")
         self.btn_npts.grid(row=5, column=1, padx=3, pady=1, sticky="w")
 
-        dir_label.grid(row=6, column=0, padx=3, pady=1, sticky="e")
+        dir_label.grid(row=6, column=0, padx=3, pady=1, sticky="w")
         self.btn_dir.grid(row=6, column=1, padx=3, pady=1, sticky="w")
 
-        tsettle_label.grid(row=7, column=0, padx=3, pady=1, sticky="e")
+        tsettle_label.grid(row=7, column=0, padx=3, pady=1, sticky="w")
         self.btn_tsettle.grid(row=7, column=1, padx=3, pady=1, sticky="ew")
 
-        tmax_label.grid(row=8, column=0, padx=3, pady=1, sticky="e")
+        tmax_label.grid(row=8, column=0, padx=3, pady=1, sticky="w")
         self.btn_tmax.grid(row=8, column=1, padx=3, pady=1, sticky="ew")
 
     # ========================================================
