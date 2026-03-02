@@ -199,9 +199,6 @@ class AutoView(ttk.Frame):
         )
         self.lbl_flow_notice.pack(fill="x", padx=10, pady=(0, 6))
 
-        # LIVE con DUT
-        self.lbl_live = ttk.Label(self, text="P=--.- kPa | SP=--.- | u=-- | DUT=--", font=("Arial", 11))
-        self.lbl_live.pack(pady=2)
 
         frm = ttk.LabelFrame(self, text="Configuración")
         frm.pack(fill="x", padx=10, pady=8)
@@ -1143,16 +1140,6 @@ class AutoView(ttk.Frame):
 
             if p >= float(self.cfg.p_max_seguridad_kpa):
                 raise RuntimeError(f"OVERPRESSURE: P={p:.2f} kPa")
-
-            # LIVE: DUT
-            try:
-                dut_txt = self._dut_text_live()
-            except Exception:
-                dut_txt = "DUT=ERR"
-
-            self.lbl_live.config(
-                text=f"P={p:6.2f} kPa | SP={sp:6.2f} | u={self.rt.last_u:5.3f} | {dut_txt}"
-            )
 
             st = self.rt.state
             t = self.rt.t_state or now
