@@ -181,35 +181,27 @@ class AutoView(ttk.Frame):
     def _build_ui(self):
         ttk.Label(self, text="MODO AUTOMÁTICO", font=("Arial", 16, "bold")).pack(pady=8)
 
-        self.lbl_status = ttk.Label(self, text="IDLE", font=("Arial", 10, "bold"))
+        self.lbl_status = ttk.Label(self, text="IDLE", font=("Arial", 12, "bold"))
         self.var_flow_notice = tk.StringVar(value="")
         self.lbl_flow_notice = tk.Label(
             self,
             textvariable=self.var_flow_notice,
-            font=("Arial", 10, "bold"),
+            font=("Arial", 12, "bold"),
             fg="#b00020",
             bg="#fff3cd",
             justify="center",
             anchor="center",
-            wraplength=500,
+            wraplength=560,
             relief="solid",
             bd=1,
-            padx=4,
-            pady=2,
+            padx=8,
+            pady=6,
         )
-        self.lbl_flow_notice.pack(fill="x", padx=4, pady=(0, 3))
-
-        body = ttk.Frame(self)
-        body.pack(fill="both", expand=True, padx=4, pady=(0, 3))
-        body.grid_columnconfigure(0, weight=1)
-        body.grid_rowconfigure(0, weight=1)
-
-        left_panel = ttk.Frame(body)
-        left_panel.grid(row=0, column=0, sticky="nsew")
+        self.lbl_flow_notice.pack(fill="x", padx=10, pady=(0, 6))
 
 
         frm = ttk.LabelFrame(self, text="Configuración")
-        frm.pack(in_=left_panel, fill="x", pady=(0, 3))
+        frm.pack(fill="x", padx=10, pady=8)
 
         # DUT
         self.var_mode = tk.StringVar(value="A1")
@@ -218,10 +210,10 @@ class AutoView(ttk.Frame):
         self.var_pressure_unit = tk.StringVar(value="kPa")
         self.var_pmin_label = tk.StringVar(value="P min (kPa)")
         self.var_pmax_label = tk.StringVar(value="P max (kPa)")
-        ttk.Radiobutton(frm, text="P/I", variable=self.var_mode, value="A1", command=self._on_mode_changed).grid(row=0, column=0, sticky="w", padx=2)
-        ttk.Radiobutton(frm, text="P/V", variable=self.var_mode, value="A0", command=self._on_mode_changed).grid(row=0, column=1, sticky="w", padx=2)
-        self.btn_pressure_unit = ttk.Button(frm, text=self.var_pressure_unit.get(), width=7, command=self._open_pressure_unit_selector)
-        self.btn_pressure_unit.grid(row=0, column=2, padx=2, pady=1, sticky="w")
+        ttk.Radiobutton(frm, text="Transmisor de presion P/I", variable=self.var_mode, value="A1", command=self._on_mode_changed).grid(row=0, column=0, sticky="w", padx=6)
+        ttk.Radiobutton(frm, text="Transmisor de presion P/V", variable=self.var_mode, value="A0", command=self._on_mode_changed).grid(row=0, column=1, sticky="w", padx=6)
+        self.btn_pressure_unit = ttk.Button(frm, text=self.var_pressure_unit.get(), width=10, command=self._open_pressure_unit_selector)
+        self.btn_pressure_unit.grid(row=0, column=2, padx=6, pady=2, sticky="w")
 
         # Señal / Presión
         self.var_sig_min = tk.StringVar(value="4.0")
@@ -229,31 +221,31 @@ class AutoView(ttk.Frame):
         self.var_pmin = tk.StringVar(value=self._fmt_display_pressure(self.cfg.p_min_kpa))
         self.var_pmax = tk.StringVar(value=self._fmt_display_pressure(self.cfg.p_max_kpa))
 
-        ttk.Label(frm, textvariable=self.var_sigmin_label).grid(row=1, column=0, padx=2, pady=1, sticky="e")
+        ttk.Label(frm, textvariable=self.var_sigmin_label).grid(row=1, column=0, padx=6, pady=2, sticky="e")
         self.btn_sig_min = ttk.Button(frm, text=f"[{self.var_sig_min.get()}]", command=lambda: self._open_edit_dialog(self.var_sig_min, "Señal min", 0, 100, self.btn_sig_min))
-        self.btn_sig_min.grid(row=1, column=1, padx=2, pady=1, sticky="w")
+        self.btn_sig_min.grid(row=1, column=1, padx=6, pady=2, sticky="w")
 
-        ttk.Label(frm, textvariable=self.var_sigmax_label).grid(row=1, column=2, padx=2, pady=1, sticky="e")
+        ttk.Label(frm, textvariable=self.var_sigmax_label).grid(row=1, column=2, padx=6, pady=2, sticky="e")
         self.btn_sig_max = ttk.Button(frm, text=f"[{self.var_sig_max.get()}]", command=lambda: self._open_edit_dialog(self.var_sig_max, "Señal max", 0, 100, self.btn_sig_max))
-        self.btn_sig_max.grid(row=1, column=3, padx=2, pady=1, sticky="w")
+        self.btn_sig_max.grid(row=1, column=3, padx=6, pady=2, sticky="w")
 
-        ttk.Label(frm, textvariable=self.var_pmin_label).grid(row=2, column=0, padx=2, pady=1, sticky="e")
+        ttk.Label(frm, textvariable=self.var_pmin_label).grid(row=2, column=0, padx=6, pady=2, sticky="e")
         self.btn_pmin = ttk.Button(frm, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
-        self.btn_pmin.grid(row=2, column=1, padx=2, pady=1, sticky="w")
+        self.btn_pmin.grid(row=2, column=1, padx=6, pady=2, sticky="w")
 
-        ttk.Label(frm, textvariable=self.var_pmax_label).grid(row=2, column=2, padx=2, pady=1, sticky="e")
+        ttk.Label(frm, textvariable=self.var_pmax_label).grid(row=2, column=2, padx=6, pady=2, sticky="e")
         self.btn_pmax = ttk.Button(frm, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
-        self.btn_pmax.grid(row=2, column=3, padx=2, pady=1, sticky="w")
+        self.btn_pmax.grid(row=2, column=3, padx=6, pady=2, sticky="w")
 
         # Secuencia
         self.var_npts = tk.StringVar(value="5")
         self.var_dir = tk.StringVar(value="BOTH")
-        ttk.Label(frm, text="Puntos").grid(row=3, column=0, padx=2, pady=1, sticky="e")
-        self.btn_npts = ttk.Button(frm, text=self.var_npts.get(), width=5, command=self._open_npts_selector)
-        self.btn_npts.grid(row=3, column=1, padx=2, pady=1, sticky="w")
+        ttk.Label(frm, text="Puntos").grid(row=3, column=0, padx=6, pady=2, sticky="e")
+        self.btn_npts = ttk.Button(frm, text=self.var_npts.get(), width=8, command=self._open_npts_selector)
+        self.btn_npts.grid(row=3, column=1, padx=6, pady=2, sticky="w")
         ttk.Label(frm, text="Dirección").grid(row=3, column=2, padx=6, pady=2, sticky="e")
-        self.btn_dir = ttk.Button(frm, text=self._direction_label(self.var_dir.get()), width=6, command=self._open_direction_selector)
-        self.btn_dir.grid(row=3, column=3, padx=2, pady=1, sticky="w")
+        self.btn_dir = ttk.Button(frm, text=self._direction_label(self.var_dir.get()), width=8, command=self._open_direction_selector)
+        self.btn_dir.grid(row=3, column=3, padx=6, pady=2, sticky="w")
 
         # Tiempos (NO control)
         self.var_tsettle = tk.StringVar(value="5")
@@ -261,24 +253,18 @@ class AutoView(ttk.Frame):
 
         ttk.Label(frm, text="Asentamiento (s)").grid(row=4, column=0, padx=6, pady=2, sticky="e")
         self.btn_tsettle = ttk.Button(frm, text=f"[{self.var_tsettle.get()}]", command=lambda: self._open_edit_dialog(self.var_tsettle, "Asentamiento (s)", 0, 60, self.btn_tsettle))
-        self.btn_tsettle.grid(row=4, column=1, padx=2, pady=1, sticky="w")
+        self.btn_tsettle.grid(row=4, column=1, padx=6, pady=2, sticky="w")
 
         ttk.Label(frm, text="tiempo asentamiento Pmax").grid(row=4, column=2, padx=6, pady=2, sticky="e")
         self.btn_tmax = ttk.Button(frm, text=f"[{self.var_tmax.get()}]", command=lambda: self._open_edit_dialog(self.var_tmax, "P máx (s)", 0, 60, self.btn_tmax))
-        self.btn_tmax.grid(row=4, column=3, padx=2, pady=1, sticky="w")
-        self._reflow_auto_config_widgets(frm)
+        self.btn_tmax.grid(row=4, column=3, padx=6, pady=2, sticky="w")
 
         btns = ttk.Frame(self)
-        btns.pack(in_=left_panel, fill="x", pady=(2, 3))
+        btns.pack(pady=10)
 
-        btns.grid_columnconfigure(0, weight=1)
-        btns.grid_columnconfigure(1, weight=1)
-        btns.grid_columnconfigure(2, weight=1)
-        ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=1, sticky="ew")
-        ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=1, sticky="ew")
-        ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=1, sticky="ew")
-        self.lbl_status.pack(in_=left_panel, fill="x", pady=(0, 2))
-
+        ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=10)
+        ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=10)
+        ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=10)
         self._on_mode_changed()
         self._update_pressure_unit_ui()
 
@@ -520,8 +506,6 @@ class AutoView(ttk.Frame):
 
         self.cfg.sig_min = float(sig_min)
         self.cfg.sig_max = float(sig_max)
-        self.var_sigmin_label.set(self._label_with_colon(self.var_sigmin_label.get()))
-        self.var_sigmax_label.set(self._label_with_colon(self.var_sigmax_label.get()))
         if hasattr(self, "btn_sig_min"):
             self.btn_sig_min.configure(text=f"[{self.var_sig_min.get()}]")
         if hasattr(self, "btn_sig_max"):
@@ -571,8 +555,6 @@ class AutoView(ttk.Frame):
         self.var_pressure_unit.set(unit)
         self.var_pmin_label.set(f"P min ({unit})")
         self.var_pmax_label.set(f"P max ({unit})")
-        self.var_pmin_label.set(self._label_with_colon(self.var_pmin_label.get()))
-        self.var_pmax_label.set(self._label_with_colon(self.var_pmax_label.get()))
         if hasattr(self, "btn_pressure_unit"):
             self.btn_pressure_unit.configure(text=unit)
         self._sync_pressure_display_from_kpa()
@@ -1132,69 +1114,6 @@ class AutoView(ttk.Frame):
         if has_down:
             down_idx = [i for i, phase in enumerate(phases) if phase == "down"]
             ax.scatter(x[down_idx], y[down_idx], s=size, alpha=0.7, color="red", label="Bajada")
-
-    def _label_with_colon(self, text: str) -> str:
-        clean = (text or "").rstrip()
-        if clean.endswith(":"):
-            return clean
-        return f"{clean}:"
-
-    def _reflow_auto_config_widgets(self, frm):
-        for col in range(4):
-            frm.grid_columnconfigure(col, weight=0)
-        frm.grid_columnconfigure(1, weight=1)
-
-        uniform_edit_width = 7
-        self.btn_sig_min.configure(width=uniform_edit_width)
-        self.btn_sig_max.configure(width=uniform_edit_width)
-        self.btn_pmin.configure(width=uniform_edit_width)
-        self.btn_pmax.configure(width=uniform_edit_width)
-        self.btn_tsettle.configure(width=uniform_edit_width)
-        self.btn_tmax.configure(width=uniform_edit_width)
-        self.btn_npts.configure(width=uniform_edit_width)
-        self.btn_dir.configure(width=uniform_edit_width)
-
-        sigmin_label = frm.grid_slaves(row=1, column=0)[0]
-        sigmax_label = frm.grid_slaves(row=1, column=2)[0]
-        pmin_label = frm.grid_slaves(row=2, column=0)[0]
-        pmax_label = frm.grid_slaves(row=2, column=2)[0]
-        npts_label = frm.grid_slaves(row=3, column=0)[0]
-        dir_label = frm.grid_slaves(row=3, column=2)[0]
-        tsettle_label = frm.grid_slaves(row=4, column=0)[0]
-        tmax_label = frm.grid_slaves(row=4, column=2)[0]
-
-        sigmin_label.configure(text=self._label_with_colon(self.var_sigmin_label.get()))
-        sigmax_label.configure(text=self._label_with_colon(self.var_sigmax_label.get()))
-        pmin_label.configure(text=self._label_with_colon(self.var_pmin_label.get()))
-        pmax_label.configure(text=self._label_with_colon(self.var_pmax_label.get()))
-        npts_label.configure(text="Puntos:")
-        dir_label.configure(text="Direccion:")
-        tsettle_label.configure(text="Asentamiento (s):")
-        tmax_label.configure(text="Tiempo asent. Pmax:")
-
-        sigmin_label.grid(row=1, column=0, padx=3, pady=1, sticky="e")
-        self.btn_sig_min.grid(row=1, column=1, padx=3, pady=1, sticky="w")
-
-        sigmax_label.grid(row=2, column=0, padx=3, pady=1, sticky="e")
-        self.btn_sig_max.grid(row=2, column=1, padx=3, pady=1, sticky="w")
-
-        pmin_label.grid(row=3, column=0, padx=3, pady=1, sticky="e")
-        self.btn_pmin.grid(row=3, column=1, padx=3, pady=1, sticky="w")
-
-        pmax_label.grid(row=4, column=0, padx=3, pady=1, sticky="e")
-        self.btn_pmax.grid(row=4, column=1, padx=3, pady=1, sticky="w")
-
-        npts_label.grid(row=5, column=0, padx=3, pady=1, sticky="e")
-        self.btn_npts.grid(row=5, column=1, padx=3, pady=1, sticky="w")
-
-        dir_label.grid(row=6, column=0, padx=3, pady=1, sticky="e")
-        self.btn_dir.grid(row=6, column=1, padx=3, pady=1, sticky="w")
-
-        tsettle_label.grid(row=7, column=0, padx=3, pady=1, sticky="e")
-        self.btn_tsettle.grid(row=7, column=1, padx=3, pady=1, sticky="w")
-
-        tmax_label.grid(row=8, column=0, padx=3, pady=1, sticky="e")
-        self.btn_tmax.grid(row=8, column=1, padx=3, pady=1, sticky="w")
 
     # ========================================================
     # LOOP
