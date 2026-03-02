@@ -972,7 +972,11 @@ class AutoView(ttk.Frame):
             self.results = []
 
             self._last_tick_ts = None
-            self._goto_state(ZERO_VENT)
+            first_sp = float(self.rt.points[0]) if self.rt.points else 0.0
+            if first_sp == 0.0:
+                self._goto_state(HOLD_MEASURE)
+            else:
+                self._goto_state(GOTO_SP)
             self.lbl_status.config(text=f"RUNNING | {self.rt.state}")
 
         except Exception as e:
