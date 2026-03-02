@@ -540,8 +540,6 @@ class AutoView(ttk.Frame):
 
         self.cfg.sig_min = float(sig_min)
         self.cfg.sig_max = float(sig_max)
-        self.var_sigmin_label.set(self._label_with_colon(self.var_sigmin_label.get()))
-        self.var_sigmax_label.set(self._label_with_colon(self.var_sigmax_label.get()))
         if hasattr(self, "btn_sig_min"):
             self.btn_sig_min.configure(text=f"[{self.var_sig_min.get()}]")
         if hasattr(self, "btn_sig_max"):
@@ -591,8 +589,6 @@ class AutoView(ttk.Frame):
         self.var_pressure_unit.set(unit)
         self.var_pmin_label.set(f"P min ({unit})")
         self.var_pmax_label.set(f"P max ({unit})")
-        self.var_pmin_label.set(self._label_with_colon(self.var_pmin_label.get()))
-        self.var_pmax_label.set(self._label_with_colon(self.var_pmax_label.get()))
         if hasattr(self, "btn_pressure_unit"):
             self.btn_pressure_unit.configure(text=unit)
         self._sync_pressure_display_from_kpa()
@@ -1238,28 +1234,28 @@ class AutoView(ttk.Frame):
         tmax_label.configure(text="Tiempo asent. Pmax:")
 
         sigmin_label.grid(row=1, column=0, padx=3, pady=1, sticky="e")
-        self.btn_sig_min.grid(row=1, column=1, padx=3, pady=1, sticky="w")
+        self.btn_sig_min.grid(row=1, column=1, padx=3, pady=1, sticky="ew")
 
         sigmax_label.grid(row=2, column=0, padx=3, pady=1, sticky="e")
-        self.btn_sig_max.grid(row=2, column=1, padx=3, pady=1, sticky="w")
+        self.btn_sig_max.grid(row=2, column=1, padx=3, pady=1, sticky="ew")
 
         pmin_label.grid(row=3, column=0, padx=3, pady=1, sticky="e")
-        self.btn_pmin.grid(row=3, column=1, padx=3, pady=1, sticky="w")
+        self.btn_pmin.grid(row=3, column=1, padx=3, pady=1, sticky="ew")
 
         pmax_label.grid(row=4, column=0, padx=3, pady=1, sticky="e")
-        self.btn_pmax.grid(row=4, column=1, padx=3, pady=1, sticky="w")
+        self.btn_pmax.grid(row=4, column=1, padx=3, pady=1, sticky="ew")
 
         npts_label.grid(row=5, column=0, padx=3, pady=1, sticky="e")
-        self.btn_npts.grid(row=5, column=1, padx=3, pady=1, sticky="w")
+        self.btn_npts.grid(row=5, column=1, padx=3, pady=1, sticky="ew")
 
         dir_label.grid(row=6, column=0, padx=3, pady=1, sticky="e")
-        self.btn_dir.grid(row=6, column=1, padx=3, pady=1, sticky="w")
+        self.btn_dir.grid(row=6, column=1, padx=3, pady=1, sticky="ew")
 
         tsettle_label.grid(row=7, column=0, padx=3, pady=1, sticky="e")
-        self.btn_tsettle.grid(row=7, column=1, padx=3, pady=1, sticky="w")
+        self.btn_tsettle.grid(row=7, column=1, padx=3, pady=1, sticky="ew")
 
         tmax_label.grid(row=8, column=0, padx=3, pady=1, sticky="e")
-        self.btn_tmax.grid(row=8, column=1, padx=3, pady=1, sticky="w")
+        self.btn_tmax.grid(row=8, column=1, padx=3, pady=1, sticky="ew")
 
     # ========================================================
     # LOOP
