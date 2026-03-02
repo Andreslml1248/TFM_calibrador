@@ -199,9 +199,18 @@ class AutoView(ttk.Frame):
         )
         self.lbl_flow_notice.pack(fill="x", padx=10, pady=(0, 6))
 
+        body = ttk.Frame(self)
+        body.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+
+        left_panel = ttk.Frame(body)
+        left_panel.pack(side="left", fill="y", padx=(0, 8))
+
+        right_panel = ttk.LabelFrame(body, text="Grafica en vivo", padding=4)
+        right_panel.pack(side="right", fill="both", expand=True)
+
 
         frm = ttk.LabelFrame(self, text="Configuración")
-        frm.pack(fill="x", padx=10, pady=8)
+        frm.pack(in_=left_panel, fill="x", pady=(0, 8))
 
         # DUT
         self.var_mode = tk.StringVar(value="A1")
@@ -260,13 +269,20 @@ class AutoView(ttk.Frame):
         self.btn_tmax.grid(row=4, column=3, padx=6, pady=2, sticky="w")
 
         btns = ttk.Frame(self)
-        btns.pack(pady=10)
+        btns.pack(in_=left_panel, fill="x", pady=(0, 8))
 
-        ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=10)
-        ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=10)
-        ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=10)
+        ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=8)
+        ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=8)
+        ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=8)
+        self.lbl_status.pack(in_=left_panel, fill="x", pady=(0, 4))
+
+        self._live_fig = Figure(figsize=(3.1, 2.7), dpi=100)
+        self._live_ax = self._live_fig.add_subplot(111)
+        self._live_canvas = FigureCanvasTkAgg(self._live_fig, master=right_panel)
+        self._live_canvas.get_tk_widget().pack(fill="both", expand=True)
         self._on_mode_changed()
         self._update_pressure_unit_ui()
+        self._refresh_live_plot()
 
     # ========================================================
     # Modal Edit Dialog
@@ -995,6 +1011,7 @@ class AutoView(ttk.Frame):
 
             # reset resultados
             self.results = []
+            self._refresh_live_plot()
 
             self._last_tick_ts = None
             first_sp = float(self.rt.points[0]) if self.rt.points else 0.0
@@ -1114,6 +1131,50 @@ class AutoView(ttk.Frame):
         if has_down:
             down_idx = [i for i, phase in enumerate(phases) if phase == "down"]
             ax.scatter(x[down_idx], y[down_idx], s=size, alpha=0.7, color="red", label="Bajada")
+
+    def _refresh_live_plot(self):
+        if not hasattr(self, "_live_ax") or not hasattr(self, "_live_canvas"):
+            return
+
+        ax = self._live_ax
+        ax.clear()
+
+        if not self.results:
+            ax.text(0.5, 0.5, "Esperando puntos", ha="center", va="center", fontsize=10)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title("Grafica en vivo", fontsize=9, fontweight="bold")
+            self._live_fig.tight_layout(pad=0.6)
+            self._live_canvas.draw_idle()
+            return
+
+        x = np.array([r["p_kpa"] for r in self.results], dtype=float)
+        y = np.array([r["dut_eng"] for r in self.results], dtype=float)
+
+        self._plot_results_scatter(ax, x, y, 32)
+
+        if len(self.results) >= 2 and np.unique(x).size >= 2:
+            m, b = np.polyfit(x, y, 1)
+            y_hat = m * x + b
+            ss_res = float(np.sum((y - y_hat) ** 2))
+            ss_tot = float(np.sum((y - float(np.mean(y))) ** 2))
+            r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
+            order = np.argsort(x)
+            ax.plot(x[order], y_hat[order], "k-", linewidth=1.2)
+            ax.set_title(f"y={m:.3f}x+{b:.3f} | R2={r2:.3f}", fontsize=8, fontweight="bold")
+        else:
+            ax.set_title("Grafica en vivo", fontsize=9, fontweight="bold")
+
+        ax.set_xlabel("P (kPa)", fontsize=8)
+        ax.set_ylabel("DUT", fontsize=8)
+        ax.tick_params(labelsize=7)
+        ax.grid(True, alpha=0.3)
+        handles, labels = ax.get_legend_handles_labels()
+        if handles:
+            ax.legend(fontsize=7, loc="best")
+
+        self._live_fig.tight_layout(pad=0.6)
+        self._live_canvas.draw_idle()
 
     # ========================================================
     # LOOP
@@ -1321,6 +1382,7 @@ class AutoView(ttk.Frame):
             "u_last": float(self.rt.last_u),
         }
         self.results.append(row)
+        self._refresh_live_plot()
 
     def _span_percent(self, dut_eng: float) -> float:
         sig_min = float(self.cfg.sig_min)
