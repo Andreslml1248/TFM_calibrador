@@ -1086,8 +1086,8 @@ class ManualView(ttk.Frame):
 
         def on_save():
             try:
-                self.cfg.sp_kpa = self._parse_display_pressure_kpa(var_edit.get(), "SP")
-                self._sync_pressure_display_from_kpa()
+                self.var_sp.set(var_edit.get())
+                self._apply_sp()
 
                 dialog.destroy()
             except ValueError as e:
@@ -1386,6 +1386,10 @@ class ManualView(ttk.Frame):
         try:
             self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
             self._sync_pressure_display_from_kpa()
+            if self.rt.running:
+                self.rt.target_reached = False
+                self.pi.reset()
+                self.pi.unfreeze()
         except Exception:
             pass
 
@@ -1538,13 +1542,31 @@ class ManualView(ttk.Frame):
                 sp_ctrl = sp + float(self.pi.cfg.deadband_kpa)
 
                 if not self.rt.target_reached:
-                    self.set_valve(False)
-                    self.set_relay(True)
-                    u_cmd = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
-                    self.set_pump(u_cmd)
-                    self.var_pwm.set(f"u={u_cmd:.3f}")
+                    if p < sp:
+                        self.set_valve(False)
+                        self.set_relay(True)
+                        u_cmd = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
+                        self.set_pump(u_cmd)
+                        self.var_pwm.set(f"u={u_cmd:.3f}")
 
-                    if p >= sp_ctrl:
+                        if p >= sp_ctrl:
+                            self.rt.target_reached = True
+                            self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
+                            self.set_relay(False)
+                            self.set_valve(False)
+                            self.pi.freeze()
+                            self.var_pwm.set("u=0.000")
+                    elif p > sp:
+                        self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
+                        self.set_relay(False)
+                        self.set_valve(True)
+                        self.pi.freeze()
+                        self.var_pwm.set("u=0.000")
+
+                        if p <= sp:
+                            self.rt.target_reached = True
+                            self.set_valve(False)
+                    else:
                         self.rt.target_reached = True
                         self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
                         self.set_relay(False)
