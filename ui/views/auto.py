@@ -1019,6 +1019,8 @@ class AutoView(ttk.Frame):
         sp = self._current_sp()
         if self.rt.step_index == 0 and abs(sp) <= 1e-9:
             return sp
+        if self._is_down_step() or self._is_initial_down_ramp():
+            return sp
         return sp + float(self.cfg.deadband_kpa)
 
     def _is_max_point(self, sp: float) -> bool:
