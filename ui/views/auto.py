@@ -1042,8 +1042,12 @@ class AutoView(ttk.Frame):
 
         self._goto_state(GOTO_SP)
 
-    def _is_down_step(self, sp: float, p: float) -> bool:
-        return sp < p
+    def _is_down_step(self) -> bool:
+        if not self.rt.points or self.rt.step_index <= 0:
+            return False
+        prev_sp = float(self.rt.points[self.rt.step_index - 1])
+        curr_sp = float(self.rt.points[self.rt.step_index])
+        return curr_sp < prev_sp
 
     # ========================================================
     # LOOP
@@ -1102,7 +1106,7 @@ class AutoView(ttk.Frame):
                     self._goto_state(GOTO_SP)
 
             elif st == GOTO_SP:
-                is_down = self._is_down_step(sp_ctrl, p)
+                is_down = self._is_down_step()
 
                 if not is_down:
                     self.set_valve(False)
@@ -1123,8 +1127,9 @@ class AutoView(ttk.Frame):
                     self.set_valve(True)
                     self.rt.last_u = 1.0
 
-                    if abs(sp_ctrl - p) <= dead:
-                        self._goto_state(IN_BAND_WAIT_DOWN)
+                    if p <= sp_ctrl:
+                        self.set_valve(False)
+                        self._goto_state(HOLD_MEASURE)
 
             elif st == IN_BAND_WAIT_UP:
                 self.set_valve(False)
