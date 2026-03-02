@@ -1188,7 +1188,7 @@ class AutoView(ttk.Frame):
             frm.grid_columnconfigure(col, weight=0)
         frm.grid_columnconfigure(1, weight=1)
 
-        uniform_edit_width = 12
+        uniform_edit_width = 8
         self.btn_sig_min.configure(width=uniform_edit_width)
         self.btn_sig_max.configure(width=uniform_edit_width)
         self.btn_pmin.configure(width=uniform_edit_width)
