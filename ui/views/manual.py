@@ -74,6 +74,7 @@ class ManualConfig:
 @dataclass
 class ManualRuntime:
     running: bool = False
+    target_reached: bool = False
     p_zero_kpa: float = 0.0
     last_update_ts: float = 0.0
 
@@ -379,6 +380,7 @@ class ManualView(ttk.Frame):
     # -------------------------
     def _apply_state_config(self):
         self.rt.running = False
+        self.rt.target_reached = False
         self.pi.reset()
         self.pi.freeze()
         self.rt.last_update_ts = 0.0
@@ -388,11 +390,12 @@ class ManualView(ttk.Frame):
 
     def _apply_state_run(self):
         self.rt.running = True
+        self.rt.target_reached = False
         self._reset_live_plot()
         self.pi.reset()
         self.pi.unfreeze()
         self.rt.last_update_ts = 0.0
-        self.set_valve(True)
+        self.set_valve(False)
         self.set_relay(True)
         self._set_config_widgets_state(enabled=False)
         self.btn_stop_cfg.state(["!disabled"])
@@ -1531,10 +1534,28 @@ class ManualView(ttk.Frame):
                 )
                 self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
 
-                sp = float(self.cfg.sp_kpa)  # SP aplicado
-                u_cmd = self.pi.step(sp_kpa=sp, p_kpa=p, dt=dt_real)
-                self.set_pump(u_cmd)
-                self.var_pwm.set(f"u={u_cmd:.3f}")
+                sp = float(self.cfg.sp_kpa)
+                sp_ctrl = sp + float(self.pi.cfg.deadband_kpa)
+
+                if not self.rt.target_reached:
+                    self.set_valve(False)
+                    self.set_relay(True)
+                    u_cmd = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
+                    self.set_pump(u_cmd)
+                    self.var_pwm.set(f"u={u_cmd:.3f}")
+
+                    if p >= sp_ctrl:
+                        self.rt.target_reached = True
+                        self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
+                        self.set_relay(False)
+                        self.set_valve(False)
+                        self.pi.freeze()
+                        self.var_pwm.set("u=0.000")
+                else:
+                    self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
+                    self.set_relay(False)
+                    self.set_valve(False)
+                    self.var_pwm.set("u=0.000")
             else:
                 self.var_pwm.set("u=0.000")
 
