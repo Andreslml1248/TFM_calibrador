@@ -134,7 +134,7 @@ class AutoView(ttk.Frame):
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
-        update_period_ms: int = 40,
+        update_period_ms: int = 100,
     ):
         super().__init__(master)
 
