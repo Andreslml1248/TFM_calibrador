@@ -201,15 +201,12 @@ class AutoView(ttk.Frame):
 
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True, padx=10, pady=(0, 8))
-        body.grid_columnconfigure(0, weight=1, uniform="auto_body")
-        body.grid_columnconfigure(1, weight=1, uniform="auto_body")
-        body.grid_rowconfigure(0, weight=1)
 
         left_panel = ttk.Frame(body)
-        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        left_panel.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
         right_panel = ttk.LabelFrame(body, text="Grafica en vivo", padding=4)
-        right_panel.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        right_panel.pack(side="right", fill="both", expand=True)
 
 
         frm = ttk.LabelFrame(self, text="Configuración")
