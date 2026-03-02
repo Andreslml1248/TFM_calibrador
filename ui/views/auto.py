@@ -1019,7 +1019,7 @@ class AutoView(ttk.Frame):
         sp = self._current_sp()
         if self.rt.step_index == 0 and abs(sp) <= 1e-9:
             return sp
-        if self._is_down_step():
+        if self._is_down_phase():
             return sp
         return sp + float(self.cfg.deadband_kpa)
 
@@ -1053,6 +1053,10 @@ class AutoView(ttk.Frame):
 
     def _is_initial_down_ramp(self) -> bool:
         return self.cfg.direction == "DOWN" and self.rt.step_index == 0
+
+    def _is_down_phase(self) -> bool:
+        # En BOTH, cualquier tramo con setpoint decreciente usa la misma logica que DOWN.
+        return self._is_down_step()
 
     # ========================================================
     # LOOP
@@ -1111,7 +1115,7 @@ class AutoView(ttk.Frame):
                     self._goto_state(GOTO_SP)
 
             elif st == GOTO_SP:
-                is_down = self._is_down_step()
+                is_down = self._is_down_phase()
                 is_initial_down_ramp = self._is_initial_down_ramp()
 
                 if not is_down:
