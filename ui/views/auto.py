@@ -222,8 +222,8 @@ class AutoView(ttk.Frame):
         self.var_pressure_unit = tk.StringVar(value="kPa")
         self.var_pmin_label = tk.StringVar(value="P min (kPa)")
         self.var_pmax_label = tk.StringVar(value="P max (kPa)")
-        ttk.Radiobutton(frm, text="Transmisores de presion P/I", variable=self.var_mode, value="A1", command=self._on_mode_changed).grid(row=0, column=0, sticky="w", padx=2)
-        ttk.Radiobutton(frm, text="Transmisores de presion P/V", variable=self.var_mode, value="A0", command=self._on_mode_changed).grid(row=0, column=1, sticky="w", padx=2)
+        ttk.Radiobutton(frm, text="P/I", variable=self.var_mode, value="A1", command=self._on_mode_changed).grid(row=0, column=0, sticky="w", padx=2)
+        ttk.Radiobutton(frm, text="P/V", variable=self.var_mode, value="A0", command=self._on_mode_changed).grid(row=0, column=1, sticky="w", padx=2)
         self.btn_pressure_unit = ttk.Button(frm, text=self.var_pressure_unit.get(), width=7, command=self._open_pressure_unit_selector)
         self.btn_pressure_unit.grid(row=0, column=2, padx=2, pady=1, sticky="w")
 
