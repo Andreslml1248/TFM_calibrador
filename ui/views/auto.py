@@ -186,11 +186,13 @@ class AutoView(ttk.Frame):
         self.lbl_flow_notice = ttk.Label(
             self,
             textvariable=self.var_flow_notice,
-            font=("Arial", 10, "bold"),
-            foreground="#b35a00",
-            justify="right",
+            font=("Arial", 11, "bold"),
+            foreground="#b00020",
+            justify="center",
+            anchor="center",
+            wraplength=560,
         )
-        self.lbl_flow_notice.pack(anchor="e", padx=10, pady=(0, 2))
+        self.lbl_flow_notice.pack(fill="x", padx=10, pady=(0, 6))
 
         # LIVE con DUT
         self.lbl_live = ttk.Label(self, text="P=--.- kPa | SP=--.- | u=-- | DUT=--", font=("Arial", 11))
