@@ -795,42 +795,45 @@ class AutoView(ttk.Frame):
 
         # Fuente más grande
         lbl_font = ("Arial", 13)
-        def _control_value_row(row: int, label: str, var: tk.StringVar, min_val: float, max_val: float):
+        entry_font = ("Arial", 14, "bold")
+        def _control_entry_row(row: int, label: str, var: tk.StringVar):
             ttk.Label(frm, text=label, font=lbl_font).grid(row=row, column=0, sticky="e", padx=12, pady=10)
-            btn = ttk.Button(frm, text=f"[{var.get()}]")
-            btn.configure(command=lambda v=var, l=label, mn=min_val, mx=max_val, b=btn: self._open_edit_dialog(v, l, mn, mx, b))
-            btn.grid(row=row, column=1, sticky="ew", padx=12, pady=10)
-            return btn
+            entry = tk.Entry(
+                frm,
+                textvariable=var,
+                justify="center",
+                relief="solid",
+                borderwidth=2,
+                width=18,
+                font=entry_font,
+            )
+            entry.grid(row=row, column=1, sticky="ew", padx=12, pady=10)
+            entry.bind("<Button-1>", lambda _e, w=entry: w.focus_set())
+            return entry
 
         r = 0
-        self.btn_deadband = _control_value_row(r, "Banda muerta (kPa)", self.var_deadband, 0, 20)
+        self.entry_deadband = _control_entry_row(r, "Banda muerta (kPa)", self.var_deadband)
         r += 1
 
-        self.btn_inband_up = _control_value_row(r, "Tiempo en banda SUBIDA (s)", self.var_inband_up, 0, 30)
+        self.entry_inband_up = _control_entry_row(r, "Tiempo en banda SUBIDA (s)", self.var_inband_up)
         r += 1
 
-        self.btn_inband_down = _control_value_row(r, "Tiempo en banda BAJADA (s)", self.var_inband_down, 0, 30)
+        self.entry_inband_down = _control_entry_row(r, "Tiempo en banda BAJADA (s)", self.var_inband_down)
         r += 1
 
         ttk.Separator(frm).grid(row=r, column=0, columnspan=2, sticky="we", pady=12)
         r += 1
 
         ttk.Label(frm, text="U mínima", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
-        self.btn_u_min = ttk.Button(frm, text=f"[{self.var_u_min.get()}]")
-        self.btn_u_min.configure(command=lambda: self._open_edit_dialog(self.var_u_min, "U minima", 0, 1, self.btn_u_min))
-        self.btn_u_min.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
+        self.entry_u_min = _control_entry_row(r, "U mÃ­nima", self.var_u_min)
         r += 1
 
         ttk.Label(frm, text="U máxima", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
-        self.btn_u_max = ttk.Button(frm, text=f"[{self.var_u_max.get()}]")
-        self.btn_u_max.configure(command=lambda: self._open_edit_dialog(self.var_u_max, "U maxima", 0, 1, self.btn_u_max))
-        self.btn_u_max.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
+        self.entry_u_max = _control_entry_row(r, "U maxima", self.var_u_max)
         r += 1
 
         ttk.Label(frm, text="U feedforward (Uff)", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
-        self.btn_u_ff = ttk.Button(frm, text=f"[{self.var_u_ff.get()}]")
-        self.btn_u_ff.configure(command=lambda: self._open_edit_dialog(self.var_u_ff, "U feedforward (Uff)", 0, 1, self.btn_u_ff))
-        self.btn_u_ff.grid(row=r, column=1, sticky="ew", padx=12, pady=10)
+        self.entry_u_ff = _control_entry_row(r, "U feedforward (Uff)", self.var_u_ff)
         r += 1
 
         ttk.Label(frm, text="Nota: en BAJADA la electroválvula se cierra 0.5 s después de llegar al deadband.", font=("Arial", 10))\
@@ -841,7 +844,8 @@ class AutoView(ttk.Frame):
         btns.grid(row=r, column=0, columnspan=2, pady=(15, 0))
 
         ttk.Button(btns, text="Guardar", command=self._save_control_window).grid(row=0, column=0, padx=12, ipady=8)
-        ttk.Button(btns, text="Cerrar", command=win.destroy).grid(row=0, column=1, padx=12, ipady=8)
+        self._control_close_btn = ttk.Button(btns, text="Cerrar", command=win.destroy)
+        self._control_close_btn.grid(row=0, column=1, padx=12, ipady=8)
 
         def _on_close():
             try:
@@ -1500,6 +1504,8 @@ class AutoView(ttk.Frame):
                 self._results_win = None
 
         self._results_close_btn.configure(command=_on_close)
+        self.entry_deadband.focus_set()
+        self._control_close_btn.configure(command=_on_close)
         win.protocol("WM_DELETE_WINDOW", _on_close)
 
     # ========================================================
