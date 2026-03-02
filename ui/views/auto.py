@@ -1195,6 +1195,8 @@ class AutoView(ttk.Frame):
         self.btn_pmax.configure(width=uniform_edit_width)
         self.btn_tsettle.configure(width=uniform_edit_width)
         self.btn_tmax.configure(width=uniform_edit_width)
+        self.btn_npts.configure(width=uniform_edit_width)
+        self.btn_dir.configure(width=uniform_edit_width)
 
         sigmin_label = frm.grid_slaves(row=1, column=0)[0]
         sigmax_label = frm.grid_slaves(row=1, column=2)[0]
@@ -1204,6 +1206,15 @@ class AutoView(ttk.Frame):
         dir_label = frm.grid_slaves(row=3, column=2)[0]
         tsettle_label = frm.grid_slaves(row=4, column=0)[0]
         tmax_label = frm.grid_slaves(row=4, column=2)[0]
+
+        sigmin_label.configure(text=f"{self.var_sigmin_label.get()}:")
+        sigmax_label.configure(text=f"{self.var_sigmax_label.get()}:")
+        pmin_label.configure(text=f"{self.var_pmin_label.get()}:")
+        pmax_label.configure(text=f"{self.var_pmax_label.get()}:")
+        npts_label.configure(text="Puntos:")
+        dir_label.configure(text="Direccion:")
+        tsettle_label.configure(text="Asentamiento (s):")
+        tmax_label.configure(text="Tiempo asent. Pmax:")
 
         sigmin_label.grid(row=1, column=0, padx=3, pady=1, sticky="e")
         self.btn_sig_min.grid(row=1, column=1, padx=3, pady=1, sticky="ew")
@@ -1218,10 +1229,10 @@ class AutoView(ttk.Frame):
         self.btn_pmax.grid(row=4, column=1, padx=3, pady=1, sticky="ew")
 
         npts_label.grid(row=5, column=0, padx=3, pady=1, sticky="e")
-        self.btn_npts.grid(row=5, column=1, padx=3, pady=1, sticky="w")
+        self.btn_npts.grid(row=5, column=1, padx=3, pady=1, sticky="ew")
 
         dir_label.grid(row=6, column=0, padx=3, pady=1, sticky="e")
-        self.btn_dir.grid(row=6, column=1, padx=3, pady=1, sticky="w")
+        self.btn_dir.grid(row=6, column=1, padx=3, pady=1, sticky="ew")
 
         tsettle_label.grid(row=7, column=0, padx=3, pady=1, sticky="e")
         self.btn_tsettle.grid(row=7, column=1, padx=3, pady=1, sticky="ew")
