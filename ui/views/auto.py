@@ -1512,8 +1512,6 @@ class AutoView(ttk.Frame):
                 self._results_win = None
 
         self._results_close_btn.configure(command=_on_close)
-        self.entry_deadband.focus_set()
-        self._control_close_btn.configure(command=_on_close)
         win.protocol("WM_DELETE_WINDOW", _on_close)
 
     # ========================================================
