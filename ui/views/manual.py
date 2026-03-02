@@ -1086,8 +1086,8 @@ class ManualView(ttk.Frame):
 
         def on_save():
             try:
-                self.cfg.sp_kpa = self._parse_display_pressure_kpa(var_edit.get(), "SP")
-                self._sync_pressure_display_from_kpa()
+                self.var_sp.set(var_edit.get())
+                self._apply_sp()
 
                 dialog.destroy()
             except ValueError as e:
@@ -1386,6 +1386,10 @@ class ManualView(ttk.Frame):
         try:
             self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
             self._sync_pressure_display_from_kpa()
+            if self.rt.running:
+                self.rt.target_reached = False
+                self.pi.reset()
+                self.pi.unfreeze()
         except Exception:
             pass
 
