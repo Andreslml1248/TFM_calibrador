@@ -1194,18 +1194,12 @@ class AutoView(ttk.Frame):
         self._live_ax.set_ylim(float(np.min(y)) - y_pad, float(np.max(y)) + y_pad)
         self._live_canvas.draw_idle()
 
-    def _label_with_colon(self, text: str) -> str:
-        clean = (text or "").rstrip()
-        if clean.endswith(":"):
-            return clean
-        return f"{clean}:"
-
     def _reflow_auto_config_widgets(self, frm):
         for col in range(4):
             frm.grid_columnconfigure(col, weight=0)
         frm.grid_columnconfigure(1, weight=1)
 
-        uniform_edit_width = 7
+        uniform_edit_width = 8
         self.btn_sig_min.configure(width=uniform_edit_width)
         self.btn_sig_max.configure(width=uniform_edit_width)
         self.btn_pmin.configure(width=uniform_edit_width)
@@ -1224,10 +1218,10 @@ class AutoView(ttk.Frame):
         tsettle_label = frm.grid_slaves(row=4, column=0)[0]
         tmax_label = frm.grid_slaves(row=4, column=2)[0]
 
-        sigmin_label.configure(text=self._label_with_colon(self.var_sigmin_label.get()))
-        sigmax_label.configure(text=self._label_with_colon(self.var_sigmax_label.get()))
-        pmin_label.configure(text=self._label_with_colon(self.var_pmin_label.get()))
-        pmax_label.configure(text=self._label_with_colon(self.var_pmax_label.get()))
+        sigmin_label.configure(text=f"{self.var_sigmin_label.get()}:")
+        sigmax_label.configure(text=f"{self.var_sigmax_label.get()}:")
+        pmin_label.configure(text=f"{self.var_pmin_label.get()}:")
+        pmax_label.configure(text=f"{self.var_pmax_label.get()}:")
         npts_label.configure(text="Puntos:")
         dir_label.configure(text="Direccion:")
         tsettle_label.configure(text="Asentamiento (s):")
