@@ -203,7 +203,7 @@ class AutoView(ttk.Frame):
         body.pack(fill="both", expand=True, padx=10, pady=(0, 8))
 
         left_panel = ttk.Frame(body)
-        left_panel.pack(side="left", fill="y", padx=(0, 8))
+        left_panel.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
         right_panel = ttk.LabelFrame(body, text="Grafica en vivo", padding=4)
         right_panel.pack(side="right", fill="both", expand=True)
