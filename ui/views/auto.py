@@ -1034,8 +1034,9 @@ class AutoView(ttk.Frame):
             self._safe_outputs(valve_open=True)
             self._goto_state(IDLE)
             self.lbl_status.config(text="FINISHED")
-
-            self._show_results_window()
+            pdf_path = self._export_results_pdf()
+            if pdf_path:
+                messagebox.showinfo("Exportar", f"PDF guardado en:\n{pdf_path}")
 
             return
 
@@ -1278,6 +1279,88 @@ class AutoView(ttk.Frame):
         p_pct = 100.0 * (float(p_kpa) - pmin) / p_span
         sig_pct = 100.0 * (float(dut_eng) - sig_min) / sig_span
         return sig_pct - p_pct
+
+    def _export_results_pdf(self) -> Optional[str]:
+        if not self.results:
+            return None
+
+        try:
+            base_dir = os.getcwd()
+            results_dir = os.path.join(base_dir, "resultados_calibracion")
+
+            if not os.path.exists(results_dir):
+                os.makedirs(results_dir)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"calibracion_{timestamp}.pdf"
+            filepath = os.path.join(results_dir, filename)
+
+            x = np.array([r["p_kpa"] for r in self.results], dtype=float)
+            y = np.array([r["dut_eng"] for r in self.results], dtype=float)
+            m, b = np.polyfit(x, y, 1)
+            y_hat = m * x + b
+
+            ss_res = float(np.sum((y - y_hat) ** 2))
+            ss_tot = float(np.sum((y - float(np.mean(y))) ** 2))
+            r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
+
+            from matplotlib.gridspec import GridSpec
+
+            fig_pdf = Figure(figsize=(10, 12), dpi=100)
+            gs = GridSpec(3, 1, figure=fig_pdf, height_ratios=[1, 1.5, 2], hspace=0.3)
+
+            ax_title = fig_pdf.add_subplot(gs[0])
+            ax_title.axis("off")
+            titulo = f"Calibracion - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            ax_title.text(0.5, 0.7, titulo, ha="center", va="center", fontsize=14, fontweight="bold")
+            ax_title.text(0.5, 0.3, f"DUT Mode: {self.results[0]['dut_mode']}", ha="center", va="center", fontsize=10)
+
+            ax_table = fig_pdf.add_subplot(gs[1])
+            ax_table.axis("tight")
+            ax_table.axis("off")
+
+            table_data = [["#", "SP (kPa)", "P med (kPa)", "sP", f"DUT ({self.results[0]['dut_mode']})", "sDUT", "%SPAN", "%ERROR", "u"]]
+            for r in self.results:
+                table_data.append([
+                    str(r["i"]),
+                    f"{r['sp_kpa']:.2f}",
+                    f"{r['p_kpa']:.2f}",
+                    f"{r['p_std']:.3f}",
+                    f"{r['dut_eng']:.3f}",
+                    f"{r['dut_std']:.3f}",
+                    f"{r['span_pct']:.2f}",
+                    f"{r['err_pct']:+.2f}",
+                    f"{r['u_last']:.3f}",
+                ])
+
+            table = ax_table.table(
+                cellText=table_data,
+                cellLoc="center",
+                loc="center",
+                colWidths=[0.08, 0.12, 0.12, 0.08, 0.12, 0.08, 0.1, 0.1, 0.1],
+            )
+            table.auto_set_font_size(False)
+            table.set_fontsize(8)
+            table.scale(1, 1.5)
+
+            for i in range(len(table_data[0])):
+                table[(0, i)].set_facecolor("#4CAF50")
+                table[(0, i)].set_text_props(weight="bold", color="white")
+
+            ax_plot = fig_pdf.add_subplot(gs[2])
+            ax_plot.scatter(x, y, s=50, alpha=0.7, color="blue", label="Datos medidos")
+            ax_plot.plot(x, y_hat, "r-", linewidth=2, label="Ajuste lineal")
+            ax_plot.set_xlabel("Presion medida (kPa)", fontsize=10)
+            ax_plot.set_ylabel(f"DUT ({'mA' if self.results[0]['dut_mode'] == 'A1' else 'V'})", fontsize=10)
+            ax_plot.grid(True, alpha=0.3)
+            ax_plot.legend(fontsize=9)
+            ax_plot.set_title(f"y = {m:.6f}x + {b:.6f}    R2 = {r2:.6f}", fontsize=10, fontweight="bold")
+
+            fig_pdf.savefig(filepath, format="pdf", dpi=300, bbox_inches="tight")
+            return filepath
+        except Exception as e:
+            messagebox.showerror("Error", f"Fallo al exportar: {e}")
+            return None
 
     def _show_results_window(self):
         """
