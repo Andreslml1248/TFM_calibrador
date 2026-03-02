@@ -1271,11 +1271,15 @@ class AutoView(ttk.Frame):
         if not self.results:
             return
 
-        # si ya existe, solo levantar
-        if self._results_win is not None and self._results_win.winfo_exists():
-            self._results_win.lift()
-            self._results_win.focus_force()
-            return
+        # si ya existe, cerrarla y reconstruir para exportar la nueva serie
+        if self._results_win is not None:
+            try:
+                if self._results_win.winfo_exists():
+                    self._results_win.destroy()
+            except tk.TclError:
+                pass
+            finally:
+                self._results_win = None
 
         win = tk.Toplevel(self)
         self._results_win = win
@@ -1475,7 +1479,8 @@ class AutoView(ttk.Frame):
             messagebox.showinfo("Exportar", f"PDF guardado en:\n{pdf_path}")
 
         # Solo botón Cerrar
-        ttk.Button(frm_btns, text="Cerrar", command=win.destroy).pack(side="left", padx=2)
+        self._results_close_btn = ttk.Button(frm_btns, text="Cerrar", command=win.destroy)
+        self._results_close_btn.pack(side="left", padx=2)
 
         # Actualizar scroll region
         top.update_idletasks()
@@ -1494,6 +1499,7 @@ class AutoView(ttk.Frame):
             finally:
                 self._results_win = None
 
+        self._results_close_btn.configure(command=_on_close)
         win.protocol("WM_DELETE_WINDOW", _on_close)
 
     # ========================================================
