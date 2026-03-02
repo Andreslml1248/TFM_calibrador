@@ -1049,6 +1049,9 @@ class AutoView(ttk.Frame):
         curr_sp = float(self.rt.points[self.rt.step_index])
         return curr_sp < prev_sp
 
+    def _is_initial_down_ramp(self) -> bool:
+        return self.cfg.direction == "DOWN" and self.rt.step_index == 0
+
     # ========================================================
     # LOOP
     # ========================================================
@@ -1107,6 +1110,7 @@ class AutoView(ttk.Frame):
 
             elif st == GOTO_SP:
                 is_down = self._is_down_step()
+                is_initial_down_ramp = self._is_initial_down_ramp()
 
                 if not is_down:
                     self.set_valve(False)
@@ -1116,7 +1120,12 @@ class AutoView(ttk.Frame):
                     self.rt.last_u = float(u)
                     self.set_pump(u)
 
-                    if abs(sp_ctrl - p) <= dead:
+                    if is_initial_down_ramp and p >= sp_ctrl:
+                        self.set_pump(1.0)
+                        self.set_relay(False)
+                        self.pi.freeze()
+                        self._goto_state(HOLD_MEASURE)
+                    elif abs(sp_ctrl - p) <= dead:
                         self._goto_state(IN_BAND_WAIT_UP)
 
                 else:
