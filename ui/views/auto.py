@@ -182,6 +182,15 @@ class AutoView(ttk.Frame):
         ttk.Label(self, text="MODO AUTOMÁTICO", font=("Arial", 16, "bold")).pack(pady=8)
 
         self.lbl_status = ttk.Label(self, text="IDLE", font=("Arial", 12, "bold"))
+        self.var_flow_notice = tk.StringVar(value="")
+        self.lbl_flow_notice = ttk.Label(
+            self,
+            textvariable=self.var_flow_notice,
+            font=("Arial", 10, "bold"),
+            foreground="#b35a00",
+            justify="right",
+        )
+        self.lbl_flow_notice.pack(anchor="e", padx=10, pady=(0, 2))
 
         # LIVE con DUT
         self.lbl_live = ttk.Label(self, text="P=--.- kPa | SP=--.- | u=-- | DUT=--", font=("Arial", 11))
@@ -965,6 +974,7 @@ class AutoView(ttk.Frame):
     def _start(self):
         try:
             self._pull_cfg()
+            self._clear_flow_notice()
 
             # (control igual)
             self.pi.cfg.deadband_kpa = float(self.cfg.deadband_kpa)
@@ -1001,6 +1011,7 @@ class AutoView(ttk.Frame):
         self._safe_outputs(valve_open=True)
         self._goto_state(IDLE)
         self.lbl_status.config(text="STOPPED")
+        self._clear_flow_notice()
         self._last_tick_ts = None
 
     # ========================================================
@@ -1020,13 +1031,14 @@ class AutoView(ttk.Frame):
         if self.rt.step_index == 0 and abs(sp) <= 1e-9:
             return sp
         if self._is_down_phase():
-            return sp
+            return max(0.0, sp - 0.5)
         return sp + float(self.cfg.deadband_kpa)
 
     def _is_max_point(self, sp: float) -> bool:
         return abs(sp - max(self.rt.points)) < 1e-9 if self.rt.points else False
 
     def _advance_point(self):
+        prev_index = self.rt.step_index
         self.rt.step_index += 1
         self.pi.reset()
         self.rt.t_state = time.time()
@@ -1036,11 +1048,15 @@ class AutoView(ttk.Frame):
             self._safe_outputs(valve_open=True)
             self._goto_state(IDLE)
             self.lbl_status.config(text="FINISHED")
+            self._clear_flow_notice()
             pdf_path = self._export_results_pdf()
             if pdf_path:
                 messagebox.showinfo("Exportar", f"PDF guardado en:\n{pdf_path}")
 
             return
+
+        if self._should_show_both_down_notice(prev_index):
+            self._show_flow_notice()
 
         self._goto_state(GOTO_SP)
 
@@ -1057,6 +1073,25 @@ class AutoView(ttk.Frame):
     def _is_down_phase(self) -> bool:
         # En BOTH, cualquier tramo con setpoint decreciente usa la misma logica que DOWN.
         return self._is_down_step()
+
+    def _should_show_both_down_notice(self, prev_index: int) -> bool:
+        if self.cfg.direction != "BOTH":
+            return False
+        if prev_index < 0 or prev_index >= len(self.rt.points):
+            return False
+        if self.rt.step_index <= 0 or self.rt.step_index >= len(self.rt.points):
+            return False
+        prev_sp = float(self.rt.points[prev_index])
+        curr_sp = float(self.rt.points[self.rt.step_index])
+        max_sp = max(float(p) for p in self.rt.points) if self.rt.points else 0.0
+        return abs(prev_sp - max_sp) < 1e-9 and curr_sp < prev_sp
+
+    def _show_flow_notice(self):
+        self.var_flow_notice.set("Por favor, abra la valvula regulador de flujo de salida")
+
+    def _clear_flow_notice(self):
+        if hasattr(self, "var_flow_notice"):
+            self.var_flow_notice.set("")
 
     # ========================================================
     # LOOP
