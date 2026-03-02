@@ -1055,7 +1055,7 @@ class AutoView(ttk.Frame):
 
             return
 
-        if self._should_show_both_down_notice(prev_index):
+        if self._should_show_down_notice(prev_index):
             self._show_flow_notice()
 
         self._goto_state(GOTO_SP)
@@ -1074,8 +1074,8 @@ class AutoView(ttk.Frame):
         # En BOTH, cualquier tramo con setpoint decreciente usa la misma logica que DOWN.
         return self._is_down_step()
 
-    def _should_show_both_down_notice(self, prev_index: int) -> bool:
-        if self.cfg.direction != "BOTH":
+    def _should_show_down_notice(self, prev_index: int) -> bool:
+        if self.cfg.direction not in ("DOWN", "BOTH"):
             return False
         if prev_index < 0 or prev_index >= len(self.rt.points):
             return False
@@ -1087,7 +1087,7 @@ class AutoView(ttk.Frame):
         return abs(prev_sp - max_sp) < 1e-9 and curr_sp < prev_sp
 
     def _show_flow_notice(self):
-        self.var_flow_notice.set("Por favor, abra la valvula regulador de flujo de salida")
+        self.var_flow_notice.set("Abra la valvula reguladora de flujo de la salida de presion")
 
     def _clear_flow_notice(self):
         if hasattr(self, "var_flow_notice"):
