@@ -273,7 +273,7 @@ class AutoView(ttk.Frame):
         self._reflow_auto_config_widgets(frm)
 
         btns = ttk.Frame(self)
-        btns.pack(in_=left_panel, side="bottom", fill="x", pady=(0, 3))
+        btns.pack(in_=left_panel, fill="x", pady=(2, 3))
 
         btns.grid_columnconfigure(0, weight=1)
         btns.grid_columnconfigure(1, weight=1)
@@ -281,7 +281,7 @@ class AutoView(ttk.Frame):
         ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=1, sticky="ew")
         ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=1, sticky="ew")
         ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=1, sticky="ew")
-        self.lbl_status.pack(in_=left_panel, side="bottom", fill="x", pady=(0, 2))
+        self.lbl_status.pack(in_=left_panel, fill="x", pady=(0, 2))
 
         self._live_fig = Figure(figsize=(2.6, 2.1), dpi=100)
         self._live_ax = self._live_fig.add_subplot(111)
