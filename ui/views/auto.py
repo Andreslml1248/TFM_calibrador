@@ -1093,6 +1093,29 @@ class AutoView(ttk.Frame):
         if hasattr(self, "var_flow_notice"):
             self.var_flow_notice.set("")
 
+    def _current_result_phase(self) -> str:
+        if self.cfg.direction == "DOWN":
+            return "down"
+        return "down" if self._is_down_phase() else "up"
+
+    def _plot_results_scatter(self, ax, x: np.ndarray, y: np.ndarray, size: float):
+        phases = [str(r.get("phase", "up")) for r in self.results]
+        has_up = False
+        has_down = False
+
+        for idx, phase in enumerate(phases):
+            if phase == "down":
+                has_down = True
+            else:
+                has_up = True
+
+        if has_up:
+            up_idx = [i for i, phase in enumerate(phases) if phase != "down"]
+            ax.scatter(x[up_idx], y[up_idx], s=size, alpha=0.7, color="blue", label="Subida")
+        if has_down:
+            down_idx = [i for i, phase in enumerate(phases) if phase == "down"]
+            ax.scatter(x[down_idx], y[down_idx], s=size, alpha=0.7, color="red", label="Bajada")
+
     # ========================================================
     # LOOP
     # ========================================================
@@ -1303,6 +1326,7 @@ class AutoView(ttk.Frame):
             "sp_kpa": float(sp_kpa),
             "p_kpa": float(p_mean),
             "p_std": float(p_std),
+            "phase": self._current_result_phase(),
             "dut_mode": mode,
             "dut_eng": float(dut_mean),
             "dut_std": float(dut_std),
@@ -1403,8 +1427,8 @@ class AutoView(ttk.Frame):
                 table[(0, i)].set_text_props(weight="bold", color="white")
 
             ax_plot = fig_pdf.add_subplot(gs[2])
-            ax_plot.scatter(x, y, s=50, alpha=0.7, color="blue", label="Datos medidos")
-            ax_plot.plot(x, y_hat, "r-", linewidth=2, label="Ajuste lineal")
+            self._plot_results_scatter(ax_plot, x, y, 50)
+            ax_plot.plot(x, y_hat, "k-", linewidth=2, label="Ajuste lineal")
             ax_plot.set_xlabel("Presion medida (kPa)", fontsize=10)
             ax_plot.set_ylabel(f"DUT ({'mA' if self.results[0]['dut_mode'] == 'A1' else 'V'})", fontsize=10)
             ax_plot.grid(True, alpha=0.3)
@@ -1531,8 +1555,8 @@ class AutoView(ttk.Frame):
         # Figura más pequeña (4" x 1.8")
         fig = Figure(figsize=(4, 1.8), dpi=100)
         ax = fig.add_subplot(111)
-        ax.scatter(x, y, s=40, alpha=0.7, color="blue")
-        ax.plot(x, y_hat, "r-", linewidth=1.5)
+        self._plot_results_scatter(ax, x, y, 40)
+        ax.plot(x, y_hat, "k-", linewidth=1.5)
         ax.set_xlabel("P (kPa)", fontsize=8)
         ax.set_ylabel("DUT (mA/V)", fontsize=8)
         ax.tick_params(labelsize=7)
@@ -1613,8 +1637,8 @@ class AutoView(ttk.Frame):
 
                 # ---- Gráfica
                 ax_plot = fig_pdf.add_subplot(gs[2])
-                ax_plot.scatter(x, y, s=50, alpha=0.7, color="blue", label="Datos medidos")
-                ax_plot.plot(x, y_hat, "r-", linewidth=2, label="Ajuste lineal")
+                self._plot_results_scatter(ax_plot, x, y, 50)
+                ax_plot.plot(x, y_hat, "k-", linewidth=2, label="Ajuste lineal")
                 ax_plot.set_xlabel("Presión medida (kPa)", fontsize=10)
                 ax_plot.set_ylabel(f"DUT ({'mA' if self.results[0]['dut_mode'] == 'A1' else 'V'})", fontsize=10)
                 ax_plot.grid(True, alpha=0.3)
