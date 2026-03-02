@@ -1185,6 +1185,10 @@ class AutoView(ttk.Frame):
                     self.set_relay(True)
 
                     u = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
+                    if p < sp_ctrl:
+                        remaining = sp_ctrl - p
+                        if remaining <= max(1.0, dead):
+                            u = min(u, max(float(self.cfg.u_ff), 0.22))
                     self.rt.last_u = float(u)
                     self.set_pump(u)
 
