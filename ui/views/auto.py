@@ -782,6 +782,7 @@ class AutoView(ttk.Frame):
         win.title("Condiciones de control")
         win.resizable(False, False)
         win.attributes("-topmost", True)
+        win.transient(self.winfo_toplevel())
 
         self.var_deadband = tk.StringVar(value=f"{self.cfg.deadband_kpa:.3f}")
         self.var_inband_up = tk.StringVar(value=f"{self.cfg.inband_up_s:.3f}")
@@ -804,11 +805,13 @@ class AutoView(ttk.Frame):
                 justify="center",
                 relief="solid",
                 borderwidth=2,
+                takefocus=True,
                 width=18,
                 font=entry_font,
             )
             entry.grid(row=row, column=1, sticky="ew", padx=12, pady=10)
             entry.bind("<Button-1>", lambda _e, w=entry: w.focus_set())
+            entry.bind("<FocusIn>", lambda _e, w=entry: w.icursor("end"))
             return entry
 
         r = 0
@@ -846,11 +849,17 @@ class AutoView(ttk.Frame):
 
         def _on_close():
             try:
+                try:
+                    win.grab_release()
+                except tk.TclError:
+                    pass
                 win.destroy()
             finally:
                 self._control_win = None
 
         self._control_close_btn.configure(command=_on_close)
+        win.focus_force()
+        win.grab_set()
         self.entry_deadband.focus_set()
         win.protocol("WM_DELETE_WINDOW", _on_close)
 
