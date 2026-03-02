@@ -319,25 +319,6 @@ class ManualView(ttk.Frame):
         ttk.Label(frm_live, text="PWM:", font=normal).grid(row=4, column=0, sticky="w", padx=8, pady=(0, 2))
         ttk.Label(frm_live, textvariable=self.var_pwm, font=normal).grid(row=4, column=1, sticky="w", padx=8, pady=(0, 2))
 
-        plot_frm = ttk.Frame(frm_live)
-        plot_frm.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=8, pady=(0, 6))
-        plot_frm.grid_rowconfigure(0, weight=1)
-        plot_frm.grid_columnconfigure(0, weight=1)
-
-        self._live_fig = Figure(figsize=(4.6, 2.45), dpi=100)
-        self._live_fig.subplots_adjust(left=0.19, right=0.98, top=0.90, bottom=0.22)
-        self._live_ax = self._live_fig.add_subplot(111)
-        self._live_ax.set_title("Patron vs DUT estimado")
-        self._live_ax.set_xlabel("Tiempo (s)")
-        self._live_ax.set_ylabel("Presion (kPa)")
-        self._live_ax.tick_params(axis="both", labelsize=8)
-        self._live_ax.grid(True, alpha=0.30)
-        (self._line_pat,) = self._live_ax.plot([], [], color="#1f77b4", linewidth=1.8, label="Patron")
-        (self._line_dut,) = self._live_ax.plot([], [], color="#d62728", linewidth=1.8, label="DUT estimado")
-        self._live_ax.legend(loc="upper left", fontsize=8)
-        self._live_canvas = FigureCanvasTkAgg(self._live_fig, master=plot_frm)
-        self._live_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
-
         self._on_mode_changed()
         self._update_sp_unit_ui()
 
@@ -1490,22 +1471,6 @@ class ManualView(ttk.Frame):
             if not x:
                 return
 
-            self._line_pat.set_data(x, y_pat)
-            self._line_dut.set_data(x, y_dut)
-
-            x_max = x[-1]
-            x_min = max(0.0, x_max - self._LIVE_PLOT_WINDOW_S)
-            self._live_ax.set_xlim(x_min, max(x_max, x_min + 1.0))
-
-            y_min = min(min(y_pat), min(y_dut))
-            y_max = max(max(y_pat), max(y_dut))
-            if abs(y_max - y_min) < 1e-6:
-                y_pad = 1.0
-            else:
-                y_pad = 0.10 * (y_max - y_min)
-            self._live_ax.set_ylim(y_min - y_pad, y_max + y_pad)
-
-            self._live_canvas.draw_idle()
             self._live_plot_last_draw_ts = now_ts
         except Exception:
             # Fallo de render no debe tumbar el ciclo de adquisicion.
@@ -1517,11 +1482,6 @@ class ManualView(ttk.Frame):
         self._live_plot_t.clear()
         self._live_plot_p_pat.clear()
         self._live_plot_p_dut.clear()
-        self._line_pat.set_data([], [])
-        self._line_dut.set_data([], [])
-        self._live_ax.set_xlim(0.0, 1.0)
-        self._live_ax.set_ylim(0.0, 1.0)
-        self._live_canvas.draw_idle()
 
     # -------------------------
     # Loop
