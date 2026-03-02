@@ -201,11 +201,15 @@ class AutoView(ttk.Frame):
 
         body = ttk.Frame(self)
         body.pack(fill="both", expand=True, padx=4, pady=(0, 3))
-        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(0, weight=1, uniform="auto_body")
+        body.grid_columnconfigure(1, weight=1, uniform="auto_body")
         body.grid_rowconfigure(0, weight=1)
 
         left_panel = ttk.Frame(body)
-        left_panel.grid(row=0, column=0, sticky="nsew")
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
+
+        right_panel = ttk.LabelFrame(body, text="Grafica en vivo", padding=2)
+        right_panel.grid(row=0, column=1, sticky="nsew", padx=(2, 0))
 
 
         frm = ttk.LabelFrame(self, text="Configuración")
@@ -279,8 +283,24 @@ class AutoView(ttk.Frame):
         ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=1, sticky="ew")
         self.lbl_status.pack(in_=left_panel, side="bottom", fill="x", pady=(0, 2))
 
+        self._live_fig = Figure(figsize=(2.6, 2.1), dpi=100)
+        self._live_ax = self._live_fig.add_subplot(111)
+        self._live_fig.subplots_adjust(left=0.18, right=0.98, top=0.90, bottom=0.20)
+        self._live_ax.set_title("Grafica en vivo", fontsize=9, fontweight="bold")
+        self._live_ax.set_xlabel("P (kPa)", fontsize=8)
+        self._live_ax.set_ylabel("DUT", fontsize=8)
+        self._live_ax.tick_params(labelsize=7)
+        self._live_ax.grid(True, alpha=0.3)
+        (self._live_up_line,) = self._live_ax.plot([], [], linestyle="None", marker="o", markersize=4, color="blue", alpha=0.7, label="Subida")
+        (self._live_down_line,) = self._live_ax.plot([], [], linestyle="None", marker="o", markersize=4, color="red", alpha=0.7, label="Bajada")
+        (self._live_fit_line,) = self._live_ax.plot([], [], "k-", linewidth=1.2, label="Ajuste")
+        self._live_empty_text = self._live_ax.text(0.5, 0.5, "Esperando puntos", ha="center", va="center", fontsize=10, transform=self._live_ax.transAxes)
+        self._live_ax.legend(fontsize=7, loc="best")
+        self._live_canvas = FigureCanvasTkAgg(self._live_fig, master=right_panel)
+        self._live_canvas.get_tk_widget().pack(fill="both", expand=True)
         self._on_mode_changed()
         self._update_pressure_unit_ui()
+        self._refresh_live_plot()
 
     # ========================================================
     # Modal Edit Dialog
@@ -1013,6 +1033,7 @@ class AutoView(ttk.Frame):
 
             # reset resultados
             self.results = []
+            self._refresh_live_plot()
 
             self._last_tick_ts = None
             first_sp = float(self.rt.points[0]) if self.rt.points else 0.0
@@ -1132,6 +1153,50 @@ class AutoView(ttk.Frame):
         if has_down:
             down_idx = [i for i, phase in enumerate(phases) if phase == "down"]
             ax.scatter(x[down_idx], y[down_idx], s=size, alpha=0.7, color="red", label="Bajada")
+
+    def _refresh_live_plot(self):
+        if not hasattr(self, "_live_ax") or not hasattr(self, "_live_canvas"):
+            return
+
+        if not self.results:
+            self._live_up_line.set_data([], [])
+            self._live_down_line.set_data([], [])
+            self._live_fit_line.set_data([], [])
+            self._live_empty_text.set_visible(True)
+            self._live_ax.set_title("Grafica en vivo", fontsize=9, fontweight="bold")
+            self._live_ax.set_xlim(0.0, 1.0)
+            self._live_ax.set_ylim(0.0, 1.0)
+            self._live_canvas.draw_idle()
+            return
+
+        x = np.array([r["p_kpa"] for r in self.results], dtype=float)
+        y = np.array([r["dut_eng"] for r in self.results], dtype=float)
+        phases = np.array([str(r.get("phase", "up")) for r in self.results], dtype=object)
+        up_mask = phases != "down"
+        down_mask = phases == "down"
+
+        self._live_up_line.set_data(x[up_mask], y[up_mask])
+        self._live_down_line.set_data(x[down_mask], y[down_mask])
+        self._live_empty_text.set_visible(False)
+
+        if len(self.results) >= 2 and np.unique(x).size >= 2:
+            m, b = np.polyfit(x, y, 1)
+            y_hat = m * x + b
+            ss_res = float(np.sum((y - y_hat) ** 2))
+            ss_tot = float(np.sum((y - float(np.mean(y))) ** 2))
+            r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
+            order = np.argsort(x)
+            self._live_fit_line.set_data(x[order], y_hat[order])
+            self._live_ax.set_title(f"y={m:.3f}x+{b:.3f} | R2={r2:.3f}", fontsize=8, fontweight="bold")
+        else:
+            self._live_fit_line.set_data([], [])
+            self._live_ax.set_title("Grafica en vivo", fontsize=9, fontweight="bold")
+
+        x_pad = max(1.0, 0.05 * max(1.0, float(np.max(x) - np.min(x))))
+        y_pad = max(0.1, 0.08 * max(1.0, float(np.max(y) - np.min(y))))
+        self._live_ax.set_xlim(float(np.min(x)) - x_pad, float(np.max(x)) + x_pad)
+        self._live_ax.set_ylim(float(np.min(y)) - y_pad, float(np.max(y)) + y_pad)
+        self._live_canvas.draw_idle()
 
     def _label_with_colon(self, text: str) -> str:
         clean = (text or "").rstrip()
@@ -1402,6 +1467,7 @@ class AutoView(ttk.Frame):
             "u_last": float(self.rt.last_u),
         }
         self.results.append(row)
+        self._refresh_live_plot()
 
     def _span_percent(self, dut_eng: float) -> float:
         sig_min = float(self.cfg.sig_min)
