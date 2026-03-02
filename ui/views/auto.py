@@ -270,10 +270,9 @@ class AutoView(ttk.Frame):
         ttk.Label(frm, text="tiempo asentamiento Pmax").grid(row=4, column=2, padx=6, pady=2, sticky="e")
         self.btn_tmax = ttk.Button(frm, text=f"[{self.var_tmax.get()}]", command=lambda: self._open_edit_dialog(self.var_tmax, "P máx (s)", 0, 60, self.btn_tmax))
         self.btn_tmax.grid(row=4, column=3, padx=2, pady=1, sticky="w")
-        self._reflow_auto_config_widgets(frm)
 
         btns = ttk.Frame(self)
-        btns.pack(in_=left_panel, side="bottom", fill="x", pady=(0, 3))
+        btns.pack(in_=left_panel, fill="x", pady=(0, 3))
 
         btns.grid_columnconfigure(0, weight=1)
         btns.grid_columnconfigure(1, weight=1)
@@ -281,7 +280,7 @@ class AutoView(ttk.Frame):
         ttk.Button(btns, text="P=0", command=self._do_tare).grid(row=0, column=0, padx=1, sticky="ew")
         ttk.Button(btns, text="START", command=self._start).grid(row=0, column=1, padx=1, sticky="ew")
         ttk.Button(btns, text="STOP", command=self._stop).grid(row=0, column=2, padx=1, sticky="ew")
-        self.lbl_status.pack(in_=left_panel, side="bottom", fill="x", pady=(0, 2))
+        self.lbl_status.pack(in_=left_panel, fill="x", pady=(0, 2))
 
         self._live_fig = Figure(figsize=(2.6, 2.1), dpi=100)
         self._live_ax = self._live_fig.add_subplot(111)
@@ -1193,44 +1192,6 @@ class AutoView(ttk.Frame):
         self._live_ax.set_xlim(float(np.min(x)) - x_pad, float(np.max(x)) + x_pad)
         self._live_ax.set_ylim(float(np.min(y)) - y_pad, float(np.max(y)) + y_pad)
         self._live_canvas.draw_idle()
-
-    def _reflow_auto_config_widgets(self, frm):
-        for col in range(4):
-            frm.grid_columnconfigure(col, weight=0)
-        frm.grid_columnconfigure(1, weight=1)
-
-        sigmin_label = frm.grid_slaves(row=1, column=0)[0]
-        sigmax_label = frm.grid_slaves(row=1, column=2)[0]
-        pmin_label = frm.grid_slaves(row=2, column=0)[0]
-        pmax_label = frm.grid_slaves(row=2, column=2)[0]
-        npts_label = frm.grid_slaves(row=3, column=0)[0]
-        dir_label = frm.grid_slaves(row=3, column=2)[0]
-        tsettle_label = frm.grid_slaves(row=4, column=0)[0]
-        tmax_label = frm.grid_slaves(row=4, column=2)[0]
-
-        sigmin_label.grid(row=1, column=0, padx=3, pady=1, sticky="w")
-        self.btn_sig_min.grid(row=1, column=1, padx=3, pady=1, sticky="ew")
-
-        sigmax_label.grid(row=2, column=0, padx=3, pady=1, sticky="w")
-        self.btn_sig_max.grid(row=2, column=1, padx=3, pady=1, sticky="ew")
-
-        pmin_label.grid(row=3, column=0, padx=3, pady=1, sticky="w")
-        self.btn_pmin.grid(row=3, column=1, padx=3, pady=1, sticky="ew")
-
-        pmax_label.grid(row=4, column=0, padx=3, pady=1, sticky="w")
-        self.btn_pmax.grid(row=4, column=1, padx=3, pady=1, sticky="ew")
-
-        npts_label.grid(row=5, column=0, padx=3, pady=1, sticky="w")
-        self.btn_npts.grid(row=5, column=1, padx=3, pady=1, sticky="w")
-
-        dir_label.grid(row=6, column=0, padx=3, pady=1, sticky="w")
-        self.btn_dir.grid(row=6, column=1, padx=3, pady=1, sticky="w")
-
-        tsettle_label.grid(row=7, column=0, padx=3, pady=1, sticky="w")
-        self.btn_tsettle.grid(row=7, column=1, padx=3, pady=1, sticky="ew")
-
-        tmax_label.grid(row=8, column=0, padx=3, pady=1, sticky="w")
-        self.btn_tmax.grid(row=8, column=1, padx=3, pady=1, sticky="ew")
 
     # ========================================================
     # LOOP
