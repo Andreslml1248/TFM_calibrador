@@ -1015,6 +1015,12 @@ class AutoView(ttk.Frame):
             return 0.0
         return float(self.rt.points[self.rt.step_index])
 
+    def _current_control_sp(self) -> float:
+        sp = self._current_sp()
+        if self.rt.step_index == 0 and abs(sp) <= 1e-9:
+            return sp
+        return sp + float(self.cfg.deadband_kpa)
+
     def _is_max_point(self, sp: float) -> bool:
         return abs(sp - max(self.rt.points)) < 1e-9 if self.rt.points else False
 
@@ -1058,6 +1064,7 @@ class AutoView(ttk.Frame):
             self.rt.last_p = p
 
             sp = self._current_sp()
+            sp_ctrl = self._current_control_sp()
             dead = float(self.cfg.deadband_kpa)
 
             if p >= float(self.cfg.p_max_seguridad_kpa):
@@ -1094,17 +1101,17 @@ class AutoView(ttk.Frame):
                     self._goto_state(GOTO_SP)
 
             elif st == GOTO_SP:
-                is_down = self._is_down_step(sp, p)
+                is_down = self._is_down_step(sp_ctrl, p)
 
                 if not is_down:
                     self.set_valve(False)
                     self.set_relay(True)
 
-                    u = self.pi.step(sp_kpa=sp, p_kpa=p, dt=dt_pi)
+                    u = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
                     self.rt.last_u = float(u)
                     self.set_pump(u)
 
-                    if abs(sp - p) <= dead:
+                    if abs(sp_ctrl - p) <= dead:
                         self._goto_state(IN_BAND_WAIT_UP)
 
                 else:
@@ -1115,18 +1122,18 @@ class AutoView(ttk.Frame):
                     self.set_valve(True)
                     self.rt.last_u = 1.0
 
-                    if abs(sp - p) <= dead:
+                    if abs(sp_ctrl - p) <= dead:
                         self._goto_state(IN_BAND_WAIT_DOWN)
 
             elif st == IN_BAND_WAIT_UP:
                 self.set_valve(False)
                 self.set_relay(True)
 
-                u = self.pi.step(sp_kpa=sp, p_kpa=p, dt=dt_pi)
+                u = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
                 self.rt.last_u = float(u)
                 self.set_pump(u)
 
-                if abs(sp - p) > dead:
+                if abs(sp_ctrl - p) > dead:
                     self._goto_state(GOTO_SP)
                 else:
                     if dt_st >= float(self.cfg.inband_up_s):
@@ -1141,7 +1148,7 @@ class AutoView(ttk.Frame):
                 self.pi.freeze()
                 self.set_valve(True)
 
-                if abs(sp - p) > dead:
+                if abs(sp_ctrl - p) > dead:
                     self._goto_state(GOTO_SP)
                 else:
                     if dt_st >= float(self.cfg.inband_down_s):
