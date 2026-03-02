@@ -824,15 +824,12 @@ class AutoView(ttk.Frame):
         ttk.Separator(frm).grid(row=r, column=0, columnspan=2, sticky="we", pady=12)
         r += 1
 
-        ttk.Label(frm, text="U mínima", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
-        self.entry_u_min = _control_entry_row(r, "U mÃ­nima", self.var_u_min)
+        self.entry_u_min = _control_entry_row(r, "U minima", self.var_u_min)
         r += 1
 
-        ttk.Label(frm, text="U máxima", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
         self.entry_u_max = _control_entry_row(r, "U maxima", self.var_u_max)
         r += 1
 
-        ttk.Label(frm, text="U feedforward (Uff)", font=lbl_font).grid(row=r, column=0, sticky="e", padx=12, pady=10)
         self.entry_u_ff = _control_entry_row(r, "U feedforward (Uff)", self.var_u_ff)
         r += 1
 
@@ -853,6 +850,8 @@ class AutoView(ttk.Frame):
             finally:
                 self._control_win = None
 
+        self._control_close_btn.configure(command=_on_close)
+        self.entry_deadband.focus_set()
         win.protocol("WM_DELETE_WINDOW", _on_close)
 
     def _save_control_window(self):
