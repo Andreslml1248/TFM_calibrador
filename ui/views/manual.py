@@ -87,6 +87,7 @@ class ManualView(ttk.Frame):
     _A0_SIG_MAX_DEFAULT = 10.0
     _A1_SIG_MIN_DEFAULT = 4.0
     _A1_SIG_MAX_DEFAULT = 20.0
+    _MANUAL_UP_OFFSET_KPA = 3.0
     _PRESSURE_MIN_KPA = 0.0
     _PRESSURE_MAX_KPA = 200.0
     _UNIT_TO_KPA = {
@@ -1539,7 +1540,7 @@ class ManualView(ttk.Frame):
                 self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
 
                 sp = float(self.cfg.sp_kpa)
-                sp_ctrl = sp + float(self.pi.cfg.deadband_kpa)
+                sp_ctrl = sp + float(self._MANUAL_UP_OFFSET_KPA)
 
                 if not self.rt.target_reached:
                     self.set_valve(False)
