@@ -130,6 +130,7 @@ class AutoView(ttk.Frame):
         *,
         read_vadc: Callable[[int], float],
         read_vadc_live: Callable[[int], float],
+        read_temperature_c: Optional[Callable[[], float]] = None,
         set_pump: Callable[[float], None],
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
@@ -141,6 +142,7 @@ class AutoView(ttk.Frame):
 
         self.read_vadc = read_vadc
         self.read_vadc_live = read_vadc_live
+        self.read_temperature_c = read_temperature_c
         self.update_temperature_control = update_temperature_control
         self.set_pump = set_pump
         self.set_relay = set_relay
@@ -154,6 +156,7 @@ class AutoView(ttk.Frame):
         # RESULTADOS (solo se añade esto, no cambia control)
         self.results: List[Dict[str, Any]] = []
         self._results_win: Optional[tk.Toplevel] = None
+        self.var_temp = tk.StringVar(value="Temp: --.- C")
 
         # PI (base IGUAL a config; en START aplicamos overrides desde cfg)
         self.pi = PIController(PIConfig(
@@ -182,6 +185,9 @@ class AutoView(ttk.Frame):
     # ========================================================
     def _build_ui(self):
         ttk.Label(self, text="MODO AUTOMÁTICO", font=("Arial", 16, "bold")).pack(pady=8)
+
+        self.lbl_temp = ttk.Label(self, textvariable=self.var_temp, font=("Arial", 11, "bold"))
+        self.lbl_temp.place(relx=1.0, x=-12, y=10, anchor="ne")
 
         self.lbl_status = ttk.Label(self, text="IDLE", font=("Arial", 12, "bold"))
         self.var_flow_notice = tk.StringVar(value="")
@@ -1180,6 +1186,14 @@ class AutoView(ttk.Frame):
         try:
             if callable(self.update_temperature_control):
                 self.update_temperature_control()
+
+            try:
+                if not callable(self.read_temperature_c):
+                    raise RuntimeError("temperature callback unavailable")
+                temp_c = float(self.read_temperature_c())
+                self.var_temp.set(f"Temp: {temp_c:.1f} C")
+            except Exception:
+                self.var_temp.set("Temp: --.- C")
 
             if not self.rt.running:
                 return
