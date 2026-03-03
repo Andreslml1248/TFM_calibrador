@@ -1057,11 +1057,48 @@ class AutoView(ttk.Frame):
             return float(self.cfg.settle_time_max_s)
         return float(self.cfg.settle_time_s)
 
+    def _up_sequence_len(self) -> int:
+        if not self.rt.points:
+            return 0
+        if self.cfg.direction == "BOTH":
+            return (len(self.rt.points) + 1) // 2
+        return len(self.rt.points)
+
+    def _sync_down_points_from_up_results(self) -> None:
+        if self.cfg.direction != "BOTH" or not self.rt.points:
+            return
+
+        up_len = self._up_sequence_len()
+        if up_len < 2:
+            return
+
+        up_results = [row for row in self.results if str(row.get("phase", "up")) != "down"]
+        if len(up_results) < up_len:
+            return
+
+        down_targets = [
+            max(0.0, float(row.get("p_kpa", row.get("sp_kpa", 0.0))))
+            for row in reversed(up_results[:up_len - 1])
+        ]
+        expected_down_len = len(self.rt.points) - up_len
+        if len(down_targets) != expected_down_len:
+            return
+
+        for offset, target in enumerate(down_targets):
+            self.rt.points[up_len + offset] = target
+
     def _advance_point(self):
         prev_index = self.rt.step_index
         self.rt.step_index += 1
         self.pi.reset()
         self.rt.t_state = time.time()
+
+        if (
+            self.cfg.direction == "BOTH"
+            and prev_index == self._up_sequence_len() - 1
+            and self.rt.step_index == self._up_sequence_len()
+        ):
+            self._sync_down_points_from_up_results()
 
         if self.rt.step_index >= len(self.rt.points):
             self.rt.running = False
