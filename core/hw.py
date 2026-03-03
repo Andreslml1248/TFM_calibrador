@@ -107,6 +107,7 @@ class HW:
 
     # ---------- Lecturas ----------
     def read_vadc(self, ch: int) -> float:
+        self.update_temperature_control()
         return float(ads_read_v_once(self.bus, int(ch)))
 
     def _get_temp_device_file(self) -> Optional[str]:
