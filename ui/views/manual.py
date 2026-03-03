@@ -178,6 +178,7 @@ class ManualView(ttk.Frame):
         self.var_span = tk.StringVar(value="0.0 %")
         self.var_err = tk.StringVar(value="0.0 %")
         self.var_pwm = tk.StringVar(value="u=0.000")
+        self.var_temp = tk.StringVar(value="Temp: --.- C")
 
         self._build_ui_compact()
         self._apply_state_config()
@@ -195,8 +196,14 @@ class ManualView(ttk.Frame):
         self.grid_columnconfigure(1, weight=1, uniform="col")
 
         # Título arriba (ocupa 2 columnas)
-        title = ttk.Label(self, text="MODO MANUAL", font=("Arial", 15, "bold"))
-        title.grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 4))
+        header = ttk.Frame(self)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 4))
+        header.grid_columnconfigure(0, weight=1)
+
+        title = ttk.Label(header, text="MODO MANUAL", font=("Arial", 15, "bold"))
+        title.grid(row=0, column=0, sticky="w")
+
+        ttk.Label(header, textvariable=self.var_temp, font=("Arial", 11, "bold")).grid(row=0, column=1, sticky="e")
 
         # ===== Columna izquierda: CONFIG =====
         frm_cfg = ttk.LabelFrame(self, text="Configuración")
@@ -1496,6 +1503,16 @@ class ManualView(ttk.Frame):
     # -------------------------
     def _tick(self):
         try:
+            try:
+                hw = getattr(self.winfo_toplevel(), "hw", None)
+                reader = getattr(hw, "read_temperature_c", None)
+                if not callable(reader):
+                    raise RuntimeError("temperature reader unavailable")
+                temp_c = float(reader())
+                self.var_temp.set(f"Temp: {temp_c:.1f} C")
+            except Exception:
+                self.var_temp.set("Temp: --.- C")
+
             now = time.time()
             dt_real = None
             if self.rt.last_update_ts > 0.0:
