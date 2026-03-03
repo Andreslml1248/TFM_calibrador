@@ -126,7 +126,6 @@ class ManualView(ttk.Frame):
         *,
         read_vadc: Callable[[int], float],
         read_vadc_live: Callable[[int], float],
-        read_temperature_c: Optional[Callable[[], float]] = None,
         set_pump: Callable[[float], None],
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
@@ -137,7 +136,6 @@ class ManualView(ttk.Frame):
         super().__init__(master)
         self.read_vadc = read_vadc
         self.read_vadc_live = read_vadc_live
-        self.read_temperature_c = read_temperature_c
         self.update_temperature_control = update_temperature_control
         self.set_pump = set_pump
         self.set_relay = set_relay
@@ -182,7 +180,6 @@ class ManualView(ttk.Frame):
         self.var_span = tk.StringVar(value="0.0 %")
         self.var_err = tk.StringVar(value="0.0 %")
         self.var_pwm = tk.StringVar(value="u=0.000")
-        self.var_temp = tk.StringVar(value="Temp: --.- C")
 
         self._build_ui_compact()
         self._apply_state_config()
@@ -200,14 +197,8 @@ class ManualView(ttk.Frame):
         self.grid_columnconfigure(1, weight=1, uniform="col")
 
         # Título arriba (ocupa 2 columnas)
-        header = ttk.Frame(self)
-        header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 4))
-        header.grid_columnconfigure(0, weight=1)
-
-        title = ttk.Label(header, text="MODO MANUAL", font=("Arial", 15, "bold"))
-        title.grid(row=0, column=0, sticky="w")
-
-        ttk.Label(header, textvariable=self.var_temp, font=("Arial", 11, "bold")).grid(row=0, column=1, sticky="e")
+        title = ttk.Label(self, text="MODO MANUAL", font=("Arial", 15, "bold"))
+        title.grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 4))
 
         # ===== Columna izquierda: CONFIG =====
         frm_cfg = ttk.LabelFrame(self, text="Configuración")
@@ -1509,14 +1500,6 @@ class ManualView(ttk.Frame):
         try:
             if callable(self.update_temperature_control):
                 self.update_temperature_control()
-
-            try:
-                if not callable(self.read_temperature_c):
-                    raise RuntimeError("temperature callback unavailable")
-                temp_c = float(self.read_temperature_c())
-                self.var_temp.set(f"Temp: {temp_c:.1f} C")
-            except Exception:
-                self.var_temp.set("Temp: --.- C")
 
             now = time.time()
             dt_real = None
