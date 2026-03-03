@@ -126,11 +126,11 @@ class ManualView(ttk.Frame):
         *,
         read_vadc: Callable[[int], float],
         read_vadc_live: Callable[[int], float],
-        read_temperature_c: Callable[[], float],
         set_pump: Callable[[float], None],
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
+        read_temperature_c: Optional[Callable[[], float]] = None,
         update_period_ms: int = 100,
     ):
         super().__init__(master)
@@ -1506,6 +1506,8 @@ class ManualView(ttk.Frame):
     def _tick(self):
         try:
             try:
+                if not callable(self.read_temperature_c):
+                    raise RuntimeError("temperature callback unavailable")
                 temp_c = float(self.read_temperature_c())
                 self.var_temp.set(f"Temp: {temp_c:.1f} C")
             except Exception:
