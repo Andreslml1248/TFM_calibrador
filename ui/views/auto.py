@@ -1041,7 +1041,7 @@ class AutoView(ttk.Frame):
             return sp
         if self._is_down_phase():
             return max(0.0, sp - 0.5)
-        return sp + float(self.cfg.deadband_kpa)
+        return sp + 5.0
 
     def _is_max_point(self, sp: float) -> bool:
         return abs(sp - max(self.rt.points)) < 1e-9 if self.rt.points else False
