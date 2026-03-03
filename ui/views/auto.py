@@ -1046,6 +1046,17 @@ class AutoView(ttk.Frame):
     def _is_max_point(self, sp: float) -> bool:
         return abs(sp - max(self.rt.points)) < 1e-9 if self.rt.points else False
 
+    def _current_hold_wait_s(self, sp: float) -> float:
+        if (
+            self.cfg.direction in ("UP", "BOTH")
+            and self.rt.step_index == 0
+            and abs(float(sp)) <= 1e-9
+        ):
+            return 5.0
+        if self._is_max_point(sp):
+            return float(self.cfg.settle_time_max_s)
+        return float(self.cfg.settle_time_s)
+
     def _advance_point(self):
         prev_index = self.rt.step_index
         self.rt.step_index += 1
@@ -1242,7 +1253,7 @@ class AutoView(ttk.Frame):
                 self.set_pump(1.0)
                 self.set_relay(False)
 
-                wait = float(self.cfg.settle_time_max_s) if self._is_max_point(sp) else float(self.cfg.settle_time_s)
+                wait = self._current_hold_wait_s(sp)
                 if dt_st >= wait:
                     # ✅ AQUÍ SOLO AÑADIMOS MEDICIÓN Y REGISTRO (no cambia control)
                     try:
