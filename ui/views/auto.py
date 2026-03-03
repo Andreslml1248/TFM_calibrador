@@ -1182,10 +1182,13 @@ class AutoView(ttk.Frame):
         try:
             try:
                 hw = getattr(self.winfo_toplevel(), "hw", None)
-                reader = getattr(hw, "read_temperature_c", None)
+                reader = getattr(hw, "get_cached_temperature_c", None)
                 if not callable(reader):
-                    raise RuntimeError("temperature reader unavailable")
-                temp_c = float(reader())
+                    raise RuntimeError("temperature cache unavailable")
+                temp_c = reader()
+                if temp_c is None:
+                    raise RuntimeError("temperature cache empty")
+                temp_c = float(temp_c)
                 self.var_temp.set(f"Temp: {temp_c:.1f} C")
             except Exception:
                 self.var_temp.set("Temp: --.- C")

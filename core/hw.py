@@ -37,6 +37,7 @@ class HW:
         self._fan_init_attempted = False
         self._fan_pwm_cmd = clamp(float(config.FAN_PWM_MIN), 0.0, 1.0)
         self._temp_device_file: Optional[str] = None
+        self._last_temp_c: Optional[float] = None
         self._last_temp_update_ts = 0.0
         self._temp_update_period_s = 1.0
 
@@ -120,7 +121,9 @@ class HW:
 
     def read_temperature_c(self) -> float:
         if platform.system() == "Windows":
-            return float(config.TEMP_TARGET_C)
+            temp_c = float(config.TEMP_TARGET_C)
+            self._last_temp_c = temp_c
+            return temp_c
 
         device_file = self._get_temp_device_file()
         if not device_file:
@@ -136,7 +139,12 @@ class HW:
         if pos < 0:
             raise RuntimeError("DS18B20 sin campo t=")
 
-        return float(lines[1][pos + 2:]) / 1000.0
+        temp_c = float(lines[1][pos + 2:]) / 1000.0
+        self._last_temp_c = temp_c
+        return temp_c
+
+    def get_cached_temperature_c(self) -> Optional[float]:
+        return self._last_temp_c
 
     def _compute_fan_pwm(self, temp_c: float) -> float:
         temp = float(temp_c)
@@ -171,6 +179,7 @@ class HW:
             temp_c = self.read_temperature_c()
             self.set_fan(self._compute_fan_pwm(temp_c))
         except Exception:
+            self._last_temp_c = None
             if bool(getattr(config, "FAN_FAILSAFE_FULLSPEED", True)):
                 self.set_fan(getattr(config, "FAN_FAILSAFE_PWM", 1.0))
             else:
