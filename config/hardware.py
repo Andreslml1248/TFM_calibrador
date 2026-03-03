@@ -149,7 +149,7 @@ DT_PI: float = 1.0 / 90.0
 U_MIN: float = 0.0
 U_MAX: float = 1.0
 
-DEADBAND_KPA: float = 1
+DEADBAND_KPA: float = 2
 U_FF: float = 0.38
 P_FILT_ALPHA: float = 1.0  # 1.0 = sin filtro
 
