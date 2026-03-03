@@ -47,15 +47,11 @@ class HW:
             frequency=config.PWM_FREQ_HZ,
             pin_factory=self.factory
         )
-        self.pwm_fan = None
-        try:
-            self.pwm_fan = PWMOutputDevice(
-                config.FAN_PWM_PIN,
-                frequency=config.FAN_PWM_FREQ_HZ,
-                pin_factory=self.factory
-            )
-        except Exception:
-            self.pwm_fan = None
+        self.pwm_fan = PWMOutputDevice(
+            config.FAN_PWM_PIN,
+            frequency=config.FAN_PWM_FREQ_HZ,
+            pin_factory=self.factory
+        )
 
         self.valvula = None
         if config.USE_VALVULA:
@@ -88,8 +84,6 @@ class HW:
     def set_fan(self, pwm_cmd: float):
         pwm = clamp(float(pwm_cmd), 0.0, 1.0)
         self._fan_pwm_cmd = pwm
-        if self.pwm_fan is None:
-            return
         self.pwm_fan.value = pwm
 
     def set_valve(self, open_: bool):
