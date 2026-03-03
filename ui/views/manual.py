@@ -130,11 +130,13 @@ class ManualView(ttk.Frame):
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
+        update_temperature_control: Optional[Callable[[], None]] = None,
         update_period_ms: int = 100,
     ):
         super().__init__(master)
         self.read_vadc = read_vadc
         self.read_vadc_live = read_vadc_live
+        self.update_temperature_control = update_temperature_control
         self.set_pump = set_pump
         self.set_relay = set_relay
         self.set_valve = set_valve
@@ -1496,6 +1498,9 @@ class ManualView(ttk.Frame):
     # -------------------------
     def _tick(self):
         try:
+            if callable(self.update_temperature_control):
+                self.update_temperature_control()
+
             now = time.time()
             dt_real = None
             if self.rt.last_update_ts > 0.0:
