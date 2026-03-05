@@ -9,7 +9,7 @@ from typing import List
 # ============================
 # Bomba: PWM + relé de potencia (24V)
 PWM_PIN: int = 12
-PWM_FREQ_HZ: int = 400
+PWM_FREQ_HZ: int = 600
 RELE_BOMBA_PIN: int = 17
 
 # Electroválvula NC: energizar = abrir ✅
