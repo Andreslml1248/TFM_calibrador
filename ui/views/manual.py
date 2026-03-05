@@ -305,7 +305,7 @@ class ManualView(ttk.Frame):
             tools, text="FFT / Ruido", command=self._open_fft_window
         )
         self.btn_step_test = ttk.Button(
-            tools, text="STEP TEST (K,L,tau)", command=self._open_step_test_window
+            tools, text="STEP TEST (K,L,τ)", command=self._open_step_test_window
         )
 
         self.btn_cal_2pt.grid(row=0, column=0, sticky="ew", padx=4)
