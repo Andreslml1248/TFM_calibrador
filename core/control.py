@@ -165,10 +165,16 @@ class PIWorker:
 
     def _run(self) -> None:
         while not self._stop_evt.is_set():
-            self._new_input_evt.wait(timeout=self.period_s)
-            self._new_input_evt.clear()
+            signaled = self._new_input_evt.wait(timeout=self.period_s)
+
             if self._stop_evt.is_set():
                 break
+
+            if not signaled:
+                # No llego input nuevo: NO recalcular
+                continue
+
+            self._new_input_evt.clear()
 
             with self._lock:
                 if not self._has_input:
