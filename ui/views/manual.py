@@ -642,8 +642,30 @@ class ManualView(ttk.Frame):
             win.focus_force()
             win.grab_set()
 
-            frm = ttk.Frame(win, padding=12)
-            frm.grid(row=0, column=0)
+            container = ttk.Frame(win)
+            container.grid(row=0, column=0, sticky="nsew")
+            win.grid_rowconfigure(0, weight=1)
+            win.grid_columnconfigure(0, weight=1)
+
+            canvas = tk.Canvas(container, highlightthickness=0)
+            vscroll = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+            canvas.configure(yscrollcommand=vscroll.set)
+            canvas.grid(row=0, column=0, sticky="nsew")
+            vscroll.grid(row=0, column=1, sticky="ns")
+            container.grid_rowconfigure(0, weight=1)
+            container.grid_columnconfigure(0, weight=1)
+
+            frm = ttk.Frame(canvas, padding=12)
+            canvas_window = canvas.create_window((0, 0), window=frm, anchor="nw")
+
+            def _on_frame_configure(_event=None):
+                canvas.configure(scrollregion=canvas.bbox("all"))
+
+            def _on_canvas_configure(event):
+                canvas.itemconfigure(canvas_window, width=event.width)
+
+            frm.bind("<Configure>", _on_frame_configure)
+            canvas.bind("<Configure>", _on_canvas_configure)
 
             var_chan = tk.StringVar(value="A0")
             var_x1 = tk.StringVar(value="--")
@@ -905,8 +927,21 @@ class ManualView(ttk.Frame):
                         win.after_cancel(a2_pi_after["id"])
                 except Exception:
                     pass
+                try:
+                    canvas.unbind_all("<MouseWheel>")
+                except Exception:
+                    pass
                 _a2_pi_disable()
                 win.destroy()
+
+            def _on_mousewheel(event):
+                try:
+                    delta = -1 * int(event.delta / 120)
+                    canvas.yview_scroll(delta, "units")
+                except Exception:
+                    pass
+
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
             win.protocol("WM_DELETE_WINDOW", _on_close)
             _a2_pi_tick()
