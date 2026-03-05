@@ -17,6 +17,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from config import hardware as config
 from core.control import PIController, PIConfig, PIWorker
 from core.calibration import two_point_cal, save_calibration
+from ui.views.pwm_log_window import PwmLogWindow
 
 
 # =========================
@@ -140,6 +141,8 @@ class ManualView(ttk.Frame):
         self.set_valve = set_valve
         self.request_event = request_event
         self.update_period_ms = update_period_ms
+        self._pwm_log_active = False
+        self._pwm_log_win: Optional[PwmLogWindow] = None
 
         # PI único (sirve manual y auto)
         self.pi = PIController(PIConfig(
@@ -293,6 +296,7 @@ class ManualView(ttk.Frame):
         tools.grid(row=3, column=0, sticky="ew", padx=8, pady=(0, 8))
         tools.grid_columnconfigure(0, weight=1)
         tools.grid_columnconfigure(1, weight=1)
+        tools.grid_columnconfigure(2, weight=1)
 
         self.btn_cal_2pt = ttk.Button(
             tools, text="Calibracion 2 puntos (A0/A1/A2)", command=self._open_calibration_2pt
@@ -300,9 +304,13 @@ class ManualView(ttk.Frame):
         self.btn_fft = ttk.Button(
             tools, text="FFT / Ruido", command=self._open_fft_window
         )
+        self.btn_pwm_log = ttk.Button(
+            tools, text="LOG PWM -> CSV", command=self._open_pwm_log_window
+        )
 
         self.btn_cal_2pt.grid(row=0, column=0, sticky="ew", padx=4)
         self.btn_fft.grid(row=0, column=1, sticky="ew", padx=4)
+        self.btn_pwm_log.grid(row=0, column=2, sticky="ew", padx=4)
 
         # ===== Columna derecha: LIVE =====
         frm_live = ttk.LabelFrame(self, text="Lecturas en vivo")
@@ -1435,6 +1443,13 @@ class ManualView(ttk.Frame):
         vadc = self._read_vadc_live(config.ADS_CH_REF)
         return mpx_vadc_to_kpa(vadc)
 
+    def _read_control_pressure_kpa(self) -> float:
+        p_corr = self._read_pressure_corr_kpa()
+        p = p_corr - float(self.rt.p_zero_kpa)
+        if p < 0.0:
+            p = 0.0
+        return float(p)
+
     def _read_dut_eng(self) -> float:
         ch = config.ADS_CH_DUT_V if self.cfg.dut_mode == "A0" else config.ADS_CH_DUT_mA
         vadc = self._read_vadc_live(ch)
@@ -1525,10 +1540,7 @@ class ManualView(ttk.Frame):
                 dt_real = max(0.02, min(dt_real, 0.20))
             self.rt.last_update_ts = now
 
-            p_corr = self._read_pressure_corr_kpa()
-            p = p_corr - self.rt.p_zero_kpa
-            if p < 0:
-                p = 0.0
+            p = self._read_control_pressure_kpa()
 
             dut_eng = self._read_dut_eng()
 
@@ -1550,7 +1562,9 @@ class ManualView(ttk.Frame):
                 self.request_event("EV_OVERPRESSURE", {"p_kpa": p, "pmax_kpa": pmax_seg})
                 return
 
-            if self.rt.running:
+            if self._pwm_log_active:
+                self.var_pwm.set("u=LOG")
+            elif self.rt.running:
                 sig_min_live, sig_max_live = self._get_live_signal_bounds()
                 p_dut_est = self._dut_est_pressure_kpa(
                     x_meas=dut_eng,
@@ -1635,7 +1649,64 @@ class ManualView(ttk.Frame):
         except Exception:
             pass
 
+    def _apply_real_pwm_for_log(self, pwm_real: float) -> None:
+        pwm = max(0.0, min(float(pwm_real), 1.0))
+        if bool(getattr(config, "BOMBA_ACTIVE_LOW", True)):
+            u_cmd = 1.0 - pwm
+        else:
+            u_cmd = pwm
+        self.set_valve(True)
+        self.set_relay(True)
+        self.set_pump(u_cmd)
+
+    def _safe_stop_for_log(self) -> None:
+        self._safe_outputs(valve_open=True)
+
+    def _on_pwm_log_start(self) -> None:
+        self._pwm_log_active = True
+        self.rt.running = False
+        self.pi_worker.reset()
+        self.pi_worker.freeze()
+        self.btn_start.state(["disabled"])
+        self.btn_pwm_log.state(["disabled"])
+
+    def _on_pwm_log_end(self, _state: str) -> None:
+        self._pwm_log_active = False
+        self.pi_worker.unfreeze()
+        self.btn_start.state(["!disabled"])
+        self.btn_pwm_log.state(["!disabled"])
+
+    def _open_pwm_log_window(self) -> None:
+        if self._pwm_log_win is not None and self._pwm_log_win.winfo_exists():
+            self._pwm_log_win.lift()
+            self._pwm_log_win.focus_force()
+            return
+
+        self._pwm_log_win = PwmLogWindow(
+            self,
+            read_pressure_kpa=self._read_control_pressure_kpa,
+            apply_real_pwm=self._apply_real_pwm_for_log,
+            safe_stop=self._safe_stop_for_log,
+            on_start=self._on_pwm_log_start,
+            on_end=self._on_pwm_log_end,
+        )
+        self._pwm_log_win.bind("<Destroy>", self._on_pwm_log_window_destroy, add="+")
+
+    def _on_pwm_log_window_destroy(self, event) -> None:
+        if self._pwm_log_win is None:
+            return
+        if event.widget is not self._pwm_log_win:
+            return
+        self._pwm_log_win = None
+        if self._pwm_log_active:
+            self._on_pwm_log_end("ABORT")
+
     def destroy(self):
+        try:
+            if self._pwm_log_win is not None and self._pwm_log_win.winfo_exists():
+                self._pwm_log_win.destroy()
+        except Exception:
+            pass
         try:
             self.pi_worker.stop()
         except Exception:
