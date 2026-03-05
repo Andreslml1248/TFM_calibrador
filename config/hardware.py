@@ -150,7 +150,7 @@ U_MIN: float = 0.0
 U_MAX: float = 1.0
 
 DEADBAND_KPA: float = 2
-U_FF: float = 0.28
+U_FF: float = 0.05
 P_FILT_ALPHA: float = 1.0  # 1.0 = sin filtro
 
 # ============================
