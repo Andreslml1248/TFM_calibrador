@@ -160,7 +160,10 @@ class AutoView(ttk.Frame):
             ki=config.PI_CFG.ki,
             dt=config.PI_CFG.dt,
             u_min=config.PI_CFG.u_min,
-            u_max=config.PI_CFG.u_max
+            u_max=config.PI_CFG.u_max,
+            deadband_kpa=float(getattr(config.PI_CFG, "deadband_kpa", 0.5)),
+            u_ff=config.PI_CFG.u_ff,
+            i_decay_in_deadband=0.97
         ))
         self.pi_worker = PIWorker(self.pi, period_s=float(config.PI_CFG.dt))
         self.pi_worker.start()
@@ -989,8 +992,10 @@ class AutoView(ttk.Frame):
             self._clear_flow_notice()
 
             # (control igual)
+            self.pi.cfg.deadband_kpa = float(self.cfg.deadband_kpa)
             self.pi.cfg.u_min = float(self.cfg.u_min)
             self.pi.cfg.u_max = float(self.cfg.u_max)
+            self.pi.cfg.u_ff  = float(self.cfg.u_ff)
 
             if not self.rt.tare_done:
                 p_corr = self._read_pressure_corr_kpa()

@@ -147,7 +147,10 @@ class ManualView(ttk.Frame):
             ki=config.PI_CFG.ki,
             dt=config.PI_CFG.dt,
             u_min=config.PI_CFG.u_min,
-            u_max=config.PI_CFG.u_max
+            u_max=config.PI_CFG.u_max,
+            deadband_kpa=config.PI_CFG.deadband_kpa,
+            u_ff=config.PI_CFG.u_ff,
+            i_decay_in_deadband=0.97
         ))
         self.pi_worker = PIWorker(self.pi, period_s=float(config.PI_CFG.dt))
         self.pi_worker.start()

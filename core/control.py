@@ -16,6 +16,10 @@ class PIConfig:
     dt: float
     u_min: float
     u_max: float
+    deadband_kpa: float
+    u_ff: float
+    p_filt_alpha: float = 1.0          # por si luego filtras P aquí (opcional)
+    i_decay_in_deadband: float = 0.97  # igual que tu script: I *= 0.97
 
 
 class PIController:
@@ -34,10 +38,13 @@ class PIController:
 
     def reset(self) -> None:
         self.I: float = 0.0
-        self.last_u: float = clamp(0.0, self.cfg.u_min, self.cfg.u_max)
+        self.last_u: float = clamp(self.cfg.u_ff, self.cfg.u_min, self.cfg.u_max)
         self.frozen: bool = False
         self.last_sp: Optional[float] = None
         self.last_p: Optional[float] = None
+
+        # filtro opcional de P (si lo quieres aquí en vez de en otro lado)
+        self._p_filt: Optional[float] = None
 
     def freeze(self) -> None:
         self.frozen = True
@@ -54,10 +61,31 @@ class PIController:
 
         sp = float(sp_kpa)
         p = float(p_kpa)
-        e = sp - p
+
+        # (Opcional) filtro 1er orden sobre presión
+        a = float(self.cfg.p_filt_alpha)
+        if a >= 1.0:
+            p_use = p
+        else:
+            if self._p_filt is None:
+                self._p_filt = p
+            else:
+                self._p_filt = a * p + (1.0 - a) * self._p_filt
+            p_use = self._p_filt
+
+        e = sp - p_use
+
+        # --- Zona muerta (idéntico a tu script) ---
+        if abs(e) <= self.cfg.deadband_kpa:
+            self.I *= self.cfg.i_decay_in_deadband
+            u = clamp(self.cfg.u_ff + self.I, self.cfg.u_min, self.cfg.u_max)
+            self.last_u = u
+            self.last_sp = sp
+            self.last_p = p_use
+            return u
 
         # --- PI con anti-windup por "pushing" (idéntico a tu script) ---
-        u_unsat = self.cfg.kp * e + self.I
+        u_unsat = self.cfg.u_ff + self.cfg.kp * e + self.I
 
         pushing_high = (u_unsat > self.cfg.u_max and e > 0.0)
         pushing_low  = (u_unsat < self.cfg.u_min and e < 0.0)
@@ -65,11 +93,11 @@ class PIController:
         if not (pushing_high or pushing_low):
             self.I += self.cfg.ki * e * dt
 
-        u = clamp(self.cfg.kp * e + self.I, self.cfg.u_min, self.cfg.u_max)
+        u = clamp(self.cfg.u_ff + self.cfg.kp * e + self.I, self.cfg.u_min, self.cfg.u_max)
 
         self.last_u = u
         self.last_sp = sp
-        self.last_p = p
+        self.last_p = p_use
         return u
 
 
