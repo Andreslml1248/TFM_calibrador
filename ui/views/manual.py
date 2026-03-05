@@ -1579,12 +1579,26 @@ class ManualView(ttk.Frame):
                 sp = float(self.cfg.sp_kpa)
                 sp_ctrl = sp + float(self._MANUAL_UP_OFFSET_KPA)
 
-                self.set_valve(True)
-                self.set_relay(True)
-                self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
-                u_cmd = self.pi_worker.get_output()
-                self.set_pump(u_cmd)
-                self.var_pwm.set(f"u={u_cmd:.3f}")
+                if not self.rt.target_reached:
+                    self.set_valve(False)
+                    self.set_relay(True)
+                    self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
+                    u_cmd = self.pi_worker.get_output()
+                    self.set_pump(u_cmd)
+                    self.var_pwm.set(f"u={u_cmd:.3f}")
+
+                    if p >= sp_ctrl:
+                        self.rt.target_reached = True
+                        self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
+                        self.set_relay(False)
+                        self.set_valve(False)
+                        self.pi_worker.freeze()
+                        self.var_pwm.set("u=0.000")
+                else:
+                    self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
+                    self.set_relay(False)
+                    self.set_valve(False)
+                    self.var_pwm.set("u=0.000")
             else:
                 self.var_pwm.set("u=0.000")
 
