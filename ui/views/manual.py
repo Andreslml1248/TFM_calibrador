@@ -1684,7 +1684,7 @@ class ManualView(ttk.Frame):
             return
 
         try:
-            from ui.views.pwm_log_window import PwmLogWindow
+            from .pwm_log_window import PwmLogWindow
         except Exception as e:
             messagebox.showerror("LOG PWM", f"No se pudo abrir LOG PWM: {e}")
             return
