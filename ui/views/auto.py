@@ -1203,7 +1203,8 @@ class AutoView(ttk.Frame):
             if self._last_tick_ts is None:
                 dt_pi = None
             else:
-                dt_pi = max(0.001, now - self._last_tick_ts)
+                dt_pi = now - self._last_tick_ts
+                dt_pi = max(0.02, min(dt_pi, 0.20))
             self._last_tick_ts = now
 
             p_corr = self._read_pressure_corr_kpa()

@@ -1522,7 +1522,7 @@ class ManualView(ttk.Frame):
             dt_real = None
             if self.rt.last_update_ts > 0.0:
                 dt_real = now - self.rt.last_update_ts
-                dt_real = max(0.01, min(dt_real, 0.5))
+                dt_real = max(0.02, min(dt_real, 0.20))
             self.rt.last_update_ts = now
 
             p_corr = self._read_pressure_corr_kpa()
