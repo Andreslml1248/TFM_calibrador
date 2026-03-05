@@ -1652,10 +1652,9 @@ class ManualView(ttk.Frame):
 
     def _apply_real_pwm_for_log(self, pwm_real: float) -> None:
         pwm = max(0.0, min(float(pwm_real), 1.0))
-        if bool(getattr(config, "BOMBA_ACTIVE_LOW", True)):
-            u_cmd = 1.0 - pwm
-        else:
-            u_cmd = pwm
+        # `set_pump()` ya resuelve BOMBA_ACTIVE_LOW internamente.
+        # Aqui usamos pwm "real" directo para que 0.15 signifique ~15%.
+        u_cmd = pwm
         self.set_valve(True)
         self.set_relay(True)
         self.set_pump(u_cmd)
