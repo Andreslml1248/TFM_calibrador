@@ -142,16 +142,16 @@ OFFSET_2PT: float = 0.0
 # ============================
 # PI CONTROL (un solo PI para manual y auto)
 # ============================
-KP_DEFAULT: float = 0.0010
-KI_DEFAULT: float = 0.00018
+KP_DEFAULT: float = 0.0018
+KI_DEFAULT: float = 0.00030
 
-DT_PI: float = 0.10
+DT_PI: float = 0.08
 U_MIN: float = 0.0
 U_MAX: float = 1.0
 
-DEADBAND_KPA: float = 0.8
-U_FF: float = 0.20
-P_FILT_ALPHA: float = 0.25 # 1.0 = sin filtro
+DEADBAND_KPA: float = 0.5
+U_FF: float = 0.25
+P_FILT_ALPHA: float = 0.40 # 1.0 = sin filtro
 
 # ============================
 # FFT / RUIDO
