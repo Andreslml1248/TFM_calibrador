@@ -405,7 +405,7 @@ class ManualView(ttk.Frame):
         self.pi_worker.reset()
         self.pi_worker.unfreeze()
         self.rt.last_update_ts = 0.0
-        self.set_valve(False)
+        self.set_valve(True)
         self.set_relay(True)
         self._set_config_widgets_state(enabled=False)
         self.btn_stop_cfg.state(["!disabled"])
@@ -1564,7 +1564,7 @@ class ManualView(ttk.Frame):
                 sp = float(self.cfg.sp_kpa)
                 sp_ctrl = sp + float(self._MANUAL_UP_OFFSET_KPA)
 
-                self.set_valve(False)
+                self.set_valve(True)
                 self.set_relay(True)
                 self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
                 u_cmd = self.pi_worker.get_output()
