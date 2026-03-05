@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, font as tkFont
 from dataclasses import dataclass
 from collections import deque
-from typing import Callable, Optional, Dict, Any
+from typing import Callable, Optional, Dict, Any, TYPE_CHECKING
 
 import numpy as np
 import matplotlib
@@ -17,7 +17,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from config import hardware as config
 from core.control import PIController, PIConfig, PIWorker
 from core.calibration import two_point_cal, save_calibration
-from ui.views.pwm_log_window import PwmLogWindow
+if TYPE_CHECKING:
+    from ui.views.pwm_log_window import PwmLogWindow
 
 
 # =========================
@@ -142,7 +143,7 @@ class ManualView(ttk.Frame):
         self.request_event = request_event
         self.update_period_ms = update_period_ms
         self._pwm_log_active = False
-        self._pwm_log_win: Optional[PwmLogWindow] = None
+        self._pwm_log_win: Optional[Any] = None
 
         # PI único (sirve manual y auto)
         self.pi = PIController(PIConfig(
@@ -1680,6 +1681,12 @@ class ManualView(ttk.Frame):
         if self._pwm_log_win is not None and self._pwm_log_win.winfo_exists():
             self._pwm_log_win.lift()
             self._pwm_log_win.focus_force()
+            return
+
+        try:
+            from ui.views.pwm_log_window import PwmLogWindow
+        except Exception as e:
+            messagebox.showerror("LOG PWM", f"No se pudo abrir LOG PWM: {e}")
             return
 
         self._pwm_log_win = PwmLogWindow(
