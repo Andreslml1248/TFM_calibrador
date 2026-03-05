@@ -653,6 +653,11 @@ class ManualView(ttk.Frame):
             var_m = tk.StringVar(value="--")
             var_b = tk.StringVar(value="--")
             var_units = tk.StringVar(value="V")
+            var_a2_sp = tk.StringVar(value=f"{self.cfg.sp_kpa:.2f}")
+            var_a2_p = tk.StringVar(value="0.00")
+            var_a2_state = tk.StringVar(value="PI OFF")
+            a2_pi_enabled = {"on": False}
+            a2_pi_after = {"id": None}
 
             def _update_units():
                 mode = var_chan.get().strip().upper()
@@ -743,12 +748,25 @@ class ManualView(ttk.Frame):
             ttk.Label(frm, text="x2 (Vadc):").grid(row=6, column=0, sticky="w", padx=6, pady=2)
             ttk.Label(frm, textvariable=var_x2).grid(row=6, column=1, sticky="w", padx=6, pady=2)
 
-            ttk.Separator(frm).grid(row=7, column=0, columnspan=3, sticky="ew", pady=6)
+            # Control PI auxiliar para A2
+            a2_box = ttk.LabelFrame(frm, text="Control PI (solo A2)")
+            a2_box.grid(row=7, column=0, columnspan=3, sticky="ew", padx=6, pady=4)
+            a2_box.grid_columnconfigure(1, weight=1)
 
-            ttk.Label(frm, text="m:").grid(row=8, column=0, sticky="w", padx=6, pady=2)
-            ttk.Label(frm, textvariable=var_m).grid(row=8, column=1, sticky="w", padx=6, pady=2)
-            ttk.Label(frm, text="b:").grid(row=9, column=0, sticky="w", padx=6, pady=2)
-            ttk.Label(frm, textvariable=var_b).grid(row=9, column=1, sticky="w", padx=6, pady=2)
+            ttk.Label(a2_box, text="SP (kPa):").grid(row=0, column=0, sticky="w", padx=6, pady=3)
+            ttk.Entry(a2_box, textvariable=var_a2_sp, width=10).grid(row=0, column=1, sticky="w", padx=6, pady=3)
+            btn_a2_pi = ttk.Button(a2_box, text="PI ON")
+            btn_a2_pi.grid(row=0, column=2, sticky="ew", padx=6, pady=3)
+            ttk.Label(a2_box, text="P actual (kPa):").grid(row=1, column=0, sticky="w", padx=6, pady=3)
+            ttk.Label(a2_box, textvariable=var_a2_p).grid(row=1, column=1, sticky="w", padx=6, pady=3)
+            ttk.Label(a2_box, textvariable=var_a2_state).grid(row=1, column=2, sticky="w", padx=6, pady=3)
+
+            ttk.Separator(frm).grid(row=8, column=0, columnspan=3, sticky="ew", pady=6)
+
+            ttk.Label(frm, text="m:").grid(row=9, column=0, sticky="w", padx=6, pady=2)
+            ttk.Label(frm, textvariable=var_m).grid(row=9, column=1, sticky="w", padx=6, pady=2)
+            ttk.Label(frm, text="b:").grid(row=10, column=0, sticky="w", padx=6, pady=2)
+            ttk.Label(frm, textvariable=var_b).grid(row=10, column=1, sticky="w", padx=6, pady=2)
 
             def _capture_point(idx: int):
                 mode = var_chan.get().strip().upper()
@@ -807,14 +825,91 @@ class ManualView(ttk.Frame):
                     messagebox.showerror("Calibracion", f"Error: {e}")
 
             ttk.Button(frm, text="Calcular y Guardar", command=_calc_and_save).grid(
-                row=10, column=0, columnspan=3, sticky="ew", padx=6, pady=6
+                row=11, column=0, columnspan=3, sticky="ew", padx=6, pady=6
             )
+
+            def _a2_pi_disable():
+                a2_pi_enabled["on"] = False
+                try:
+                    self.pi_worker.freeze()
+                except Exception:
+                    pass
+                try:
+                    self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
+                    self.set_relay(False)
+                    self.set_valve(False)
+                except Exception:
+                    pass
+                btn_a2_pi.configure(text="PI ON")
+                var_a2_state.set("PI OFF")
+
+            def _a2_pi_enable():
+                if var_chan.get().strip().upper() != "A2":
+                    messagebox.showwarning("Calibracion", "El PI auxiliar solo se habilita en A2.", parent=win)
+                    return
+                try:
+                    sp = float(var_a2_sp.get().strip().replace(",", "."))
+                except Exception:
+                    messagebox.showerror("Calibracion", "SP invalido para PI.", parent=win)
+                    return
+                self.rt.running = False
+                self.pi_worker.reset()
+                self.pi_worker.unfreeze()
+                a2_pi_enabled["on"] = True
+                btn_a2_pi.configure(text="PI OFF")
+                var_a2_state.set(f"PI ON | SP={sp:.2f} kPa")
+
+            def _toggle_a2_pi():
+                if a2_pi_enabled["on"]:
+                    _a2_pi_disable()
+                else:
+                    _a2_pi_enable()
+
+            btn_a2_pi.configure(command=_toggle_a2_pi)
+
+            def _a2_pi_tick():
+                try:
+                    p_now = float(self._read_control_pressure_kpa())
+                    var_a2_p.set(f"{p_now:.2f}")
+                    if a2_pi_enabled["on"]:
+                        if var_chan.get().strip().upper() != "A2":
+                            _a2_pi_disable()
+                        else:
+                            try:
+                                sp = float(var_a2_sp.get().strip().replace(",", "."))
+                            except Exception:
+                                sp = float(self.cfg.sp_kpa)
+                            self.set_valve(False)
+                            self.set_relay(True)
+                            self.pi_worker.set_inputs(sp_kpa=sp, p_kpa=p_now, dt=float(config.PI_CFG.dt))
+                            u_cmd = self.pi_worker.get_output()
+                            self.set_pump(u_cmd)
+                            var_a2_state.set(f"PI ON | u={u_cmd:.3f}")
+                except Exception as e:
+                    var_a2_state.set(f"PI ERR: {e}")
+                finally:
+                    if win.winfo_exists():
+                        a2_pi_after["id"] = win.after(120, _a2_pi_tick)
 
             def _on_chan_change(*_):
                 _update_units()
+                if var_chan.get().strip().upper() != "A2" and a2_pi_enabled["on"]:
+                    _a2_pi_disable()
 
             var_chan.trace_add("write", _on_chan_change)
             _update_units()
+
+            def _on_close():
+                try:
+                    if a2_pi_after["id"] is not None:
+                        win.after_cancel(a2_pi_after["id"])
+                except Exception:
+                    pass
+                _a2_pi_disable()
+                win.destroy()
+
+            win.protocol("WM_DELETE_WINDOW", _on_close)
+            _a2_pi_tick()
         except Exception as e:
             messagebox.showerror("Calibracion", f"No se pudo abrir la ventana: {e}")
 
