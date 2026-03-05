@@ -9,7 +9,7 @@ from typing import List
 # ============================
 # Bomba: PWM + relé de potencia (24V)
 PWM_PIN: int = 12
-PWM_FREQ_HZ: int = 200
+PWM_FREQ_HZ: int = 400
 RELE_BOMBA_PIN: int = 17
 
 # Electroválvula NC: energizar = abrir ✅
@@ -150,7 +150,7 @@ U_MIN: float = 0.0
 U_MAX: float = 1.0
 
 DEADBAND_KPA: float = 1.0
-U_FF: float = 0.25
+U_FF: float = 0.38
 P_FILT_ALPHA: float = 1.0 # 1.0 = sin filtro
 
 # ============================
