@@ -15,7 +15,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from config import hardware as config
-from core.control import PIController, PIConfig
+from core.control import PIController, PIConfig, PIWorker
 from core.calibration import two_point_cal, save_calibration
 
 
@@ -152,6 +152,8 @@ class ManualView(ttk.Frame):
             u_ff=config.PI_CFG.u_ff,
             i_decay_in_deadband=0.97
         ))
+        self.pi_worker = PIWorker(self.pi, period_s=float(config.PI_CFG.dt))
+        self.pi_worker.start()
 
         self.cfg = ManualConfig()
         self.rt = ManualRuntime()
@@ -389,8 +391,8 @@ class ManualView(ttk.Frame):
     def _apply_state_config(self):
         self.rt.running = False
         self.rt.target_reached = False
-        self.pi.reset()
-        self.pi.freeze()
+        self.pi_worker.reset()
+        self.pi_worker.freeze()
         self.rt.last_update_ts = 0.0
         self._safe_outputs(valve_open=True)
         self._set_config_widgets_state(enabled=True)
@@ -400,8 +402,8 @@ class ManualView(ttk.Frame):
         self.rt.running = True
         self.rt.target_reached = False
         self._reset_live_plot()
-        self.pi.reset()
-        self.pi.unfreeze()
+        self.pi_worker.reset()
+        self.pi_worker.unfreeze()
         self.rt.last_update_ts = 0.0
         self.set_valve(False)
         self.set_relay(True)
@@ -1396,8 +1398,8 @@ class ManualView(ttk.Frame):
             self._sync_pressure_display_from_kpa()
             if self.rt.running:
                 self.rt.target_reached = False
-                self.pi.reset()
-                self.pi.unfreeze()
+                self.pi_worker.reset()
+                self.pi_worker.unfreeze()
         except Exception:
             pass
 
@@ -1565,7 +1567,8 @@ class ManualView(ttk.Frame):
                 if not self.rt.target_reached:
                     self.set_valve(False)
                     self.set_relay(True)
-                    u_cmd = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
+                    self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
+                    u_cmd = self.pi_worker.get_output()
                     self.set_pump(u_cmd)
                     self.var_pwm.set(f"u={u_cmd:.3f}")
 
@@ -1574,7 +1577,7 @@ class ManualView(ttk.Frame):
                         self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
                         self.set_relay(False)
                         self.set_valve(False)
-                        self.pi.freeze()
+                        self.pi_worker.freeze()
                         self.var_pwm.set("u=0.000")
                 else:
                     self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
@@ -1641,10 +1644,17 @@ class ManualView(ttk.Frame):
         except Exception:
             pass
         try:
-            self.pi.reset()
-            self.pi.freeze()
+            self.pi_worker.reset()
+            self.pi_worker.freeze()
         except Exception:
             pass
+
+    def destroy(self):
+        try:
+            self.pi_worker.stop()
+        except Exception:
+            pass
+        super().destroy()
 
 
 

@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 
 from config import hardware as config
-from core.control import PIController, PIConfig
+from core.control import PIController, PIConfig, PIWorker
 from core.filters import MedianPtByPt
 
 # Matplotlib embebido en Tk (para gráfica tipo Excel)
@@ -165,6 +165,8 @@ class AutoView(ttk.Frame):
             u_ff=config.PI_CFG.u_ff,
             i_decay_in_deadband=0.97
         ))
+        self.pi_worker = PIWorker(self.pi, period_s=float(config.PI_CFG.dt))
+        self.pi_worker.start()
 
         # dt real del PI
         self._last_tick_ts: Optional[float] = None
@@ -1003,7 +1005,8 @@ class AutoView(ttk.Frame):
             self.rt.points = self._build_points()
             self.rt.step_index = 0
             self.rt.running = True
-            self.pi.reset()
+            self.pi_worker.reset()
+            self.pi_worker.unfreeze()
 
             # reset resultados
             self.results = []
@@ -1094,7 +1097,7 @@ class AutoView(ttk.Frame):
     def _advance_point(self):
         prev_index = self.rt.step_index
         self.rt.step_index += 1
-        self.pi.reset()
+        self.pi_worker.reset()
         self.rt.t_state = time.time()
 
         if (
@@ -1241,20 +1244,21 @@ class AutoView(ttk.Frame):
                     self.set_valve(False)
                     self.set_relay(True)
 
-                    u = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
+                    self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
+                    u = self.pi_worker.get_output()
                     self.rt.last_u = float(u)
                     self.set_pump(u)
 
                     if p >= sp_ctrl:
                         self.set_pump(1.0)
                         self.set_relay(False)
-                        self.pi.freeze()
+                        self.pi_worker.freeze()
                         self._goto_state(HOLD_MEASURE)
 
                 else:
                     self.set_pump(1.0)
                     self.set_relay(False)
-                    self.pi.freeze()
+                    self.pi_worker.freeze()
 
                     self.set_valve(True)
                     self.rt.last_u = 1.0
@@ -1267,7 +1271,8 @@ class AutoView(ttk.Frame):
                 self.set_valve(False)
                 self.set_relay(True)
 
-                u = self.pi.step(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
+                self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
+                u = self.pi_worker.get_output()
                 self.rt.last_u = float(u)
                 self.set_pump(u)
 
@@ -1277,13 +1282,13 @@ class AutoView(ttk.Frame):
                     if dt_st >= float(self.cfg.inband_up_s):
                         self.set_pump(1.0)
                         self.set_relay(False)
-                        self.pi.freeze()
+                        self.pi_worker.freeze()
                         self._goto_state(HOLD_MEASURE)
 
             elif st == IN_BAND_WAIT_DOWN:
                 self.set_pump(1.0)
                 self.set_relay(False)
-                self.pi.freeze()
+                self.pi_worker.freeze()
                 self.set_valve(True)
 
                 if abs(sp_ctrl - p) > dead:
@@ -1295,7 +1300,7 @@ class AutoView(ttk.Frame):
             elif st == DOWN_CLOSE_DELAY:
                 self.set_pump(1.0)
                 self.set_relay(False)
-                self.pi.freeze()
+                self.pi_worker.freeze()
                 self.set_valve(True)
 
                 if dt_st >= float(self.cfg.valve_close_delay_s):
@@ -1316,7 +1321,7 @@ class AutoView(ttk.Frame):
                         # si falla medición, aborta con error claro
                         raise RuntimeError(f"Fallo medición punto (SP={sp:.2f}): {e}")
 
-                    self.pi.unfreeze()
+                    self.pi_worker.unfreeze()
                     self._advance_point()
 
             else:
@@ -1804,8 +1809,15 @@ class AutoView(ttk.Frame):
         except Exception:
             pass
         try:
-            self.pi.reset()
-            self.pi.freeze()
+            self.pi_worker.reset()
+            self.pi_worker.freeze()
         except Exception:
             pass
+
+    def destroy(self):
+        try:
+            self.pi_worker.stop()
+        except Exception:
+            pass
+        super().destroy()
 

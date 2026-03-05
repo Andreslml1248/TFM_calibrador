@@ -9,6 +9,7 @@ Hardware wrapper para GPIO, PWM, relé, válvula y sensor ADC
 import glob
 import os
 import platform
+import threading
 import time
 from typing import Optional
 
@@ -40,6 +41,12 @@ class HW:
         self._last_temp_c: Optional[float] = None
         self._last_temp_update_ts = 0.0
         self._temp_update_period_s = 1.0
+        self._temp_thread_stop = threading.Event()
+        self._temp_thread = threading.Thread(
+            target=self._temperature_loop,
+            name="TemperatureWorker",
+            daemon=True,
+        )
 
         self.rele_bomba = DigitalOutputDevice(
             config.RELE_BOMBA_PIN, pin_factory=self.factory
@@ -66,6 +73,7 @@ class HW:
         self.set_pump(1.0)
         self.set_relay(False)
         self.set_valve(True)
+        self._temp_thread.start()
 
     # ---------- Actuadores ----------
     def set_relay(self, on: bool):
@@ -108,7 +116,6 @@ class HW:
 
     # ---------- Lecturas ----------
     def read_vadc(self, ch: int) -> float:
-        self.update_temperature_control()
         return float(ads_read_v_once(self.bus, int(ch)))
 
     def _get_temp_device_file(self) -> Optional[str]:
@@ -185,6 +192,14 @@ class HW:
             else:
                 self.set_fan(config.FAN_PWM_MIN)
 
+    def _temperature_loop(self):
+        while not self._temp_thread_stop.is_set():
+            try:
+                self.update_temperature_control()
+            except Exception:
+                pass
+            self._temp_thread_stop.wait(0.2)
+
     def _init_live_filters(self) -> None:
         self._live_filters[int(config.ADS_CH_DUT_V)] = ChannelFilterChain(
             config.A0_MEDIAN_N, config.A0_MEAN_N
@@ -207,6 +222,12 @@ class HW:
         return float(chain.update(v_raw))
 
     def close(self):
+        self._temp_thread_stop.set()
+        try:
+            if self._temp_thread.is_alive():
+                self._temp_thread.join(timeout=1.0)
+        except Exception:
+            pass
         try:
             self.set_pump(1.0)
             self.set_fan(config.FAN_PWM_MIN)
