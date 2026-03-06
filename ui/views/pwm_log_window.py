@@ -91,7 +91,7 @@ class PwmLogWindow(tk.Toplevel):
         self.btn_stop.state(["disabled"])
         self.btn_save_png.state(["disabled"])
 
-        self._figure = Figure(figsize=(6.5, 3.6), dpi=100)
+        self._figure = Figure(figsize=(5.6, 2.8), dpi=100)
         self._ax = self._figure.add_subplot(111)
         self._line, = self._ax.plot([], [], color="#007acc", linewidth=2.0)
         self._ax.set_title("Presion en vivo")
