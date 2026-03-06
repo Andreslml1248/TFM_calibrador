@@ -1713,7 +1713,7 @@ class ManualView(ttk.Frame):
                 self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
 
                 sp = float(self.cfg.sp_kpa)
-                sp_ctrl = sp + float(self._MANUAL_UP_OFFSET_KPA)
+                sp_ctrl = sp
 
                 if not self.rt.target_reached:
                     self.set_valve(False)
