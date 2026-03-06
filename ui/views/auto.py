@@ -1246,7 +1246,7 @@ class AutoView(ttk.Frame):
                     self.set_relay(True)
 
                     self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
-                    u = self.pi_worker.get_output()
+                    u = self._limit_u_for_active_low_hold(self.pi_worker.get_output())
                     self.rt.last_u = float(u)
                     self.set_pump(u)
 
@@ -1273,7 +1273,7 @@ class AutoView(ttk.Frame):
                 self.set_relay(True)
 
                 self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
-                u = self.pi_worker.get_output()
+                u = self._limit_u_for_active_low_hold(self.pi_worker.get_output())
                 self.rt.last_u = float(u)
                 self.set_pump(u)
 
@@ -1777,6 +1777,13 @@ class AutoView(ttk.Frame):
 
         ima = self._dut_vadc_to_eng(vadc, mode)
         return f"DUT(A1)= {ima:6.2f} mA | Vadc={vadc:5.3f} V"
+
+    def _limit_u_for_active_low_hold(self, u_cmd: float) -> float:
+        u = max(0.0, min(float(u_cmd), 1.0))
+        if bool(getattr(config, "BOMBA_ACTIVE_LOW", False)):
+            pwm_hw_min = max(0.0, min(float(getattr(config, "PWM_HW_MIN_HOLD", 0.20)), 1.0))
+            u = min(u, 1.0 - pwm_hw_min)
+        return u
 
     # ========================================================
     # PRESSURE UTILS

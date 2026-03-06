@@ -21,6 +21,10 @@ VALV_ACTIVE_HIGH: bool = True  # True => ON = energizada = ABIERTA
 # True: PWM_hw = 1-u  (u=0 -> ON fuerte, u=1 -> OFF)
 BOMBA_ACTIVE_LOW: bool = True
 
+# Minimo PWM hardware para mantener bomba activa durante control PI.
+# Solo debe aplicarse en la ruta de control activo (no en apagados/seguridad).
+PWM_HW_MIN_HOLD: float = 0.20
+
 # ============================
 # VENTILACIÓN + TEMPERATURA (DS18B20)
 # ============================
@@ -155,7 +159,7 @@ U_MIN: float = 0.0
 U_MAX: float = 1.0
 
 DEADBAND_KPA: float = 0.3
-U_FF: float = 0.60
+U_FF: float = 0.30
 P_FILT_ALPHA: float = 1.0 # 1.0 = sin filtro
 
 # ============================

@@ -1718,7 +1718,7 @@ class ManualView(ttk.Frame):
                 self.set_valve(True)
                 self.set_relay(True)
                 self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
-                u_cmd = self.pi_worker.get_output()
+                u_cmd = self._limit_u_for_active_low_hold(self.pi_worker.get_output())
                 self.set_pump(u_cmd)
                 self.var_pwm.set(f"u={u_cmd:.3f}")
             else:
@@ -1785,6 +1785,13 @@ class ManualView(ttk.Frame):
             self.pi_worker.freeze()
         except Exception:
             pass
+
+    def _limit_u_for_active_low_hold(self, u_cmd: float) -> float:
+        u = max(0.0, min(float(u_cmd), 1.0))
+        if bool(getattr(config, "BOMBA_ACTIVE_LOW", False)):
+            pwm_hw_min = max(0.0, min(float(getattr(config, "PWM_HW_MIN_HOLD", 0.20)), 1.0))
+            u = min(u, 1.0 - pwm_hw_min)
+        return u
 
     def _apply_real_pwm_for_log(self, pwm_real: float) -> None:
         pwm = max(0.0, min(float(pwm_real), 1.0))
