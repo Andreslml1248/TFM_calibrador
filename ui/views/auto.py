@@ -1786,7 +1786,7 @@ class AutoView(ttk.Frame):
         return float(self._mpx_vadc_to_kpa(vadc))
 
     def _mpx_vadc_to_kpa(self, vadc: float) -> float:
-        p = config.MPX_A2 * vadc * vadc + config.MPX_B2 * vadc + config.MPX_C2
+        p = config.MPX_M * vadc + config.MPX_B
         if p < 0:
             p = 0.0
         if config.USE_2PT:

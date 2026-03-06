@@ -30,7 +30,7 @@ def clamp(x: float, lo: float, hi: float) -> float:
 
 def mpx_vadc_to_kpa(vadc: float) -> float:
     """Convierte VADC (ADS) -> presiÃ³n kPa usando polinomio + 2PT si aplica."""
-    p_raw = config.MPX_A2 * vadc * vadc + config.MPX_B2 * vadc + config.MPX_C2
+    p_raw = config.MPX_M * vadc + config.MPX_B
     if p_raw < 0:
         p_raw = 0.0
     if config.USE_2PT:
