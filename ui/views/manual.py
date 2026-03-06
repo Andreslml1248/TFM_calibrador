@@ -148,6 +148,11 @@ class ManualView(ttk.Frame):
         self.update_period_ms = update_period_ms
         self._pwm_log_active = False
         self._pwm_log_win: Optional[Any] = None
+        self._cal_a2_active = False
+        self._cal_a2_win: Optional[Any] = None
+        self._cal_a2_after_id: Optional[str] = None
+        self._cal_a2_prev_running = False
+        self._cal_a2_prev_pi_frozen = True
 
         # PI Ãºnico (sirve manual y auto)
         self.pi = PIController(PIConfig(
@@ -302,6 +307,7 @@ class ManualView(ttk.Frame):
         tools.grid_columnconfigure(0, weight=1)
         tools.grid_columnconfigure(1, weight=1)
         tools.grid_columnconfigure(2, weight=1)
+        tools.grid_columnconfigure(3, weight=1)
 
         self.btn_cal_2pt = ttk.Button(
             tools, text="Calibracion 2 puntos (A0/A1/A2)", command=self._open_calibration_2pt
@@ -312,10 +318,14 @@ class ManualView(ttk.Frame):
         self.btn_pwm_log = ttk.Button(
             tools, text="LOG PWM -> CSV", command=self._open_pwm_log_window
         )
+        self.btn_cal_a2_live = ttk.Button(
+            tools, text="CAL A2 VIVO", command=self._open_cal_a2_live_window
+        )
 
         self.btn_cal_2pt.grid(row=0, column=0, sticky="ew", padx=4)
         self.btn_fft.grid(row=0, column=1, sticky="ew", padx=4)
         self.btn_pwm_log.grid(row=0, column=2, sticky="ew", padx=4)
+        self.btn_cal_a2_live.grid(row=0, column=3, sticky="ew", padx=4)
 
         # ===== Columna derecha: LIVE =====
         frm_live = ttk.LabelFrame(self, text="Lecturas en vivo")
@@ -1699,7 +1709,9 @@ class ManualView(ttk.Frame):
                 self.request_event("EV_OVERPRESSURE", {"p_kpa": p, "pmax_kpa": pmax_seg})
                 return
 
-            if self._pwm_log_active:
+            if self._cal_a2_active:
+                self.var_pwm.set("u=CAL-A2")
+            elif self._pwm_log_active:
                 self.var_pwm.set("u=LOG")
             elif self.rt.running:
                 sig_min_live, sig_max_live = self._get_live_signal_bounds()
@@ -1812,6 +1824,154 @@ class ManualView(ttk.Frame):
     def _safe_stop_for_log(self) -> None:
         self._safe_outputs(valve_open=True)
 
+    def _cal_a2_apply_pwm(self, pwm_u: float) -> None:
+        u_cmd = max(0.0, min(float(pwm_u), 1.0))
+        self.set_valve(False)
+        self.set_relay(True)
+        self.set_pump(u_cmd)
+
+    def _cal_a2_bomba_off(self) -> None:
+        self.set_pump(config.BOMBA_U_OFF if hasattr(config, "BOMBA_U_OFF") else 1.0)
+        self.set_relay(False)
+        self.set_valve(False)
+
+    def _open_cal_a2_live_window(self) -> None:
+        if self._cal_a2_win is not None and self._cal_a2_win.winfo_exists():
+            self._cal_a2_win.lift()
+            self._cal_a2_win.focus_force()
+            return
+
+        self._cal_a2_prev_running = bool(self.rt.running)
+        self._cal_a2_prev_pi_frozen = bool(getattr(self.pi, "frozen", True))
+        self._cal_a2_active = True
+        self.rt.running = False
+        self.pi_worker.reset()
+        self.pi_worker.freeze()
+        self._cal_a2_bomba_off()
+        self.btn_start.state(["disabled"])
+        self.btn_pwm_log.state(["disabled"])
+        self.btn_cal_a2_live.state(["disabled"])
+
+        win = tk.Toplevel(self)
+        self._cal_a2_win = win
+        win.title("CAL A2 VIVO")
+        win.geometry("430x250")
+        win.resizable(False, False)
+        win.transient(self.winfo_toplevel())
+        win.lift()
+        win.focus_force()
+
+        frm = ttk.Frame(win, padding=10)
+        frm.pack(fill="both", expand=True)
+
+        var_v = tk.StringVar(value="Voltaje A2: ---.---- V")
+        var_info = tk.StringVar(value="Actualizando cada 100 ms")
+        var_pwm = tk.StringVar(value="0.00")
+
+        ttk.Label(frm, textvariable=var_v, font=("Arial", 18, "bold")).pack(anchor="w", pady=(2, 2))
+        ttk.Label(frm, textvariable=var_info, font=("Arial", 9)).pack(anchor="w", pady=(0, 8))
+
+        pwm_row = ttk.Frame(frm)
+        pwm_row.pack(fill="x", pady=(2, 8))
+        ttk.Label(pwm_row, text="PWM (u 0.00..1.00):").pack(side="left", padx=(0, 6))
+        ttk.Spinbox(
+            pwm_row,
+            from_=0.0,
+            to=1.0,
+            increment=0.01,
+            textvariable=var_pwm,
+            width=8,
+            justify="center",
+        ).pack(side="left")
+
+        btns = ttk.Frame(frm)
+        btns.pack(fill="x", pady=(6, 0))
+        btns.grid_columnconfigure(0, weight=1)
+        btns.grid_columnconfigure(1, weight=1)
+        btns.grid_columnconfigure(2, weight=1)
+
+        def on_apply_pwm():
+            try:
+                u = float(var_pwm.get().strip().replace(",", "."))
+            except Exception:
+                messagebox.showwarning("CAL A2 VIVO", "PWM invalido.", parent=win)
+                return
+            u = max(0.0, min(u, 1.0))
+            var_pwm.set(f"{u:.2f}")
+            try:
+                self._cal_a2_apply_pwm(u)
+                var_info.set(f"PWM aplicado: u={u:.2f}")
+            except Exception as e:
+                messagebox.showerror("CAL A2 VIVO", f"No se pudo aplicar PWM: {e}", parent=win)
+
+        def on_bomba_off():
+            try:
+                self._cal_a2_bomba_off()
+                var_info.set("Bomba OFF")
+            except Exception as e:
+                messagebox.showerror("CAL A2 VIVO", f"No se pudo apagar bomba: {e}", parent=win)
+
+        def close_win():
+            try:
+                if self._cal_a2_after_id is not None and self._cal_a2_win is not None:
+                    self._cal_a2_win.after_cancel(self._cal_a2_after_id)
+            except Exception:
+                pass
+            self._cal_a2_after_id = None
+
+            try:
+                self._cal_a2_bomba_off()
+            except Exception:
+                pass
+            try:
+                self.set_valve(True)
+            except Exception:
+                pass
+
+            self._cal_a2_active = False
+            self.rt.running = bool(self._cal_a2_prev_running)
+            if self._cal_a2_prev_pi_frozen:
+                self.pi_worker.freeze()
+            else:
+                self.pi_worker.unfreeze()
+
+            if self._cal_a2_prev_running:
+                self.btn_start.state(["disabled"])
+                self.btn_pwm_log.state(["disabled"])
+                self.btn_cal_a2_live.state(["disabled"])
+            else:
+                self.btn_start.state(["!disabled"])
+                self.btn_pwm_log.state(["!disabled"])
+                self.btn_cal_a2_live.state(["!disabled"])
+
+            if self._cal_a2_win is not None:
+                try:
+                    self._cal_a2_win.destroy()
+                except Exception:
+                    pass
+            self._cal_a2_win = None
+
+        def update_live():
+            try:
+                vadc = float(self._read_vadc_live(config.ADS_CH_REF))
+                var_v.set(f"Voltaje A2: {vadc:.4f} V")
+                p_est = float(mpx_vadc_to_kpa(vadc))
+                if p_est >= float(self.cfg.p_max_seguridad_kpa):
+                    self._cal_a2_bomba_off()
+                    var_info.set(f"OVERPRESSURE: {p_est:.2f} kPa. Bomba OFF.")
+            except Exception as e:
+                var_info.set(f"Error lectura A2: {e}")
+            finally:
+                if self._cal_a2_win is not None and self._cal_a2_win.winfo_exists():
+                    self._cal_a2_after_id = self._cal_a2_win.after(100, update_live)
+
+        ttk.Button(btns, text="APLICAR PWM", command=on_apply_pwm).grid(row=0, column=0, sticky="ew", padx=3)
+        ttk.Button(btns, text="BOMBA OFF", command=on_bomba_off).grid(row=0, column=1, sticky="ew", padx=3)
+        ttk.Button(btns, text="CERRAR", command=close_win).grid(row=0, column=2, sticky="ew", padx=3)
+
+        win.protocol("WM_DELETE_WINDOW", close_win)
+        update_live()
+
     def _on_pwm_log_start(self) -> None:
         self._pwm_log_active = True
         self.rt.running = False
@@ -1819,12 +1979,14 @@ class ManualView(ttk.Frame):
         self.pi_worker.freeze()
         self.btn_start.state(["disabled"])
         self.btn_pwm_log.state(["disabled"])
+        self.btn_cal_a2_live.state(["disabled"])
 
     def _on_pwm_log_end(self, _state: str) -> None:
         self._pwm_log_active = False
         self.pi_worker.unfreeze()
         self.btn_start.state(["!disabled"])
         self.btn_pwm_log.state(["!disabled"])
+        self.btn_cal_a2_live.state(["!disabled"])
 
     def _open_pwm_log_window(self) -> None:
         if self._pwm_log_win is not None and self._pwm_log_win.winfo_exists():
@@ -1860,6 +2022,11 @@ class ManualView(ttk.Frame):
             self._on_pwm_log_end("ABORT")
 
     def destroy(self):
+        try:
+            if self._cal_a2_win is not None and self._cal_a2_win.winfo_exists():
+                self._cal_a2_win.destroy()
+        except Exception:
+            pass
         try:
             if self._pwm_log_win is not None and self._pwm_log_win.winfo_exists():
                 self._pwm_log_win.destroy()
