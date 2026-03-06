@@ -1,4 +1,4 @@
-# mode_manual.py
+﻿# mode_manual.py
 # -*- coding: utf-8 -*-
 
 import time
@@ -22,14 +22,14 @@ if TYPE_CHECKING:
 
 
 # =========================
-# Utilidades de conversión
+# Utilidades de conversiÃ³n
 # =========================
 def clamp(x: float, lo: float, hi: float) -> float:
     return lo if x < lo else hi if x > hi else x
 
 
 def mpx_vadc_to_kpa(vadc: float) -> float:
-    """Convierte VADC (ADS) -> presión kPa usando polinomio + 2PT si aplica."""
+    """Convierte VADC (ADS) -> presiÃ³n kPa usando polinomio + 2PT si aplica."""
     p_raw = config.MPX_A2 * vadc * vadc + config.MPX_B2 * vadc + config.MPX_C2
     if p_raw < 0:
         p_raw = 0.0
@@ -44,7 +44,7 @@ def mpx_vadc_to_kpa(vadc: float) -> float:
 
 def dut_vadc_to_eng(vadc: float, dut_mode: str) -> float:
     """
-    Convierte VADC (ADS) a ingeniería:
+    Convierte VADC (ADS) a ingenierÃ­a:
       - A0 -> Vin (V): Vin = gain*VADC + offset
       - A1 -> ImA (mA): ImA = gain*VADC + offset
     """
@@ -98,7 +98,7 @@ class ManualView(ttk.Frame):
         "mbar": 0.1,
         "MPa": 1000.0,
         "psi": 6.894757,
-        "kgf/cm²": 98.0665,
+        "kgf/cmÂ²": 98.0665,
         "mmH2O": 0.00980665,
         "cmH2O": 0.0980665,
         "inH2O": 0.2490889,
@@ -111,7 +111,7 @@ class ManualView(ttk.Frame):
         "mbar",
         "kPa",
         "MPa",
-        "kgf/cm²",
+        "kgf/cmÂ²",
         "mmH2O",
         "cmH2O",
         "inH2O",
@@ -149,7 +149,7 @@ class ManualView(ttk.Frame):
         self._pwm_log_active = False
         self._pwm_log_win: Optional[Any] = None
 
-        # PI único (sirve manual y auto)
+        # PI Ãºnico (sirve manual y auto)
         self.pi = PIController(PIConfig(
             kp=config.PI_CFG.kp,
             ki=config.PI_CFG.ki,
@@ -205,7 +205,7 @@ class ManualView(ttk.Frame):
         self.grid_columnconfigure(0, weight=1, uniform="col")
         self.grid_columnconfigure(1, weight=1, uniform="col")
 
-        # Título arriba (ocupa 2 columnas)
+        # TÃ­tulo arriba (ocupa 2 columnas)
         header = ttk.Frame(self)
         header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 4))
         header.grid_columnconfigure(0, weight=1)
@@ -216,7 +216,7 @@ class ManualView(ttk.Frame):
         ttk.Label(header, textvariable=self.var_temp, font=("Arial", 11, "bold")).grid(row=0, column=1, sticky="e")
 
         # ===== Columna izquierda: CONFIG =====
-        frm_cfg = ttk.LabelFrame(self, text="Configuración")
+        frm_cfg = ttk.LabelFrame(self, text="ConfiguraciÃ³n")
         frm_cfg.grid(row=1, column=0, sticky="nsew", padx=(10, 6), pady=(4, 8))
         frm_cfg.grid_columnconfigure(0, weight=1)
         self.frm_cfg = frm_cfg
@@ -248,29 +248,29 @@ class ManualView(ttk.Frame):
         rng_box.grid_columnconfigure(1, weight=1)
 
         # Hacemos 2 columnas compactas
-        ttk.Label(rng_box, text="P mín").grid(row=0, column=0, sticky="w", padx=6, pady=(4, 2))
+        ttk.Label(rng_box, text="P mÃ­n").grid(row=0, column=0, sticky="w", padx=6, pady=(4, 2))
         self.btn_pmin = ttk.Button(rng_box, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
         self.btn_pmin.grid(row=0, column=1, sticky="w", padx=6, pady=(4, 2))
 
-        ttk.Label(rng_box, text="P máx").grid(row=1, column=0, sticky="w", padx=6, pady=2)
+        ttk.Label(rng_box, text="P mÃ¡x").grid(row=1, column=0, sticky="w", padx=6, pady=2)
         self.btn_pmax = ttk.Button(rng_box, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
         self.btn_pmax.grid(row=1, column=1, sticky="w", padx=6, pady=2)
 
-        self.lbl_sigmin = ttk.Label(rng_box, text="I mín")
+        self.lbl_sigmin = ttk.Label(rng_box, text="I mÃ­n")
         self.lbl_sigmin.grid(row=2, column=0, sticky="w", padx=6, pady=2)
-        self.btn_sigmin = ttk.Button(rng_box, text=f"[{self.var_sigmin.get()}]", command=lambda: self._open_edit_dialog(self.var_sigmin, "Señal mín", 0, 100, self.btn_sigmin))
+        self.btn_sigmin = ttk.Button(rng_box, text=f"[{self.var_sigmin.get()}]", command=lambda: self._open_edit_dialog(self.var_sigmin, "SeÃ±al mÃ­n", 0, 100, self.btn_sigmin))
         self.btn_sigmin.grid(row=2, column=1, sticky="w", padx=6, pady=2)
 
-        self.lbl_sigmax = ttk.Label(rng_box, text="I máx")
+        self.lbl_sigmax = ttk.Label(rng_box, text="I mÃ¡x")
         self.lbl_sigmax.grid(row=3, column=0, sticky="w", padx=6, pady=2)
-        self.btn_sigmax = ttk.Button(rng_box, text=f"[{self.var_sigmax.get()}]", command=lambda: self._open_edit_dialog(self.var_sigmax, "Señal máx", 0, 100, self.btn_sigmax))
+        self.btn_sigmax = ttk.Button(rng_box, text=f"[{self.var_sigmax.get()}]", command=lambda: self._open_edit_dialog(self.var_sigmax, "SeÃ±al mÃ¡x", 0, 100, self.btn_sigmax))
         self.btn_sigmax.grid(row=3, column=1, sticky="w", padx=6, pady=2)
 
         ttk.Label(rng_box, text="P seg").grid(row=4, column=0, sticky="w", padx=6, pady=(2, 6))
         self.btn_pmaxseg = ttk.Button(rng_box, text=f"[{self.var_pmaxseg.get()}]", command=lambda: self._open_edit_dialog(self.var_pmaxseg, "P seguridad (kPa)", 0, 500, self.btn_pmaxseg))
         self.btn_pmaxseg.grid(row=4, column=1, sticky="w", padx=6, pady=(2, 6))
 
-        # Control (SP + botón aplicar) compacto
+        # Control (SP + botÃ³n aplicar) compacto
         sp_box = ttk.LabelFrame(frm_cfg, text="Control")
         sp_box.grid(row=1, column=0, sticky="ew", padx=8, pady=6)
         sp_box.grid_columnconfigure(1, weight=1)
@@ -324,11 +324,11 @@ class ManualView(ttk.Frame):
         frm_live.grid_rowconfigure(5, weight=1)
         self.frm_live = frm_live
 
-        # Letras un pelín más pequeñas para que quepa
+        # Letras un pelÃ­n mÃ¡s pequeÃ±as para que quepa
         big = ("Arial", 10, "bold")
         normal = ("Arial", 9)
 
-        ttk.Label(frm_live, text="PRESIÓN:", font=normal).grid(row=0, column=0, sticky="w", padx=8, pady=(3, 1))
+        ttk.Label(frm_live, text="PRESIÃ“N:", font=normal).grid(row=0, column=0, sticky="w", padx=8, pady=(3, 1))
         ttk.Label(frm_live, textvariable=self.var_p_source, font=big).grid(row=0, column=1, sticky="w", padx=8, pady=(3, 1))
 
         ttk.Label(frm_live, text="DUT:", font=normal).grid(row=1, column=0, sticky="w", padx=8, pady=1)
@@ -375,13 +375,13 @@ class ManualView(ttk.Frame):
         try:
             display_value = float(raw.strip().replace(",", "."))
         except Exception:
-            raise ValueError(f"{field_name}: valor inválido.")
+            raise ValueError(f"{field_name}: valor invÃ¡lido.")
 
         value_kpa = self._pressure_display_to_kpa(display_value)
         if value_kpa < self._PRESSURE_MIN_KPA or value_kpa > self._PRESSURE_MAX_KPA:
             unit = self.var_sp_unit.get().strip() or "kPa"
             raise ValueError(
-                f"{field_name}: fuera de rango físico 0-200 kPa. "
+                f"{field_name}: fuera de rango fÃ­sico 0-200 kPa. "
                 f"({display_value:.4f} {unit} = {value_kpa:.4f} kPa)"
             )
         return float(value_kpa)
@@ -462,8 +462,8 @@ class ManualView(ttk.Frame):
     # -------------------------
     def _open_edit_dialog(self, var: tk.StringVar, label: str, min_val: float, max_val: float, button: ttk.Button):
         """
-        Abre un diálogo modal para editar un valor numérico con teclado integrado.
-        Optimizado para pantalla táctil en Raspberry Pi.
+        Abre un diÃ¡logo modal para editar un valor numÃ©rico con teclado integrado.
+        Optimizado para pantalla tÃ¡ctil en Raspberry Pi.
         """
         dialog = tk.Toplevel(self)
         dialog.title(f"Editar: {label}")
@@ -594,10 +594,10 @@ class ManualView(ttk.Frame):
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
         tk.Button(row_frm, text=".", width=btn_width, height=btn_height, command=add_decimal,
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
-        tk.Button(row_frm, text="←", width=btn_width, height=btn_height, command=delete_last,
+        tk.Button(row_frm, text="â†", width=btn_width, height=btn_height, command=delete_last,
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
 
-        # Borrar todo - botón compacto
+        # Borrar todo - botÃ³n compacto
         ttk.Button(kbd_frm, text="Borrar todo", command=clear_all).pack(fill="x", padx=2, pady=3)
 
         # Frame para botones de guardar/cancelar
@@ -616,13 +616,13 @@ class ManualView(ttk.Frame):
 
                 dialog.destroy()
             except ValueError as e:
-                messagebox.showerror("Error", f"Valor inválido: {str(e)}")
+                messagebox.showerror("Error", f"Valor invÃ¡lido: {str(e)}")
 
         def on_cancel():
             dialog.destroy()
 
-        ttk.Button(action_frm, text="✓ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
-        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="âœ“ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="âœ• Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
 
         entry.bind("<Return>", lambda e: on_save())
         entry.bind("<Escape>", lambda e: on_cancel())
@@ -988,11 +988,11 @@ class ManualView(ttk.Frame):
                     else:
                         btn.configure(relief="raised", bg="#f0f0f0")
 
-            chan_labels = {"A0": "Señal V", "A1": "Señal I"}
-            for mode_sel in ("A0", "A1"):
+            chan_labels = {"A0": "Senal V", "A1": "Senal I", "A3": "Senal A3"}
+            for mode_sel in ("A0", "A1", "A3"):
                 btn = tk.Button(
                     chan_box,
-                    text=chan_labels[mode_sel],
+                    text=chan_labels.get(mode_sel, mode_sel),
                     width=4,
                     height=2,
                     font=("Arial", 10, "bold"),
@@ -1046,6 +1046,8 @@ class ManualView(ttk.Frame):
                     mode = var_chan.get().strip().upper()
                     if mode == "A0":
                         ch = config.ADS_CH_DUT_V
+                    elif mode == "A3":
+                        ch = int(getattr(config, "ADS_CH_A3", 3))
                     else:
                         ch = config.ADS_CH_DUT_mA
 
@@ -1094,7 +1096,7 @@ class ManualView(ttk.Frame):
             messagebox.showerror("FFT", f"No se pudo abrir la ventana: {e}")
 
     def _open_edit_dialog_sp(self):
-        """Abre modal para editar SP con aplicación automática"""
+        """Abre modal para editar SP con aplicaciÃ³n automÃ¡tica"""
         unit = self.var_sp_unit.get().strip() or "kPa"
         label = f"SP ({unit})"
         min_val = self._pressure_kpa_to_display(self._PRESSURE_MIN_KPA)
@@ -1229,7 +1231,7 @@ class ManualView(ttk.Frame):
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
         tk.Button(row_frm, text=".", width=btn_width, height=btn_height, command=add_decimal,
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
-        tk.Button(row_frm, text="←", width=btn_width, height=btn_height, command=delete_last,
+        tk.Button(row_frm, text="â†", width=btn_width, height=btn_height, command=delete_last,
                   font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
 
         ttk.Button(kbd_frm, text="Borrar todo", command=clear_all).pack(fill="x", padx=2, pady=3)
@@ -1244,13 +1246,13 @@ class ManualView(ttk.Frame):
 
                 dialog.destroy()
             except ValueError as e:
-                messagebox.showwarning("Rango inválido", str(e))
+                messagebox.showwarning("Rango invÃ¡lido", str(e))
 
         def on_cancel():
             dialog.destroy()
 
-        ttk.Button(action_frm, text="✓ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
-        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="âœ“ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="âœ• Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
 
         entry.bind("<Return>", lambda e: on_save())
         entry.bind("<Escape>", lambda e: on_cancel())
@@ -1258,10 +1260,10 @@ class ManualView(ttk.Frame):
         dialog.wait_window()
 
     def _open_edit_dialog_pmin(self):
-        self._open_edit_dialog_pressure_bound("p_min_kpa", "P mín")
+        self._open_edit_dialog_pressure_bound("p_min_kpa", "P mÃ­n")
 
     def _open_edit_dialog_pmax(self):
-        self._open_edit_dialog_pressure_bound("p_max_kpa", "P máx")
+        self._open_edit_dialog_pressure_bound("p_max_kpa", "P mÃ¡x")
 
     def _open_edit_dialog_pressure_bound(self, attr_name: str, field_label: str):
         unit = self.var_sp_unit.get().strip() or "kPa"
@@ -1275,7 +1277,7 @@ class ManualView(ttk.Frame):
         elif attr_name == "p_max_kpa":
             button = self.btn_pmax
         else:
-            raise ValueError("Campo de presión inválido.")
+            raise ValueError("Campo de presiÃ³n invÃ¡lido.")
 
         def _on_save(raw_value: str):
             value_kpa = self._parse_display_pressure_kpa(raw_value, field_label)
@@ -1400,7 +1402,7 @@ class ManualView(ttk.Frame):
         row_frm.pack(fill="both", expand=True, padx=1, pady=1)
         tk.Button(row_frm, text="0", width=btn_width, height=btn_height, command=lambda: add_digit(0), font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
         tk.Button(row_frm, text=".", width=btn_width, height=btn_height, command=add_decimal, font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
-        tk.Button(row_frm, text="←", width=btn_width, height=btn_height, command=delete_last, font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
+        tk.Button(row_frm, text="â†", width=btn_width, height=btn_height, command=delete_last, font=btn_font, relief="raised", bd=1).pack(side="left", padx=1, pady=1, expand=True, fill="both")
 
         ttk.Button(kbd_frm, text="Borrar todo", command=clear_all).pack(fill="x", padx=2, pady=3)
 
@@ -1412,13 +1414,13 @@ class ManualView(ttk.Frame):
                 on_save(var_edit.get())
                 dialog.destroy()
             except ValueError as e:
-                messagebox.showwarning("Rango inválido", str(e))
+                messagebox.showwarning("Rango invÃ¡lido", str(e))
 
         def on_cancel():
             dialog.destroy()
 
-        ttk.Button(action_frm, text="✓ Guardar", command=save_and_close).pack(side="left", padx=2, pady=2, fill="both", expand=True)
-        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="âœ“ Guardar", command=save_and_close).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="âœ• Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
 
         entry.bind("<Return>", lambda e: save_and_close())
         entry.bind("<Escape>", lambda e: on_cancel())
@@ -1504,25 +1506,25 @@ class ManualView(ttk.Frame):
         sig_max = _parse_sig(self.var_sigmax, self.cfg.sig_max)
 
         if mode == "A0":
-            self.lbl_sigmin.configure(text="V mín")
-            self.lbl_sigmax.configure(text="V máx")
-            # Si viene del rango típico A1 (4-20), conmutar a 0-10 V.
+            self.lbl_sigmin.configure(text="V mÃ­n")
+            self.lbl_sigmax.configure(text="V mÃ¡x")
+            # Si viene del rango tÃ­pico A1 (4-20), conmutar a 0-10 V.
             if _is_close_pair(sig_min, sig_max, self._A1_SIG_MIN_DEFAULT, self._A1_SIG_MAX_DEFAULT):
                 sig_min = self._A0_SIG_MIN_DEFAULT
                 sig_max = self._A0_SIG_MAX_DEFAULT
                 self.var_sigmin.set(f"{sig_min:.3f}")
                 self.var_sigmax.set(f"{sig_max:.3f}")
         else:
-            self.lbl_sigmin.configure(text="I mín")
-            self.lbl_sigmax.configure(text="I máx")
-            # Si viene del rango típico A0 (0-10), conmutar a 4-20 mA.
+            self.lbl_sigmin.configure(text="I mÃ­n")
+            self.lbl_sigmax.configure(text="I mÃ¡x")
+            # Si viene del rango tÃ­pico A0 (0-10), conmutar a 4-20 mA.
             if _is_close_pair(sig_min, sig_max, self._A0_SIG_MIN_DEFAULT, self._A0_SIG_MAX_DEFAULT):
                 sig_min = self._A1_SIG_MIN_DEFAULT
                 sig_max = self._A1_SIG_MAX_DEFAULT
                 self.var_sigmin.set(f"{sig_min:.3f}")
                 self.var_sigmax.set(f"{sig_max:.3f}")
 
-        # Sincronizar cálculo live sin esperar START.
+        # Sincronizar cÃ¡lculo live sin esperar START.
         self.cfg.sig_min = float(sig_min)
         self.cfg.sig_max = float(sig_max)
 
@@ -1530,11 +1532,11 @@ class ManualView(ttk.Frame):
         try:
             p_corr = self._read_pressure_corr_kpa()
             self.rt.p_zero_kpa = p_corr
-            messagebox.showinfo("TARA", f"Tara aplicada.\nAhora P≈0 desde Pcorr={p_corr:.2f} kPa")
+            messagebox.showinfo("TARA", f"Tara aplicada.\nAhora Pâ‰ˆ0 desde Pcorr={p_corr:.2f} kPa")
         except Exception as e:
             messagebox.showerror("TARA", f"No se pudo aplicar tara: {e}")
 
-    # Solo aplica SP con botón/Enter
+    # Solo aplica SP con botÃ³n/Enter
     def _apply_sp(self):
         try:
             self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
@@ -1757,8 +1759,8 @@ class ManualView(ttk.Frame):
                 return default
 
         self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
-        self.cfg.p_min_kpa = self._parse_display_pressure_kpa(self.var_pmin.get(), "P mín")
-        self.cfg.p_max_kpa = self._parse_display_pressure_kpa(self.var_pmax.get(), "P máx")
+        self.cfg.p_min_kpa = self._parse_display_pressure_kpa(self.var_pmin.get(), "P mÃ­n")
+        self.cfg.p_max_kpa = self._parse_display_pressure_kpa(self.var_pmax.get(), "P mÃ¡x")
         self.cfg.sig_min = f(self.var_sigmin, self.cfg.sig_min)
         self.cfg.sig_max = f(self.var_sigmax, self.cfg.sig_max)
         self.cfg.p_max_seguridad_kpa = f(self.var_pmaxseg, self.cfg.p_max_seguridad_kpa)
@@ -1766,15 +1768,15 @@ class ManualView(ttk.Frame):
 
     def _validate_config(self):
         if not (self._PRESSURE_MIN_KPA <= self.cfg.sp_kpa <= self._PRESSURE_MAX_KPA):
-            raise ValueError("SP fuera de rango físico (0-200 kPa).")
+            raise ValueError("SP fuera de rango fÃ­sico (0-200 kPa).")
         if not (self._PRESSURE_MIN_KPA <= self.cfg.p_min_kpa <= self._PRESSURE_MAX_KPA):
-            raise ValueError("P mín fuera de rango físico (0-200 kPa).")
+            raise ValueError("P mÃ­n fuera de rango fÃ­sico (0-200 kPa).")
         if not (self._PRESSURE_MIN_KPA <= self.cfg.p_max_kpa <= self._PRESSURE_MAX_KPA):
-            raise ValueError("P máx fuera de rango físico (0-200 kPa).")
+            raise ValueError("P mÃ¡x fuera de rango fÃ­sico (0-200 kPa).")
         if self.cfg.p_max_kpa <= self.cfg.p_min_kpa:
-            raise ValueError("Presión máx debe ser mayor que presión mín.")
+            raise ValueError("PresiÃ³n mÃ¡x debe ser mayor que presiÃ³n mÃ­n.")
         if self.cfg.sig_max <= self.cfg.sig_min:
-            raise ValueError("Señal máx debe ser mayor que señal mín.")
+            raise ValueError("SeÃ±al mÃ¡x debe ser mayor que seÃ±al mÃ­n.")
 
     # -------------------------
     # Seguridad actuadores

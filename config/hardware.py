@@ -69,6 +69,7 @@ VADC_MAX_OK: float = 3.35
 ADS_CH_DUT_V: int = 0
 ADS_CH_DUT_mA: int = 1
 ADS_CH_REF: int = 2
+ADS_CH_A3: int = 3
 
 # Sí: MPX se lee desde ADS
 USE_ADS_REF: bool = True
