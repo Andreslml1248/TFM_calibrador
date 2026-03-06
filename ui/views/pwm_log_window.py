@@ -227,7 +227,9 @@ class PwmLogWindow(tk.Toplevel):
         with open(out, "w", encoding="utf-8", newline="") as fh:
             fh.write("t_s;p_kpa\n")
             for t_s, p_kpa in rows:
-                fh.write(f"{t_s:.6f};{p_kpa:.6f}\n")
+                t_txt = f"{t_s:.6f}".replace(".", ",")
+                p_txt = f"{p_kpa:.6f}".replace(".", ",")
+                fh.write(f"{t_txt};{p_txt}\n")
         return out
 
     def _refresh_plot(self, rows: List[Tuple[float, float]]) -> None:
