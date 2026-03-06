@@ -1715,7 +1715,7 @@ class ManualView(ttk.Frame):
                 sp = float(self.cfg.sp_kpa)
                 sp_ctrl = sp
 
-                self.set_valve(False)
+                self.set_valve(True)
                 self.set_relay(True)
                 self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
                 u_cmd = self.pi_worker.get_output()
