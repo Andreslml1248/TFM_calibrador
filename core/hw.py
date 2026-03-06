@@ -84,6 +84,37 @@ class HW:
         pwm_hw = (1.0 - u) if config.BOMBA_ACTIVE_LOW else u
         self.pwm_bomba.value = clamp(pwm_hw, 0.0, 1.0)
 
+    def get_pump_frequency_hz(self) -> float:
+        try:
+            return float(self.pwm_bomba.frequency)
+        except Exception:
+            return float(config.PWM_FREQ_HZ)
+
+    def set_pump_frequency_hz(self, freq_hz: float) -> float:
+        freq = max(1.0, float(freq_hz))
+        try:
+            self.pwm_bomba.frequency = freq
+        except Exception:
+            # Fallback para backends que no permiten cambiar frecuencia en caliente.
+            last_value = 0.0
+            try:
+                last_value = float(self.pwm_bomba.value)
+            except Exception:
+                last_value = 0.0
+            try:
+                self.pwm_bomba.close()
+            except Exception:
+                pass
+            self.pwm_bomba = PWMOutputDevice(
+                config.PWM_PIN,
+                frequency=freq,
+                pin_factory=self.factory
+            )
+            self.pwm_bomba.value = clamp(last_value, 0.0, 1.0)
+
+        config.PWM_FREQ_HZ = int(round(freq))
+        return float(config.PWM_FREQ_HZ)
+
     def _ensure_fan_pwm(self):
         if self._fan_init_attempted:
             return

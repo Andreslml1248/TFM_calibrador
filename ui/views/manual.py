@@ -132,12 +132,16 @@ class ManualView(ttk.Frame):
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
+        get_pump_freq_hz: Optional[Callable[[], float]] = None,
+        set_pump_freq_hz: Optional[Callable[[float], float]] = None,
         update_period_ms: int = 100,
     ):
         super().__init__(master)
         self.read_vadc = read_vadc
         self.read_vadc_live = read_vadc_live
         self.set_pump = set_pump
+        self.get_pump_freq_hz = get_pump_freq_hz
+        self.set_pump_freq_hz = set_pump_freq_hz
         self.set_relay = set_relay
         self.set_valve = set_valve
         self.request_event = request_event
@@ -1836,6 +1840,8 @@ class ManualView(ttk.Frame):
             self,
             read_pressure_kpa=self._read_control_pressure_kpa,
             apply_real_pwm=self._apply_real_pwm_for_log,
+            get_pwm_freq_hz=self.get_pump_freq_hz,
+            set_pwm_freq_hz=self.set_pump_freq_hz,
             safe_stop=self._safe_stop_for_log,
             on_start=self._on_pwm_log_start,
             on_end=self._on_pwm_log_end,

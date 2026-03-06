@@ -25,6 +25,8 @@ class PwmLogWindow(tk.Toplevel):
         *,
         read_pressure_kpa: Callable[[], float],
         apply_real_pwm: Callable[[float], None],
+        get_pwm_freq_hz: Optional[Callable[[], float]] = None,
+        set_pwm_freq_hz: Optional[Callable[[float], float]] = None,
         safe_stop: Callable[[], None],
         on_start: Optional[Callable[[], None]] = None,
         on_end: Optional[Callable[[str], None]] = None,
@@ -36,12 +38,21 @@ class PwmLogWindow(tk.Toplevel):
 
         self._read_pressure_kpa = read_pressure_kpa
         self._apply_real_pwm = apply_real_pwm
+        self._get_pwm_freq_hz = get_pwm_freq_hz
+        self._set_pwm_freq_hz = set_pwm_freq_hz
         self._safe_stop = safe_stop
         self._on_start = on_start
         self._on_end = on_end
 
         self.var_pwm = tk.StringVar(value="0.20")
         self.var_duration = tk.StringVar(value="60")
+        init_freq_hz = float(getattr(config, "PWM_FREQ_HZ", 90))
+        if self._get_pwm_freq_hz is not None:
+            try:
+                init_freq_hz = float(self._get_pwm_freq_hz())
+            except Exception:
+                init_freq_hz = float(getattr(config, "PWM_FREQ_HZ", 90))
+        self.var_pwm_freq_hz = tk.StringVar(value=f"{init_freq_hz:.0f}")
         self.var_status = tk.StringVar(value="IDLE")
 
         self._abort_evt = threading.Event()
@@ -57,6 +68,7 @@ class PwmLogWindow(tk.Toplevel):
         self._last_export: Optional[str] = None
         self._cfg_pwm = 0.20
         self._cfg_duration = 60.0
+        self._cfg_pwm_freq_hz = init_freq_hz
         self._last_png: Optional[str] = None
 
         self._build_ui()
@@ -73,11 +85,14 @@ class PwmLogWindow(tk.Toplevel):
         ttk.Label(frm, text="duration_s").grid(row=1, column=0, sticky="w", pady=2)
         ttk.Entry(frm, textvariable=self.var_duration, width=14).grid(row=1, column=1, sticky="w", pady=2)
 
+        ttk.Label(frm, text="pwm_freq_hz").grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Entry(frm, textvariable=self.var_pwm_freq_hz, width=14).grid(row=2, column=1, sticky="w", pady=2)
+
         self.lbl_status = ttk.Label(frm, textvariable=self.var_status)
-        self.lbl_status.grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 8))
+        self.lbl_status.grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 8))
 
         btns = ttk.Frame(frm)
-        btns.grid(row=3, column=0, columnspan=2, sticky="ew")
+        btns.grid(row=4, column=0, columnspan=2, sticky="ew")
         btns.grid_columnconfigure(0, weight=1)
         btns.grid_columnconfigure(1, weight=1)
         btns.grid_columnconfigure(2, weight=1)
@@ -99,33 +114,47 @@ class PwmLogWindow(tk.Toplevel):
         self._ax.set_ylabel("Presion [kPa]")
         self._ax.grid(True, alpha=0.30)
         self._canvas = FigureCanvasTkAgg(self._figure, master=frm)
-        self._canvas.get_tk_widget().grid(row=4, column=0, columnspan=2, sticky="nsew", pady=(8, 0))
+        self._canvas.get_tk_widget().grid(row=5, column=0, columnspan=2, sticky="nsew", pady=(8, 0))
 
-        frm.grid_rowconfigure(4, weight=1)
+        frm.grid_rowconfigure(5, weight=1)
         frm.grid_columnconfigure(0, weight=1)
         frm.grid_columnconfigure(1, weight=1)
 
-    def _parse_inputs(self) -> Tuple[float, float]:
+    def _parse_inputs(self) -> Tuple[float, float, float]:
         try:
             pwm = float(self.var_pwm.get().strip().replace(",", "."))
             duration_s = float(self.var_duration.get().strip().replace(",", "."))
+            freq_hz = float(self.var_pwm_freq_hz.get().strip().replace(",", "."))
         except Exception:
-            raise ValueError("Valores invalidos en pwm/duration_s.")
+            raise ValueError("Valores invalidos en pwm/duration_s/pwm_freq_hz.")
         pwm = _clamp(pwm, 0.0, 1.0)
         duration_s = max(0.1, duration_s)
-        return pwm, duration_s
+        freq_hz = max(1.0, freq_hz)
+        return pwm, duration_s, freq_hz
 
     def _start(self) -> None:
         if self._running:
             return
         try:
-            pwm, duration_s = self._parse_inputs()
+            pwm, duration_s, freq_hz = self._parse_inputs()
         except Exception as e:
             messagebox.showerror("LOG PWM", str(e), parent=self)
             return
 
+        try:
+            if self._set_pwm_freq_hz is not None:
+                applied_freq_hz = float(self._set_pwm_freq_hz(freq_hz))
+            else:
+                config.PWM_FREQ_HZ = int(round(freq_hz))
+                applied_freq_hz = float(config.PWM_FREQ_HZ)
+        except Exception as e:
+            messagebox.showerror("LOG PWM", f"No se pudo aplicar pwm_freq_hz: {e}", parent=self)
+            return
+
         self._cfg_pwm = pwm
         self._cfg_duration = duration_s
+        self._cfg_pwm_freq_hz = applied_freq_hz
+        self.var_pwm_freq_hz.set(f"{applied_freq_hz:.0f}")
         self._abort_evt.clear()
         with self._lock:
             self._rows = []
@@ -143,7 +172,7 @@ class PwmLogWindow(tk.Toplevel):
         self.btn_start.state(["disabled"])
         self.btn_stop.state(["!disabled"])
         self.btn_save_png.state(["disabled"])
-        self.var_status.set("RUNNING...")
+        self.var_status.set(f"RUNNING... f={self._cfg_pwm_freq_hz:.0f}Hz")
         self._refresh_plot([])
 
         self._thread = threading.Thread(
