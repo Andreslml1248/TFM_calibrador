@@ -115,7 +115,9 @@ class ADSTelemetryServer:
         value = self.snapshot.get(ch)
         if value is None:
             return
-        payload = f"{value:.6f}\n".encode("ascii")
+        msg = f"{value:.6f}\r\n"
+        print("TX:", repr(msg))
+        payload = msg.encode("ascii")
 
         alive_clients: List[socket.socket] = []
         for conn in self._clients[ch]:
