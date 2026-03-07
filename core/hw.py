@@ -29,6 +29,7 @@ else:
 from config import hardware as config
 from core.ads1115 import clamp, ads_read_v_once
 from core.filters import ChannelFilterChain
+from core.telemetry import get_global_telemetry_snapshot
 
 
 class HW:
@@ -64,6 +65,7 @@ class HW:
             )
 
         self.bus = SMBus(config.ADS_I2C_BUS)
+        self._telemetry_snapshot = get_global_telemetry_snapshot()
 
         # Filtros live por canal (Median PtByPt + Mean PtByPt)
         self._live_filters = {}
@@ -147,7 +149,10 @@ class HW:
 
     # ---------- Lecturas ----------
     def read_vadc(self, ch: int) -> float:
-        return float(ads_read_v_once(self.bus, int(ch)))
+        ch_i = int(ch)
+        value = float(ads_read_v_once(self.bus, ch_i))
+        self._telemetry_snapshot.update(ch_i, value)
+        return value
 
     def _get_temp_device_file(self) -> Optional[str]:
         if self._temp_device_file and os.path.exists(self._temp_device_file):
