@@ -24,7 +24,7 @@ class PwmLogWindow(tk.Toplevel):
         master,
         *,
         read_pressure_kpa: Callable[[], float],
-        apply_real_pwm: Callable[[float], None],
+        apply_u_cmd: Callable[[float], None],
         get_pwm_freq_hz: Optional[Callable[[], float]] = None,
         set_pwm_freq_hz: Optional[Callable[[float], float]] = None,
         safe_stop: Callable[[], None],
@@ -37,14 +37,14 @@ class PwmLogWindow(tk.Toplevel):
         self.transient(master.winfo_toplevel())
 
         self._read_pressure_kpa = read_pressure_kpa
-        self._apply_real_pwm = apply_real_pwm
+        self._apply_u_cmd = apply_u_cmd
         self._get_pwm_freq_hz = get_pwm_freq_hz
         self._set_pwm_freq_hz = set_pwm_freq_hz
         self._safe_stop = safe_stop
         self._on_start = on_start
         self._on_end = on_end
 
-        self.var_pwm = tk.StringVar(value="0.20")
+        self.var_u_cmd = tk.StringVar(value="0.20")
         self.var_duration = tk.StringVar(value="60")
         init_freq_hz = float(getattr(config, "PWM_FREQ_HZ", 90))
         if self._get_pwm_freq_hz is not None:
@@ -66,7 +66,7 @@ class PwmLogWindow(tk.Toplevel):
         self._done_state: Optional[str] = None
         self._done_error: Optional[str] = None
         self._last_export: Optional[str] = None
-        self._cfg_pwm = 0.20
+        self._cfg_u_cmd = 0.20
         self._cfg_duration = 60.0
         self._cfg_pwm_freq_hz = init_freq_hz
         self._last_png: Optional[str] = None
@@ -79,8 +79,8 @@ class PwmLogWindow(tk.Toplevel):
         frm = ttk.Frame(self, padding=10)
         frm.grid(row=0, column=0, sticky="nsew")
 
-        ttk.Label(frm, text="pwm (0..1)").grid(row=0, column=0, sticky="w", pady=2)
-        ttk.Entry(frm, textvariable=self.var_pwm, width=14).grid(row=0, column=1, sticky="w", pady=2)
+        ttk.Label(frm, text="u_cmd (0..1)").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Entry(frm, textvariable=self.var_u_cmd, width=14).grid(row=0, column=1, sticky="w", pady=2)
 
         ttk.Label(frm, text="duration_s").grid(row=1, column=0, sticky="w", pady=2)
         ttk.Entry(frm, textvariable=self.var_duration, width=14).grid(row=1, column=1, sticky="w", pady=2)
@@ -122,21 +122,21 @@ class PwmLogWindow(tk.Toplevel):
 
     def _parse_inputs(self) -> Tuple[float, float, float]:
         try:
-            pwm = float(self.var_pwm.get().strip().replace(",", "."))
+            u_cmd = float(self.var_u_cmd.get().strip().replace(",", "."))
             duration_s = float(self.var_duration.get().strip().replace(",", "."))
             freq_hz = float(self.var_pwm_freq_hz.get().strip().replace(",", "."))
         except Exception:
-            raise ValueError("Valores invalidos en pwm/duration_s/pwm_freq_hz.")
-        pwm = _clamp(pwm, 0.0, 1.0)
+            raise ValueError("Valores invalidos en u_cmd/duration_s/pwm_freq_hz.")
+        u_cmd = _clamp(u_cmd, 0.0, 1.0)
         duration_s = max(0.1, duration_s)
         freq_hz = max(1.0, freq_hz)
-        return pwm, duration_s, freq_hz
+        return u_cmd, duration_s, freq_hz
 
     def _start(self) -> None:
         if self._running:
             return
         try:
-            pwm, duration_s, freq_hz = self._parse_inputs()
+            u_cmd, duration_s, freq_hz = self._parse_inputs()
         except Exception as e:
             messagebox.showerror("LOG PWM", str(e), parent=self)
             return
@@ -151,7 +151,7 @@ class PwmLogWindow(tk.Toplevel):
             messagebox.showerror("LOG PWM", f"No se pudo aplicar pwm_freq_hz: {e}", parent=self)
             return
 
-        self._cfg_pwm = pwm
+        self._cfg_u_cmd = u_cmd
         self._cfg_duration = duration_s
         self._cfg_pwm_freq_hz = applied_freq_hz
         self.var_pwm_freq_hz.set(f"{applied_freq_hz:.0f}")
@@ -177,7 +177,7 @@ class PwmLogWindow(tk.Toplevel):
 
         self._thread = threading.Thread(
             target=self._run_worker,
-            kwargs={"pwm": pwm, "duration_s": duration_s},
+            kwargs={"u_cmd": u_cmd, "duration_s": duration_s},
             name="PwmLogWorker",
             daemon=True,
         )
@@ -186,14 +186,14 @@ class PwmLogWindow(tk.Toplevel):
     def _stop(self) -> None:
         self._abort_evt.set()
 
-    def _run_worker(self, *, pwm: float, duration_s: float) -> None:
+    def _run_worker(self, *, u_cmd: float, duration_s: float) -> None:
         state = "DONE"
         error_msg = ""
         t0 = time.perf_counter()
         sleep_s = max(0.05, float(getattr(config, "ADS_CONV_DELAY_S", 0.01)))
 
         try:
-            self._apply_real_pwm(pwm)
+            self._apply_u_cmd(u_cmd)
             while not self._abort_evt.is_set():
                 t_s = time.perf_counter() - t0
                 if t_s >= duration_s:
@@ -243,22 +243,32 @@ class PwmLogWindow(tk.Toplevel):
 
     def _build_csv_path(self) -> str:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return os.path.join(self._csv_dir(), f"pwm_log_{ts}_pwm-{self._cfg_pwm:.3f}.csv")
+        return os.path.join(self._csv_dir(), f"pwm_log_{ts}_u-{self._cfg_u_cmd:.3f}.csv")
 
     def _build_png_path(self) -> str:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return os.path.join(self._csv_dir(), f"pwm_log_{ts}_pwm-{self._cfg_pwm:.3f}.png")
+        return os.path.join(self._csv_dir(), f"pwm_log_{ts}_u-{self._cfg_u_cmd:.3f}.png")
+
+    def _u_cmd_to_pwm_hw(self, u_cmd: float) -> float:
+        u = _clamp(float(u_cmd), 0.0, 1.0)
+        if bool(getattr(config, "BOMBA_ACTIVE_LOW", False)):
+            return _clamp(1.0 - u, 0.0, 1.0)
+        return u
 
     def _export_csv(self) -> str:
         with self._lock:
             rows = list(self._rows)
         out = self._build_csv_path()
+        u_cmd = _clamp(float(self._cfg_u_cmd), 0.0, 1.0)
+        pwm_hw = self._u_cmd_to_pwm_hw(u_cmd)
         with open(out, "w", encoding="utf-8", newline="") as fh:
-            fh.write("t_s;p_kpa\n")
+            fh.write("t_s;u_cmd;pwm_hw;p_kpa\n")
             for t_s, p_kpa in rows:
                 t_txt = f"{t_s:.6f}".replace(".", ",")
+                u_txt = f"{u_cmd:.6f}".replace(".", ",")
+                pwm_txt = f"{pwm_hw:.6f}".replace(".", ",")
                 p_txt = f"{p_kpa:.6f}".replace(".", ",")
-                fh.write(f"{t_txt};{p_txt}\n")
+                fh.write(f"{t_txt};{u_txt};{pwm_txt};{p_txt}\n")
         return out
 
     def _refresh_plot(self, rows: List[Tuple[float, float]]) -> None:

@@ -153,16 +153,17 @@ class ManualView(ttk.Frame):
             20,
             int(round(float(getattr(config, "TELEMETRY_FORCE_REFRESH_S", 0.05)) * 1000.0)),
         )
+        pi_u_min, pi_u_max = self._effective_u_bounds(config.PI_CFG.u_min, config.PI_CFG.u_max)
 
         # PI Ãºnico (sirve manual y auto)
         self.pi = PIController(PIConfig(
             kp=config.PI_CFG.kp,
             ki=config.PI_CFG.ki,
             dt=config.PI_CFG.dt,
-            u_min=config.PI_CFG.u_min,
-            u_max=config.PI_CFG.u_max,
+            u_min=pi_u_min,
+            u_max=pi_u_max,
             deadband_kpa=config.PI_CFG.deadband_kpa,
-            u_ff=config.PI_CFG.u_ff,
+            u_ff=max(pi_u_min, min(float(config.PI_CFG.u_ff), pi_u_max)),
             i_decay_in_deadband=0.97
         ))
         self.pi_worker = PIWorker(self.pi, period_s=float(config.PI_CFG.dt))
@@ -1558,6 +1559,10 @@ class ManualView(ttk.Frame):
         try:
             self._pull_config_from_ui()
             self._validate_config()
+            pi_u_min, pi_u_max = self._effective_u_bounds(config.PI_CFG.u_min, config.PI_CFG.u_max)
+            self.pi.cfg.u_min = pi_u_min
+            self.pi.cfg.u_max = pi_u_max
+            self.pi.cfg.u_ff = max(pi_u_min, min(float(config.PI_CFG.u_ff), pi_u_max))
             self._apply_sp()
             self._apply_state_run()
         except Exception as e:
@@ -1724,7 +1729,7 @@ class ManualView(ttk.Frame):
                 self.set_valve(True)
                 self.set_relay(True)
                 self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
-                u_cmd = self._limit_u_for_active_low_hold(self.pi_worker.get_output())
+                u_cmd = self.pi_worker.get_output()
                 self.set_pump(u_cmd)
                 self.var_pwm.set(f"u={u_cmd:.3f}")
             else:
@@ -1822,18 +1827,18 @@ class ManualView(ttk.Frame):
         except Exception:
             pass
 
-    def _limit_u_for_active_low_hold(self, u_cmd: float) -> float:
-        u = max(0.0, min(float(u_cmd), 1.0))
+    def _effective_u_bounds(self, u_min: float, u_max: float) -> tuple[float, float]:
+        u_min_eff = max(0.0, min(float(u_min), 1.0))
+        u_max_eff = max(0.0, min(float(u_max), 1.0))
         if bool(getattr(config, "BOMBA_ACTIVE_LOW", False)):
             pwm_hw_min = max(0.0, min(float(getattr(config, "PWM_HW_MIN_HOLD", 0.20)), 1.0))
-            u = min(u, 1.0 - pwm_hw_min)
-        return u
+            u_max_eff = min(u_max_eff, 1.0 - pwm_hw_min)
+        if u_max_eff < u_min_eff:
+            u_max_eff = u_min_eff
+        return u_min_eff, u_max_eff
 
-    def _apply_real_pwm_for_log(self, pwm_real: float) -> None:
-        pwm = max(0.0, min(float(pwm_real), 1.0))
-        # `set_pump()` ya resuelve BOMBA_ACTIVE_LOW internamente.
-        # Aqui usamos pwm "real" directo para que 0.15 signifique ~15%.
-        u_cmd = pwm
+    def _apply_u_cmd_for_log(self, u_cmd: float) -> None:
+        u_cmd = max(0.0, min(float(u_cmd), 1.0))
         self.set_valve(True)
         self.set_relay(True)
         self.set_pump(u_cmd)
@@ -1870,7 +1875,7 @@ class ManualView(ttk.Frame):
         self._pwm_log_win = PwmLogWindow(
             self,
             read_pressure_kpa=self._read_control_pressure_kpa,
-            apply_real_pwm=self._apply_real_pwm_for_log,
+            apply_u_cmd=self._apply_u_cmd_for_log,
             get_pwm_freq_hz=self.get_pump_freq_hz,
             set_pwm_freq_hz=self.set_pump_freq_hz,
             safe_stop=self._safe_stop_for_log,

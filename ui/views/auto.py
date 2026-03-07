@@ -153,16 +153,17 @@ class AutoView(ttk.Frame):
         self.results: List[Dict[str, Any]] = []
         self._results_win: Optional[tk.Toplevel] = None
         self.var_temp = tk.StringVar(value="Temp: --.- C")
+        pi_u_min, pi_u_max = self._effective_u_bounds(config.PI_CFG.u_min, config.PI_CFG.u_max)
 
         # PI (base IGUAL a config; en START aplicamos overrides desde cfg)
         self.pi = PIController(PIConfig(
             kp=config.PI_CFG.kp,
             ki=config.PI_CFG.ki,
             dt=config.PI_CFG.dt,
-            u_min=config.PI_CFG.u_min,
-            u_max=config.PI_CFG.u_max,
+            u_min=pi_u_min,
+            u_max=pi_u_max,
             deadband_kpa=float(getattr(config.PI_CFG, "deadband_kpa", 0.5)),
-            u_ff=config.PI_CFG.u_ff,
+            u_ff=max(pi_u_min, min(float(config.PI_CFG.u_ff), pi_u_max)),
             i_decay_in_deadband=0.97
         ))
         self.pi_worker = PIWorker(self.pi, period_s=float(config.PI_CFG.dt))
@@ -993,9 +994,10 @@ class AutoView(ttk.Frame):
 
             # (control igual)
             self.pi.cfg.deadband_kpa = float(self.cfg.deadband_kpa)
-            self.pi.cfg.u_min = float(self.cfg.u_min)
-            self.pi.cfg.u_max = float(self.cfg.u_max)
-            self.pi.cfg.u_ff  = float(self.cfg.u_ff)
+            pi_u_min, pi_u_max = self._effective_u_bounds(self.cfg.u_min, self.cfg.u_max)
+            self.pi.cfg.u_min = pi_u_min
+            self.pi.cfg.u_max = pi_u_max
+            self.pi.cfg.u_ff = max(pi_u_min, min(float(self.cfg.u_ff), pi_u_max))
 
             if not self.rt.tare_done:
                 p_corr = self._read_pressure_corr_kpa()
@@ -1246,7 +1248,7 @@ class AutoView(ttk.Frame):
                     self.set_relay(True)
 
                     self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
-                    u = self._limit_u_for_active_low_hold(self.pi_worker.get_output())
+                    u = self.pi_worker.get_output()
                     self.rt.last_u = float(u)
                     self.set_pump(u)
 
@@ -1273,7 +1275,7 @@ class AutoView(ttk.Frame):
                 self.set_relay(True)
 
                 self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
-                u = self._limit_u_for_active_low_hold(self.pi_worker.get_output())
+                u = self.pi_worker.get_output()
                 self.rt.last_u = float(u)
                 self.set_pump(u)
 
@@ -1778,12 +1780,15 @@ class AutoView(ttk.Frame):
         ima = self._dut_vadc_to_eng(vadc, mode)
         return f"DUT(A1)= {ima:6.2f} mA | Vadc={vadc:5.3f} V"
 
-    def _limit_u_for_active_low_hold(self, u_cmd: float) -> float:
-        u = max(0.0, min(float(u_cmd), 1.0))
+    def _effective_u_bounds(self, u_min: float, u_max: float) -> tuple[float, float]:
+        u_min_eff = max(0.0, min(float(u_min), 1.0))
+        u_max_eff = max(0.0, min(float(u_max), 1.0))
         if bool(getattr(config, "BOMBA_ACTIVE_LOW", False)):
             pwm_hw_min = max(0.0, min(float(getattr(config, "PWM_HW_MIN_HOLD", 0.20)), 1.0))
-            u = min(u, 1.0 - pwm_hw_min)
-        return u
+            u_max_eff = min(u_max_eff, 1.0 - pwm_hw_min)
+        if u_max_eff < u_min_eff:
+            u_max_eff = u_min_eff
+        return u_min_eff, u_max_eff
 
     # ========================================================
     # PRESSURE UTILS
