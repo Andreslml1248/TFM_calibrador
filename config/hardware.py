@@ -196,6 +196,7 @@ T_STABLE_OPTIONS_S: List[int] = [2, 3, 5, 15, 30, 120]
 # UI / PLOT / PATHS
 # ============================
 PLOT_WINDOW_SEC: int = 60
+TELEMETRY_FORCE_REFRESH_S: float = 0.05
 
 DATA_DIR: str = "data"
 CERT_DIR: str = "certs"

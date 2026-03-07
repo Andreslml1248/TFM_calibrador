@@ -148,6 +148,11 @@ class ManualView(ttk.Frame):
         self.update_period_ms = update_period_ms
         self._pwm_log_active = False
         self._pwm_log_win: Optional[Any] = None
+        self._tx_refresh_after_id: Optional[str] = None
+        self._tx_refresh_period_ms = max(
+            20,
+            int(round(float(getattr(config, "TELEMETRY_FORCE_REFRESH_S", 0.05)) * 1000.0)),
+        )
 
         # PI Ãºnico (sirve manual y auto)
         self.pi = PIController(PIConfig(
@@ -195,6 +200,7 @@ class ManualView(ttk.Frame):
 
         self._safe_outputs()
         self.after(self.update_period_ms, self._tick)
+        self._schedule_tx_refresh()
 
     # -------------------------
     # UI compacta (SIN scroll)
@@ -1731,6 +1737,36 @@ class ManualView(ttk.Frame):
         finally:
             self.after(self.update_period_ms, self._tick)
 
+    def _get_active_tx_channel(self) -> Optional[int]:
+        try:
+            top = self.winfo_toplevel()
+            server = getattr(top, "telemetry_server", None)
+            getter = getattr(server, "get_active_channel", None)
+            if not callable(getter):
+                return None
+            ch = getter()
+            if ch in (0, 1, 2):
+                return int(ch)
+        except Exception:
+            return None
+        return None
+
+    def _schedule_tx_refresh(self) -> None:
+        def _refresh():
+            try:
+                ch = self._get_active_tx_channel()
+                if ch is not None:
+                    # Lectura ligera para mantener fresco snapshot del canal transmitido.
+                    # `read_vadc` ya actualiza el snapshot en HW.
+                    _ = float(self.read_vadc(int(ch)))
+            except Exception:
+                pass
+            finally:
+                if self.winfo_exists():
+                    self._tx_refresh_after_id = self.after(self._tx_refresh_period_ms, _refresh)
+
+        self._tx_refresh_after_id = self.after(self._tx_refresh_period_ms, _refresh)
+
     # -------------------------
     # Config desde UI
     # -------------------------
@@ -1853,6 +1889,12 @@ class ManualView(ttk.Frame):
             self._on_pwm_log_end("ABORT")
 
     def destroy(self):
+        try:
+            if self._tx_refresh_after_id is not None:
+                self.after_cancel(self._tx_refresh_after_id)
+                self._tx_refresh_after_id = None
+        except Exception:
+            pass
         try:
             if self._pwm_log_win is not None and self._pwm_log_win.winfo_exists():
                 self._pwm_log_win.destroy()
