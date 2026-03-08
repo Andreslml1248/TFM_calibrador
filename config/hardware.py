@@ -161,6 +161,9 @@ U_MAX: float = 1.0
 DEADBAND_KPA: float = 0.5
 U_FF: float = 0.30
 P_FILT_ALPHA: float = 1.0 # 1.0 = sin filtro
+HOLD_BAND_KPA: float = 3.0
+KP_HOLD: float = 0.0012
+KI_HOLD: float = 0.0
 
 # ============================
 # FFT / RUIDO
@@ -177,6 +180,9 @@ class PIConfig:
     u_max: float = U_MAX
     deadband_kpa: float = DEADBAND_KPA
     u_ff: float = U_FF
+    hold_band_kpa: float = HOLD_BAND_KPA
+    kp_hold: float = KP_HOLD
+    ki_hold: float = KI_HOLD
     p_filt_alpha: float = P_FILT_ALPHA
 
 PI_CFG = PIConfig()

@@ -18,6 +18,9 @@ class PIConfig:
     u_max: float
     deadband_kpa: float
     u_ff: float
+    hold_band_kpa: float = 0.0
+    kp_hold: float = 0.0
+    ki_hold: float = 0.0
     p_filt_alpha: float = 1.0          # por si luego filtras P aquí (opcional)
     i_decay_in_deadband: float = 0.97  # igual que tu script: I *= 0.97
 
@@ -84,16 +87,22 @@ class PIController:
             self.last_p = p_use
             return u
 
+        # --- Cambio de modo APPROACH/HOLD según banda de error ---
+        hold_band = max(0.0, float(getattr(self.cfg, "hold_band_kpa", 0.0)))
+        hold_mode = (hold_band > 0.0 and abs(e) <= hold_band)
+        kp_use = float(self.cfg.kp_hold) if hold_mode else float(self.cfg.kp)
+        ki_use = float(self.cfg.ki_hold) if hold_mode else float(self.cfg.ki)
+
         # --- PI con anti-windup por "pushing" (idéntico a tu script) ---
-        u_unsat = self.cfg.u_ff + self.cfg.kp * e + self.I
+        u_unsat = self.cfg.u_ff + kp_use * e + self.I
 
         pushing_high = (u_unsat > self.cfg.u_max and e > 0.0)
         pushing_low  = (u_unsat < self.cfg.u_min and e < 0.0)
 
         if not (pushing_high or pushing_low):
-            self.I += self.cfg.ki * e * dt
+            self.I += ki_use * e * dt
 
-        u = clamp(self.cfg.u_ff + self.cfg.kp * e + self.I, self.cfg.u_min, self.cfg.u_max)
+        u = clamp(self.cfg.u_ff + kp_use * e + self.I, self.cfg.u_min, self.cfg.u_max)
 
         self.last_u = u
         self.last_sp = sp
