@@ -150,6 +150,13 @@ class PIWorker:
         with self._lock:
             return float(self._last_u)
 
+    def step_now(self, sp_kpa: float, p_kpa: float, dt: Optional[float] = None) -> float:
+        """Calcula una iteracion de PI de forma sincrona y actualiza la ultima salida."""
+        with self._lock:
+            u = self.controller.step(sp_kpa=float(sp_kpa), p_kpa=float(p_kpa), dt=dt)
+            self._last_u = float(u)
+            return float(u)
+
     def reset(self) -> None:
         with self._lock:
             self.controller.reset()

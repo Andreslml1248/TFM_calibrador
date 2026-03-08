@@ -1555,11 +1555,13 @@ class ManualView(ttk.Frame):
                 p_now = self._read_control_pressure_kpa()
             except Exception:
                 p_now = 0.0
-            self.pi_worker.set_inputs(
+            u_cmd = self.pi_worker.step_now(
                 sp_kpa=float(self.cfg.sp_kpa),
                 p_kpa=float(p_now),
                 dt=float(config.PI_CFG.dt),
             )
+            self.set_pump(float(u_cmd))
+            self.var_pwm.set(f"u={float(u_cmd):.3f}")
 
     def _start(self):
         try:
