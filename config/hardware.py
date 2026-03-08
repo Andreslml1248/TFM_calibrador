@@ -151,8 +151,8 @@ OFFSET_2PT: float = 0.0
 # ============================
 # PI CONTROL (un solo PI para manual y auto)
 # ============================
-KP_DEFAULT: float = 0.0038
-KI_DEFAULT: float = 0.00018
+KP_DEFAULT: float = 0.0030
+KI_DEFAULT: float = 0.00045
 
 DT_PI: float = 0.1
 U_MIN: float = 0.0
