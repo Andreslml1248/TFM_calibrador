@@ -1545,15 +1545,21 @@ class ManualView(ttk.Frame):
 
     # Solo aplica SP con botÃ³n/Enter
     def _apply_sp(self):
-        try:
-            self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
-            self._sync_pressure_display_from_kpa()
-            if self.rt.running:
-                self.rt.target_reached = False
-                self.pi_worker.reset()
-                self.pi_worker.unfreeze()
-        except Exception:
-            pass
+        self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
+        self._sync_pressure_display_from_kpa()
+        if self.rt.running:
+            self.rt.target_reached = False
+            self.pi_worker.reset()
+            self.pi_worker.unfreeze()
+            try:
+                p_now = self._read_control_pressure_kpa()
+            except Exception:
+                p_now = 0.0
+            self.pi_worker.set_inputs(
+                sp_kpa=float(self.cfg.sp_kpa),
+                p_kpa=float(p_now),
+                dt=float(config.PI_CFG.dt),
+            )
 
     def _start(self):
         try:
