@@ -1736,8 +1736,7 @@ class ManualView(ttk.Frame):
 
                 self.set_valve(True)
                 self.set_relay(True)
-                self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
-                u_cmd = self.pi_worker.get_output()
+                u_cmd = self.pi_worker.step_now(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
                 self.set_pump(u_cmd)
                 self.var_pwm.set(f"u={u_cmd:.3f}")
             else:
