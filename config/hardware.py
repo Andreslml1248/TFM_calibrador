@@ -23,7 +23,7 @@ BOMBA_ACTIVE_LOW: bool = True
 
 # Minimo PWM hardware para mantener bomba activa durante control PI.
 # Solo debe aplicarse en la ruta de control activo (no en apagados/seguridad).
-PWM_HW_MIN_HOLD: float = 0.045
+PWM_HW_MIN_HOLD: float = 0.1
 
 # ============================
 # VENTILACIÓN + TEMPERATURA (DS18B20)
@@ -151,7 +151,7 @@ OFFSET_2PT: float = 0.0
 # ============================
 # PI CONTROL (un solo PI para manual y auto)
 # ============================
-KP_DEFAULT: float = 0.0030
+KP_DEFAULT: float = 0.0025
 KI_DEFAULT: float = 0.00018
 
 DT_PI: float = 0.1

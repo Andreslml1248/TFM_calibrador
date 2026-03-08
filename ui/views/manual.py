@@ -1549,7 +1549,6 @@ class ManualView(ttk.Frame):
         self._sync_pressure_display_from_kpa()
         if self.rt.running:
             self.rt.target_reached = False
-            self.pi_worker.reset()
             self.pi_worker.unfreeze()
             try:
                 p_now = self._read_control_pressure_kpa()
