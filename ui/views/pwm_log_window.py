@@ -157,6 +157,16 @@ class PwmLogWindow(tk.Toplevel):
             self._live_u_cmd = u_cmd
             running = self._running
 
+        # Aplicacion inmediata para minimizar latencia percibida.
+        if running:
+            try:
+                self._apply_u_cmd(u_cmd)
+                with self._lock:
+                    self._last_u_cmd = u_cmd
+            except Exception as e:
+                messagebox.showerror("LOG PWM", f"No se pudo aplicar PWM en vivo: {e}", parent=self)
+                return
+
         if running:
             self.var_status.set(f"RUNNING... u={u_cmd:.3f}")
         else:
@@ -222,7 +232,7 @@ class PwmLogWindow(tk.Toplevel):
         state = "DONE"
         error_msg = ""
         t0 = time.perf_counter()
-        sleep_s = max(0.05, float(getattr(config, "ADS_CONV_DELAY_S", 0.01)))
+        sleep_s = max(0.01, float(getattr(config, "ADS_CONV_DELAY_S", 0.01)))
         applied_u_cmd: Optional[float] = None
 
         try:
@@ -412,7 +422,7 @@ class PwmLogWindow(tk.Toplevel):
                     parent=self
                 )
 
-        self.after(120, self._poll_ui)
+        self.after(50, self._poll_ui)
 
     def _on_close(self) -> None:
         self._abort_evt.set()
