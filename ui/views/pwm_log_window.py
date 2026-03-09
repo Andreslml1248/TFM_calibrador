@@ -59,14 +59,16 @@ class PwmLogWindow(tk.Toplevel):
         self._thread: Optional[threading.Thread] = None
 
         self._lock = threading.Lock()
-        self._rows: List[Tuple[float, float]] = []
+        self._rows: List[Tuple[float, float, float]] = []
         self._running = False
         self._elapsed = 0.0
         self._last_p = 0.0
+        self._last_u_cmd = 0.0
         self._done_state: Optional[str] = None
         self._done_error: Optional[str] = None
         self._last_export: Optional[str] = None
         self._cfg_u_cmd = 0.20
+        self._live_u_cmd = 0.20
         self._cfg_duration = 60.0
         self._cfg_pwm_freq_hz = init_freq_hz
         self._last_png: Optional[str] = None
@@ -80,7 +82,11 @@ class PwmLogWindow(tk.Toplevel):
         frm.grid(row=0, column=0, sticky="nsew")
 
         ttk.Label(frm, text="u_cmd (0..1)").grid(row=0, column=0, sticky="w", pady=2)
-        ttk.Entry(frm, textvariable=self.var_u_cmd, width=14).grid(row=0, column=1, sticky="w", pady=2)
+        self.ent_u_cmd = ttk.Entry(frm, textvariable=self.var_u_cmd, width=14)
+        self.ent_u_cmd.grid(row=0, column=1, sticky="w", pady=2)
+        self.ent_u_cmd.bind("<Return>", lambda _e: self._apply_live_pwm())
+        self.btn_apply_pwm = ttk.Button(frm, text="Aplicar PWM", command=self._apply_live_pwm)
+        self.btn_apply_pwm.grid(row=0, column=2, sticky="w", pady=2, padx=(6, 0))
 
         ttk.Label(frm, text="duration_s").grid(row=1, column=0, sticky="w", pady=2)
         ttk.Entry(frm, textvariable=self.var_duration, width=14).grid(row=1, column=1, sticky="w", pady=2)
@@ -132,6 +138,30 @@ class PwmLogWindow(tk.Toplevel):
         freq_hz = max(1.0, freq_hz)
         return u_cmd, duration_s, freq_hz
 
+    def _parse_u_cmd(self) -> float:
+        try:
+            u_cmd = float(self.var_u_cmd.get().strip().replace(",", "."))
+        except Exception:
+            raise ValueError("Valor invalido en u_cmd.")
+        return _clamp(u_cmd, 0.0, 1.0)
+
+    def _apply_live_pwm(self) -> None:
+        try:
+            u_cmd = self._parse_u_cmd()
+        except Exception as e:
+            messagebox.showerror("LOG PWM", str(e), parent=self)
+            return
+
+        self.var_u_cmd.set(f"{u_cmd:.3f}")
+        with self._lock:
+            self._live_u_cmd = u_cmd
+            running = self._running
+
+        if running:
+            self.var_status.set(f"RUNNING... u={u_cmd:.3f}")
+        else:
+            self.var_status.set(f"IDLE u={u_cmd:.3f}")
+
     def _start(self) -> None:
         if self._running:
             return
@@ -161,6 +191,8 @@ class PwmLogWindow(tk.Toplevel):
             self._running = True
             self._elapsed = 0.0
             self._last_p = 0.0
+            self._last_u_cmd = u_cmd
+            self._live_u_cmd = u_cmd
             self._done_state = None
             self._done_error = None
             self._last_export = None
@@ -191,13 +223,19 @@ class PwmLogWindow(tk.Toplevel):
         error_msg = ""
         t0 = time.perf_counter()
         sleep_s = max(0.05, float(getattr(config, "ADS_CONV_DELAY_S", 0.01)))
+        applied_u_cmd: Optional[float] = None
 
         try:
-            self._apply_u_cmd(u_cmd)
             while not self._abort_evt.is_set():
                 t_s = time.perf_counter() - t0
                 if t_s >= duration_s:
                     break
+
+                with self._lock:
+                    target_u_cmd = float(self._live_u_cmd)
+                if (applied_u_cmd is None) or (abs(target_u_cmd - applied_u_cmd) > 1e-9):
+                    self._apply_u_cmd(target_u_cmd)
+                    applied_u_cmd = target_u_cmd
 
                 p_kpa = float(self._read_pressure_kpa())
                 if p_kpa > float(getattr(config, "P_MAX_SEGURIDAD_KPA", 230.0)):
@@ -206,9 +244,12 @@ class PwmLogWindow(tk.Toplevel):
                     break
 
                 with self._lock:
-                    self._rows.append((float(t_s), float(p_kpa)))
+                    if applied_u_cmd is None:
+                        applied_u_cmd = float(u_cmd)
+                    self._rows.append((float(t_s), float(applied_u_cmd), float(p_kpa)))
                     self._elapsed = float(t_s)
                     self._last_p = float(p_kpa)
+                    self._last_u_cmd = float(applied_u_cmd)
 
                 time.sleep(sleep_s)
 
@@ -259,11 +300,11 @@ class PwmLogWindow(tk.Toplevel):
         with self._lock:
             rows = list(self._rows)
         out = self._build_csv_path()
-        u_cmd = _clamp(float(self._cfg_u_cmd), 0.0, 1.0)
-        pwm_hw = self._u_cmd_to_pwm_hw(u_cmd)
         with open(out, "w", encoding="utf-8", newline="") as fh:
             fh.write("t_s;u_cmd;pwm_hw;p_kpa\n")
-            for t_s, p_kpa in rows:
+            for t_s, u_cmd, p_kpa in rows:
+                u_cmd = _clamp(float(u_cmd), 0.0, 1.0)
+                pwm_hw = self._u_cmd_to_pwm_hw(u_cmd)
                 t_txt = f"{t_s:.6f}".replace(".", ",")
                 u_txt = f"{u_cmd:.6f}".replace(".", ",")
                 pwm_txt = f"{pwm_hw:.6f}".replace(".", ",")
@@ -271,7 +312,7 @@ class PwmLogWindow(tk.Toplevel):
                 fh.write(f"{t_txt};{u_txt};{pwm_txt};{p_txt}\n")
         return out
 
-    def _refresh_plot(self, rows: List[Tuple[float, float]]) -> None:
+    def _refresh_plot(self, rows: List[Tuple[float, float, float]]) -> None:
         if not rows:
             self._line.set_data([], [])
             self._ax.set_xlim(0.0, max(1.0, float(self._cfg_duration)))
@@ -280,7 +321,7 @@ class PwmLogWindow(tk.Toplevel):
             return
 
         xs = [r[0] for r in rows]
-        ys = [r[1] for r in rows]
+        ys = [r[2] for r in rows]
         self._line.set_data(xs, ys)
 
         x_max = max(xs[-1], 1.0)
@@ -330,11 +371,12 @@ class PwmLogWindow(tk.Toplevel):
         done_state = None
         done_error = None
         done_export = None
-        rows: List[Tuple[float, float]] = []
+        rows: List[Tuple[float, float, float]] = []
 
         with self._lock:
             elapsed = self._elapsed
             p_kpa = self._last_p
+            u_cmd = self._last_u_cmd
             running = self._running
             rows = list(self._rows)
             if self._done_state is not None:
@@ -347,7 +389,7 @@ class PwmLogWindow(tk.Toplevel):
         self._refresh_plot(rows)
 
         if running:
-            self.var_status.set(f"RUNNING t={elapsed:.2f}s p={p_kpa:.2f}kPa")
+            self.var_status.set(f"RUNNING t={elapsed:.2f}s p={p_kpa:.2f}kPa u={u_cmd:.3f}")
 
         if done_state is not None:
             self.btn_start.state(["!disabled"])
