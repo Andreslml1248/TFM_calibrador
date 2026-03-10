@@ -67,11 +67,11 @@ class PIController:
     def unfreeze(self) -> None:
         self.frozen = False
 
-    def _select_zone_gains(self, p_kpa: float) -> tuple[float, float]:
-        p = float(p_kpa)
-        if p < 30.0:
+    def _select_zone_gains(self, sp_kpa: float) -> tuple[float, float]:
+        sp = float(sp_kpa)
+        if sp < 30.0:
             return float(self.cfg.kp_low), float(self.cfg.ki_low)
-        if p < 100.0:
+        if sp < 100.0:
             return float(self.cfg.kp_mid), float(self.cfg.ki_mid)
         return float(self.cfg.kp_high), float(self.cfg.ki_high)
 
@@ -97,7 +97,7 @@ class PIController:
             p_use = self._p_filt
 
         e = sp - p_use
-        kp_use, ki_use = self._select_zone_gains(p_use)
+        kp_use, ki_use = self._select_zone_gains(sp)
         u_unsat = kp_use * e + self.I
 
         pushing_high = (u_unsat > self.cfg.u_max and e > 0.0)
