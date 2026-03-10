@@ -1572,7 +1572,6 @@ class ManualView(ttk.Frame):
             pi_u_min, pi_u_max = self._effective_u_bounds(config.PI_CFG.u_min, config.PI_CFG.u_max)
             self.pi.cfg.u_min = pi_u_min
             self.pi.cfg.u_max = pi_u_max
-            self.pi.cfg.u_ff = max(pi_u_min, min(float(config.PI_CFG.u_ff), pi_u_max))
             self._apply_sp()
             self._apply_state_run()
         except Exception as e:

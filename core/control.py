@@ -4,7 +4,9 @@
 from dataclasses import dataclass
 import threading
 from typing import Optional
+
 from config import hardware as hw_config
+
 
 def clamp(x: float, lo: float, hi: float) -> float:
     return lo if x < lo else hi if x > hi else x
@@ -27,18 +29,15 @@ class PIConfig:
     hold_band_kpa: float = 0.0
     kp_hold: float = 0.0
     ki_hold: float = 0.0
-    p_filt_alpha: float = 1.0          # por si luego filtras P aquí (opcional)
-    i_decay_in_deadband: float = 0.97  # igual que tu script: I *= 0.97
+    p_filt_alpha: float = 1.0
+    i_decay_in_deadband: float = 0.97
 
 
 class PIController:
     """
-    PI para presión (kPa).
-    - reset(): borra integrador y estado.
-    - freeze(): congela (no actualiza integrador ni u).
-    - unfreeze(): reanuda.
-    - step(sp, p, dt): calcula u_cmd en [u_min, u_max].
-      (La inversión BOMBA_ACTIVE_LOW se aplica fuera, al generar PWM_hw.)
+    PI puro de presion (kPa).
+    - Internamente trabaja sobre pwm_real de la bomba: 0.0=OFF, 1.0=MAX.
+    - La conversion final a comando hardware respeta BOMBA_ACTIVE_LOW.
     """
 
     def __init__(self, cfg: PIConfig):
@@ -51,8 +50,6 @@ class PIController:
         self.frozen: bool = False
         self.last_sp: Optional[float] = None
         self.last_p: Optional[float] = None
-
-        # filtro opcional de P (si lo quieres aquí en vez de en otro lado)
         self._p_filt: Optional[float] = None
 
     def freeze(self) -> None:
@@ -71,7 +68,6 @@ class PIController:
         sp = float(sp_kpa)
         p = float(p_kpa)
 
-        # (Opcional) filtro 1er orden sobre presión
         a = float(self.cfg.p_filt_alpha)
         if a >= 1.0:
             p_use = p
@@ -83,38 +79,24 @@ class PIController:
             p_use = self._p_filt
 
         e = sp - p_use
-        u_base = u_base_from_sp_kpa(sp)
+        kp = float(self.cfg.kp)
+        ki = float(self.cfg.ki)
 
-        # --- Zona muerta (idéntico a tu script) ---
-        if abs(e) <= self.cfg.deadband_kpa:
-            self.I *= self.cfg.i_decay_in_deadband
-            u = clamp(u_base + self.I, self.cfg.u_min, self.cfg.u_max)
-            self.last_u = u
-            self.last_sp = sp
-            self.last_p = p_use
-            return u
+        i_candidate = self.I + ki * e * dt
+        pwm_unsat = kp * e + i_candidate
 
-        # --- Cambio de modo APPROACH/HOLD según banda de error ---
-        hold_band = max(0.0, float(getattr(self.cfg, "hold_band_kpa", 0.0)))
-        hold_mode = (hold_band > 0.0 and abs(e) <= hold_band)
-        kp_use = float(self.cfg.kp_hold) if hold_mode else float(self.cfg.kp)
-        ki_use = float(self.cfg.ki_hold) if hold_mode else float(self.cfg.ki)
-
-        # --- PI con anti-windup por "pushing" (idéntico a tu script) ---
-        u_unsat = u_base + kp_use * e + self.I
-
-        pushing_high = (u_unsat > self.cfg.u_max and e > 0.0)
-        pushing_low  = (u_unsat < self.cfg.u_min and e < 0.0)
-
+        pushing_high = (pwm_unsat > 1.0 and e > 0.0)
+        pushing_low = (pwm_unsat < 0.0 and e < 0.0)
         if not (pushing_high or pushing_low):
-            self.I += ki_use * e * dt
+            self.I = i_candidate
 
-        u = clamp(u_base + kp_use * e + self.I, self.cfg.u_min, self.cfg.u_max)
+        pwm_real = clamp(kp * e + self.I, 0.0, 1.0)
+        u_cmd = pwm_real_to_u_cmd(pwm_real)
 
-        self.last_u = u
+        self.last_u = u_cmd
         self.last_sp = sp
         self.last_p = p_use
-        return u
+        return u_cmd
 
 
 class PIWorker:
@@ -167,7 +149,6 @@ class PIWorker:
             return float(self._last_u)
 
     def step_now(self, sp_kpa: float, p_kpa: float, dt: Optional[float] = None) -> float:
-        """Calcula una iteracion de PI de forma sincrona y actualiza la ultima salida."""
         with self._lock:
             u = self.controller.step(sp_kpa=float(sp_kpa), p_kpa=float(p_kpa), dt=dt)
             self._last_u = float(u)
@@ -194,7 +175,6 @@ class PIWorker:
                 break
 
             if not signaled:
-                # No llego input nuevo: NO recalcular
                 continue
 
             self._new_input_evt.clear()
@@ -207,4 +187,3 @@ class PIWorker:
                 dt = self._dt
                 u = self.controller.step(sp_kpa=sp, p_kpa=p, dt=dt)
                 self._last_u = float(u)
-

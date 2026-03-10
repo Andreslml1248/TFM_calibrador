@@ -82,9 +82,7 @@ class HW:
         self.rele_bomba.on() if on else self.rele_bomba.off()
 
     def set_pump(self, u_cmd: float):
-        u = clamp(float(u_cmd), 0.0, 1.0)
-        pwm_hw = (1.0 - u) if config.BOMBA_ACTIVE_LOW else u
-        self.pwm_bomba.value = clamp(pwm_hw, 0.0, 1.0)
+        self.pwm_bomba.value = clamp(float(u_cmd), 0.0, 1.0)
 
     def get_pump_frequency_hz(self) -> float:
         try:
