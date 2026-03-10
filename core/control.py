@@ -4,20 +4,15 @@
 from dataclasses import dataclass
 import threading
 from typing import Optional
+from config import hardware as hw_config
 
 def clamp(x: float, lo: float, hi: float) -> float:
     return lo if x < lo else hi if x > hi else x
 
 
-def u_base_from_sp_kpa(sp_kpa: float) -> float:
-    sp = float(sp_kpa)
-    if sp <= 29.2:
-        u_base = 0.47
-    elif sp < 98.4:
-        u_base = 0.0004335 * sp + 0.4573
-    else:
-        u_base = 0.00189 * sp + 0.314
-    return clamp(u_base, 0.0, 1.0)
+def pwm_real_to_u_cmd(pwm_real: float) -> float:
+    pwm = clamp(float(pwm_real), 0.0, 1.0)
+    return 1.0 - pwm if bool(getattr(hw_config, "BOMBA_ACTIVE_LOW", False)) else pwm
 
 
 @dataclass
@@ -52,7 +47,7 @@ class PIController:
 
     def reset(self) -> None:
         self.I: float = 0.0
-        self.last_u: float = clamp(self.cfg.u_ff, self.cfg.u_min, self.cfg.u_max)
+        self.last_u: float = pwm_real_to_u_cmd(0.0)
         self.frozen: bool = False
         self.last_sp: Optional[float] = None
         self.last_p: Optional[float] = None
