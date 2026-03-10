@@ -161,9 +161,9 @@ U_MAX: float = 1.0
 DEADBAND_KPA: float = 0.0
 U_FF: float = 0.0
 P_FILT_ALPHA: float = 1.0 # 1.0 = sin filtro
-HOLD_BAND_KPA: float = 5.0
-KP_HOLD: float = 0.00030
-KI_HOLD: float = 0.00000
+HOLD_BAND_KPA: float = 0.0
+KP_HOLD: float = KP_DEFAULT * 0
+KI_HOLD: float = KI_DEFAULT * 0
 
 # ============================
 # FFT / RUIDO
