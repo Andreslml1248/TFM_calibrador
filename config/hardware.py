@@ -153,6 +153,12 @@ OFFSET_2PT: float = 0.0
 # ============================
 KP_DEFAULT: float = 0.0009
 KI_DEFAULT: float = 0.00007
+KP_LOW: float = 0.0006
+KI_LOW: float = 0.00004
+KP_MID: float = 0.0009
+KI_MID: float = 0.00007
+KP_HIGH: float = 0.0012
+KI_HIGH: float = 0.00010
 
 DT_PI: float = 0.1
 U_MIN: float = 0.0
@@ -175,6 +181,12 @@ FFT_USE_WINDOW: bool = True
 class PIConfig:
     kp: float = KP_DEFAULT
     ki: float = KI_DEFAULT
+    kp_low: float = KP_LOW
+    ki_low: float = KI_LOW
+    kp_mid: float = KP_MID
+    ki_mid: float = KI_MID
+    kp_high: float = KP_HIGH
+    ki_high: float = KI_HIGH
     dt: float = DT_PI
     u_min: float = U_MIN
     u_max: float = U_MAX

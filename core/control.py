@@ -15,17 +15,6 @@ def pwm_real_to_u_cmd(pwm_real: float) -> float:
     return 1.0 - pwm if bool(getattr(hw_config, "BOMBA_ACTIVE_LOW", False)) else pwm
 
 
-def u_base_from_sp_kpa(sp_kpa: float) -> float:
-    sp = float(sp_kpa)
-    if sp <= 29.2:
-        u_base = 0.47
-    elif sp < 98.4:
-        u_base = 0.0004335 * sp + 0.4573
-    else:
-        u_base = 0.00189 * sp + 0.314
-    return clamp(u_base, 0.0, 1.0)
-
-
 @dataclass
 class PIConfig:
     kp: float
@@ -35,6 +24,12 @@ class PIConfig:
     u_max: float
     deadband_kpa: float
     u_ff: float
+    kp_low: float = float(getattr(hw_config, "KP_LOW", 0.0006))
+    ki_low: float = float(getattr(hw_config, "KI_LOW", 0.00004))
+    kp_mid: float = float(getattr(hw_config, "KP_MID", 0.0009))
+    ki_mid: float = float(getattr(hw_config, "KI_MID", 0.00007))
+    kp_high: float = float(getattr(hw_config, "KP_HIGH", 0.0012))
+    ki_high: float = float(getattr(hw_config, "KI_HIGH", 0.00010))
     hold_band_kpa: float = 0.0
     kp_hold: float = 0.0
     ki_hold: float = 0.0
@@ -72,6 +67,14 @@ class PIController:
     def unfreeze(self) -> None:
         self.frozen = False
 
+    def _select_zone_gains(self, p_kpa: float) -> tuple[float, float]:
+        p = float(p_kpa)
+        if p < 30.0:
+            return float(self.cfg.kp_low), float(self.cfg.ki_low)
+        if p < 100.0:
+            return float(self.cfg.kp_mid), float(self.cfg.ki_mid)
+        return float(self.cfg.kp_high), float(self.cfg.ki_high)
+
     def step(self, sp_kpa: float, p_kpa: float, dt: Optional[float] = None) -> float:
         if self.frozen:
             return self.last_u
@@ -94,25 +97,8 @@ class PIController:
             p_use = self._p_filt
 
         e = sp - p_use
-        u_base = u_base_from_sp_kpa(sp)
-
-        # --- Zona muerta (idéntico a tu script) ---
-        if abs(e) <= self.cfg.deadband_kpa:
-            self.I *= self.cfg.i_decay_in_deadband
-            u = clamp(u_base + self.I, self.cfg.u_min, self.cfg.u_max)
-            self.last_u = u
-            self.last_sp = sp
-            self.last_p = p_use
-            return u
-
-        # --- Cambio de modo APPROACH/HOLD según banda de error ---
-        hold_band = max(0.0, float(getattr(self.cfg, "hold_band_kpa", 0.0)))
-        hold_mode = (hold_band > 0.0 and abs(e) <= hold_band)
-        kp_use = float(self.cfg.kp_hold) if hold_mode else float(self.cfg.kp)
-        ki_use = float(self.cfg.ki_hold) if hold_mode else float(self.cfg.ki)
-
-        # --- PI con anti-windup por "pushing" (idéntico a tu script) ---
-        u_unsat = u_base + kp_use * e + self.I
+        kp_use, ki_use = self._select_zone_gains(p_use)
+        u_unsat = kp_use * e + self.I
 
         pushing_high = (u_unsat > self.cfg.u_max and e > 0.0)
         pushing_low  = (u_unsat < self.cfg.u_min and e < 0.0)
@@ -120,7 +106,7 @@ class PIController:
         if not (pushing_high or pushing_low):
             self.I += ki_use * e * dt
 
-        u = clamp(u_base + kp_use * e + self.I, self.cfg.u_min, self.cfg.u_max)
+        u = clamp(kp_use * e + self.I, self.cfg.u_min, self.cfg.u_max)
 
         self.last_u = u
         self.last_sp = sp
