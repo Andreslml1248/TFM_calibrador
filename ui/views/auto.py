@@ -996,9 +996,11 @@ class AutoView(ttk.Frame):
             self._clear_flow_notice()
 
             # (control igual)
+            self.pi.cfg.deadband_kpa = float(self.cfg.deadband_kpa)
             pi_u_min, pi_u_max = self._effective_u_bounds(self.cfg.u_min, self.cfg.u_max)
             self.pi.cfg.u_min = pi_u_min
             self.pi.cfg.u_max = pi_u_max
+            self.pi.cfg.u_ff = max(pi_u_min, min(float(self.cfg.u_ff), pi_u_max))
 
             if not self.rt.tare_done:
                 p_corr = self._read_pressure_corr_kpa()
