@@ -900,8 +900,8 @@ class AutoView(ttk.Frame):
             umax = float(self.var_u_max.get())
             uff = float(self.var_u_ff.get())
 
-            if dead <= 0:
-                raise ValueError("La banda muerta debe ser > 0.")
+            if dead < 0:
+                raise ValueError("La banda muerta debe ser >= 0.")
             if inu < 0 or ind < 0:
                 raise ValueError("Los tiempos en banda deben ser >= 0.")
             if not (0.0 <= umin <= 1.0) or not (0.0 <= umax <= 1.0):
@@ -947,8 +947,8 @@ class AutoView(ttk.Frame):
         if self.cfg.settle_time_s < 0 or self.cfg.settle_time_max_s < 0:
             raise ValueError("Tiempos deben ser >= 0.")
 
-        if self.cfg.deadband_kpa <= 0:
-            raise ValueError("Banda muerta debe ser > 0.")
+        if self.cfg.deadband_kpa < 0:
+            raise ValueError("Banda muerta debe ser >= 0.")
         if self.cfg.inband_up_s < 0 or self.cfg.inband_down_s < 0:
             raise ValueError("Tiempos en banda deben ser >= 0.")
         if not (0.0 <= self.cfg.u_min <= 1.0) or not (0.0 <= self.cfg.u_max <= 1.0):

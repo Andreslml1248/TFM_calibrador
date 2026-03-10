@@ -9,6 +9,17 @@ def clamp(x: float, lo: float, hi: float) -> float:
     return lo if x < lo else hi if x > hi else x
 
 
+def u_base_from_sp_kpa(sp_kpa: float) -> float:
+    sp = float(sp_kpa)
+    if sp <= 29.2:
+        u_base = 0.47
+    elif sp < 98.4:
+        u_base = 0.0004335 * sp + 0.4573
+    else:
+        u_base = 0.00189 * sp + 0.314
+    return clamp(u_base, 0.0, 1.0)
+
+
 @dataclass
 class PIConfig:
     kp: float
@@ -77,11 +88,12 @@ class PIController:
             p_use = self._p_filt
 
         e = sp - p_use
+        u_base = u_base_from_sp_kpa(sp)
 
         # --- Zona muerta (idéntico a tu script) ---
         if abs(e) <= self.cfg.deadband_kpa:
             self.I *= self.cfg.i_decay_in_deadband
-            u = clamp(self.cfg.u_ff + self.I, self.cfg.u_min, self.cfg.u_max)
+            u = clamp(u_base + self.I, self.cfg.u_min, self.cfg.u_max)
             self.last_u = u
             self.last_sp = sp
             self.last_p = p_use
@@ -94,7 +106,7 @@ class PIController:
         ki_use = float(self.cfg.ki_hold) if hold_mode else float(self.cfg.ki)
 
         # --- PI con anti-windup por "pushing" (idéntico a tu script) ---
-        u_unsat = self.cfg.u_ff + kp_use * e + self.I
+        u_unsat = u_base + kp_use * e + self.I
 
         pushing_high = (u_unsat > self.cfg.u_max and e > 0.0)
         pushing_low  = (u_unsat < self.cfg.u_min and e < 0.0)
@@ -102,7 +114,7 @@ class PIController:
         if not (pushing_high or pushing_low):
             self.I += ki_use * e * dt
 
-        u = clamp(self.cfg.u_ff + kp_use * e + self.I, self.cfg.u_min, self.cfg.u_max)
+        u = clamp(u_base + kp_use * e + self.I, self.cfg.u_min, self.cfg.u_max)
 
         self.last_u = u
         self.last_sp = sp
