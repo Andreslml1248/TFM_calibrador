@@ -9,7 +9,7 @@ from typing import List
 # ============================
 # Bomba: PWM + relé de potencia (24V)
 PWM_PIN: int = 12
-PWM_FREQ_HZ: int = 30
+PWM_FREQ_HZ: int = 40
 RELE_BOMBA_PIN: int = 17
 
 # Electroválvula NC: energizar = abrir ✅
@@ -152,7 +152,7 @@ OFFSET_2PT: float = 0.0
 # PI CONTROL (un solo PI para manual y auto)
 # ============================
 KP_DEFAULT: float = 0.0038
-KI_DEFAULT: float = 0.00015
+KI_DEFAULT: float = 0.0010
 
 DT_PI: float = 0.1
 U_MIN: float = 0.0
