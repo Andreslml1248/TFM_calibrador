@@ -15,6 +15,17 @@ def pwm_real_to_u_cmd(pwm_real: float) -> float:
     return 1.0 - pwm if bool(getattr(hw_config, "BOMBA_ACTIVE_LOW", False)) else pwm
 
 
+def u_base_from_sp_kpa(sp_kpa: float) -> float:
+    sp = float(sp_kpa)
+    if sp <= 29.2:
+        u_base = 0.47
+    elif sp < 98.4:
+        u_base = 0.0004335 * sp + 0.4573
+    else:
+        u_base = 0.00189 * sp + 0.314
+    return clamp(u_base, 0.0, 1.0)
+
+
 @dataclass
 class PIConfig:
     kp: float
