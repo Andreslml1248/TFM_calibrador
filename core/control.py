@@ -58,8 +58,8 @@ class PIController:
         self.last_sp: Optional[float] = None
         self.last_p: Optional[float] = None
         self.zone_sp_active: Optional[float] = None
-        self.kp_active: float = float(self.cfg.kp)
-        self.ki_active: float = float(self.cfg.ki)
+        self.kp_active: Optional[float] = None
+        self.ki_active: Optional[float] = None
 
         # filtro opcional de P (si lo quieres aquí en vez de en otro lado)
         self._p_filt: Optional[float] = None
@@ -119,6 +119,9 @@ class PIController:
             p_use = self._p_filt
 
         e = sp - p_use
+        if self.kp_active is None or self.ki_active is None or self.zone_sp_active is None:
+            raise RuntimeError("PI zone not initialized. Call set_zone_from_sp() before step().")
+
         kp_use = float(self.kp_active)
         ki_use = float(self.ki_active)
         u_unsat = kp_use * e + self.I
