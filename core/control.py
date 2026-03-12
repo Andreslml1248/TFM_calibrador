@@ -56,8 +56,8 @@ class PIController:
         self.last_sp: Optional[float] = None
         self.last_p: Optional[float] = None
         self.zone_sp_active: Optional[float] = None
-        self.kp_active: float = float(self.cfg.kp)
-        self.ki_active: float = float(self.cfg.ki)
+        self.kp_active: Optional[float] = None
+        self.ki_active: Optional[float] = None
 
         # filtro opcional de P (si lo quieres aquí en vez de en otro lado)
         self._p_filt: Optional[float] = None
