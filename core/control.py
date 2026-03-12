@@ -22,12 +22,12 @@ class PIConfig:
     u_max: float
     deadband_kpa: float
     u_ff: float
-    kp_low: float = float(getattr(hw_config, "KP_LOW", 0.0006))
-    ki_low: float = float(getattr(hw_config, "KI_LOW", 0.00004))
-    kp_mid: float = float(getattr(hw_config, "KP_MID", 0.0009))
-    ki_mid: float = float(getattr(hw_config, "KI_MID", 0.00007))
-    kp_high: float = float(getattr(hw_config, "KP_HIGH", 0.0012))
-    ki_high: float = float(getattr(hw_config, "KI_HIGH", 0.00010))
+    kp_low: float
+    ki_low: float
+    kp_mid: float
+    ki_mid: float
+    kp_high: float
+    ki_high: float
     hold_band_kpa: float = 0.0
     kp_hold: float = 0.0
     ki_hold: float = 0.0
