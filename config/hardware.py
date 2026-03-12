@@ -171,8 +171,8 @@ DEADBAND_KPA: float = 0.0
 U_FF: float = 0.0
 P_FILT_ALPHA: float = 1.0 # 1.0 = sin filtro
 HOLD_BAND_KPA: float = 0.0
-KP_HOLD: float =  0
-KI_HOLD: float =  0
+KP_HOLD: float = KP_DEFAULT * 0
+KI_HOLD: float = KI_DEFAULT * 0
 
 # ============================
 # FFT / RUIDO
@@ -182,8 +182,8 @@ FFT_USE_WINDOW: bool = True
 
 @dataclass
 class PIConfig:
-  #  kp: float = KP_DEFAULT
-  #  ki: float = KI_DEFAULT
+    kp: float = KP_DEFAULT
+    ki: float = KI_DEFAULT
     kp_low: float = KP_LOW
     ki_low: float = KI_LOW
     kp_mid: float = KP_MID
