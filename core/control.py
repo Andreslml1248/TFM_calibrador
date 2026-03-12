@@ -17,8 +17,6 @@ def pwm_real_to_u_cmd(pwm_real: float) -> float:
 
 @dataclass
 class PIConfig:
-    kp: float
-    ki: float
     dt: float
     u_min: float
     u_max: float

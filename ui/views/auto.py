@@ -157,15 +157,13 @@ class AutoView(ttk.Frame):
 
         # PI (base IGUAL a config; en START aplicamos overrides desde cfg)
         self.pi = PIController(PIConfig(
-            kp=config.PI_CFG.kp,
-            ki=config.PI_CFG.ki,
             dt=config.PI_CFG.dt,
             u_min=pi_u_min,
             u_max=pi_u_max,
             deadband_kpa=float(getattr(config.PI_CFG, "deadband_kpa", 0.5)),
             u_ff=max(pi_u_min, min(float(config.PI_CFG.u_ff), pi_u_max)),
             hold_band_kpa=float(getattr(config.PI_CFG, "hold_band_kpa", 0.0)),
-            kp_hold=float(getattr(config.PI_CFG, "kp_hold", config.PI_CFG.kp)),
+            kp_hold=float(getattr(config.PI_CFG, "kp_hold", 0.0)),
             ki_hold=float(getattr(config.PI_CFG, "ki_hold", 0.0)),
             i_decay_in_deadband=0.97
         ))
