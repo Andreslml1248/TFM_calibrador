@@ -1557,6 +1557,11 @@ class ManualView(ttk.Frame):
                 p_now = self._read_control_pressure_kpa()
             except Exception:
                 p_now = 0.0
+            error_now = float(self.cfg.sp_kpa) - float(p_now)
+            self.pi_worker.set_zone_from_sp(
+                zone_sp_kpa=float(self.cfg.sp_kpa),
+                error_now=error_now,
+            )
             u_cmd = self.pi_worker.step_now(
                 sp_kpa=float(self.cfg.sp_kpa),
                 p_kpa=float(p_now),
@@ -1573,8 +1578,8 @@ class ManualView(ttk.Frame):
             self.pi.cfg.u_min = pi_u_min
             self.pi.cfg.u_max = pi_u_max
             self.pi.cfg.u_ff = max(pi_u_min, min(float(config.PI_CFG.u_ff), pi_u_max))
-            self._apply_sp()
             self._apply_state_run()
+            self._apply_sp()
         except Exception as e:
             messagebox.showerror("CONFIG", str(e))
 

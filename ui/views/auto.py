@@ -1055,6 +1055,13 @@ class AutoView(ttk.Frame):
             return max(0.0, sp - 0.5)
         return sp
 
+    def _apply_active_zone(self, sp_nominal: float, sp_ctrl: float, pv_kpa: float) -> None:
+        error_now = float(sp_ctrl) - float(pv_kpa)
+        self.pi_worker.set_zone_from_sp(
+            zone_sp_kpa=float(sp_nominal),
+            error_now=error_now,
+        )
+
     def _is_max_point(self, sp: float) -> bool:
         return abs(sp - max(self.rt.points)) < 1e-9 if self.rt.points else False
 
@@ -1216,7 +1223,7 @@ class AutoView(ttk.Frame):
             p = max(0.0, p_corr - self.rt.p_zero_kpa)
             self.rt.last_p = p
 
-            sp = self._current_sp()
+            sp_nominal = self._current_sp()
             sp_ctrl = self._current_control_sp()
             dead = float(self.cfg.deadband_kpa)
 
@@ -1249,9 +1256,9 @@ class AutoView(ttk.Frame):
                 if not is_down:
                     self.set_valve(False)
                     self.set_relay(True)
+                    self._apply_active_zone(sp_nominal=sp_nominal, sp_ctrl=sp_ctrl, pv_kpa=p)
 
-                    self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
-                    u = self.pi_worker.get_output()
+                    u = self.pi_worker.step_now(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
                     self.rt.last_u = float(u)
                     self.set_pump(u)
 
@@ -1276,9 +1283,9 @@ class AutoView(ttk.Frame):
             elif st == IN_BAND_WAIT_UP:
                 self.set_valve(False)
                 self.set_relay(True)
+                self._apply_active_zone(sp_nominal=sp_nominal, sp_ctrl=sp_ctrl, pv_kpa=p)
 
-                self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
-                u = self.pi_worker.get_output()
+                u = self.pi_worker.step_now(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_pi)
                 self.rt.last_u = float(u)
                 self.set_pump(u)
 

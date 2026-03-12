@@ -57,6 +57,9 @@ class PIController:
         self.frozen: bool = False
         self.last_sp: Optional[float] = None
         self.last_p: Optional[float] = None
+        self.zone_sp_active: Optional[float] = None
+        self.kp_active: float = float(self.cfg.kp)
+        self.ki_active: float = float(self.cfg.ki)
 
         # filtro opcional de P (si lo quieres aquí en vez de en otro lado)
         self._p_filt: Optional[float] = None
@@ -74,6 +77,25 @@ class PIController:
         if sp < 100.0:
             return float(self.cfg.kp_mid), float(self.cfg.ki_mid)
         return float(self.cfg.kp_high), float(self.cfg.ki_high)
+
+    def set_zone_from_sp(self, zone_sp_kpa: float, error_now: float) -> None:
+        zone_sp = float(zone_sp_kpa)
+        kp_new, ki_new = self._select_zone_gains(zone_sp)
+
+        if self.zone_sp_active is None:
+            self.zone_sp_active = zone_sp
+            self.kp_active = kp_new
+            self.ki_active = ki_new
+            return
+
+        if abs(zone_sp - self.zone_sp_active) <= 1e-9:
+            return
+
+        old_kp = float(self.kp_active)
+        self.I += (old_kp - kp_new) * float(error_now)
+        self.zone_sp_active = zone_sp
+        self.kp_active = kp_new
+        self.ki_active = ki_new
 
     def step(self, sp_kpa: float, p_kpa: float, dt: Optional[float] = None) -> float:
         if self.frozen:
@@ -97,7 +119,8 @@ class PIController:
             p_use = self._p_filt
 
         e = sp - p_use
-        kp_use, ki_use = self._select_zone_gains(sp)
+        kp_use = float(self.kp_active)
+        ki_use = float(self.ki_active)
         u_unsat = kp_use * e + self.I
 
         pushing_high = (u_unsat > self.cfg.u_max and e > 0.0)
@@ -182,6 +205,10 @@ class PIWorker:
     def unfreeze(self) -> None:
         with self._lock:
             self.controller.unfreeze()
+
+    def set_zone_from_sp(self, zone_sp_kpa: float, error_now: float) -> None:
+        with self._lock:
+            self.controller.set_zone_from_sp(zone_sp_kpa=float(zone_sp_kpa), error_now=float(error_now))
 
     def _run(self) -> None:
         while not self._stop_evt.is_set():
