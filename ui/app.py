@@ -12,7 +12,7 @@ from tkinter import ttk, messagebox
 from config import hardware as config
 from core.calibration import load_calibration
 from core.hw import HW
-from core.network import get_network_interfaces, pick_preferred_interface
+from core.network import get_primary_interface_by_kind, pick_preferred_interface
 from core.telemetry import ADSTelemetryServer, CHANNEL_TO_PORT, get_global_telemetry_snapshot
 from ui.event_handler import EventHandler
 from ui.views.auto import AutoView
@@ -42,6 +42,7 @@ class App(tk.Tk):
                     pass
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.server_bind_host = "0.0.0.0"
 
         _cal, loaded = load_calibration()
         if not loaded:
@@ -49,7 +50,10 @@ class App(tk.Tk):
 
         self.hw = HW()
         self.event_handler = EventHandler(self.hw)
-        self.telemetry_server = ADSTelemetryServer(get_global_telemetry_snapshot())
+        self.telemetry_server = ADSTelemetryServer(
+            get_global_telemetry_snapshot(),
+            host=self.server_bind_host,
+        )
         self.telemetry_server.start()
 
         top_controls = ttk.Frame(self)
@@ -75,31 +79,18 @@ class App(tk.Tk):
         net_controls = ttk.Frame(self)
         net_controls.pack(fill="x", padx=8, pady=(0, 6))
 
-        ttk.Label(net_controls, text="Interfaz LabVIEW:").pack(side="left", padx=(0, 6))
-        self.var_net_pref = tk.StringVar(value="ethernet")
-        self.cmb_net_pref = ttk.Combobox(
-            net_controls,
-            state="readonly",
-            width=12,
-            textvariable=self.var_net_pref,
-            values=("ethernet", "wifi", "auto"),
-        )
-        self.cmb_net_pref.pack(side="left", padx=(0, 6))
-        self.cmb_net_pref.bind("<<ComboboxSelected>>", lambda _event: self._refresh_tx_state_label())
-
-        self.btn_net_refresh = ttk.Button(
-            net_controls,
-            text="Actualizar IP",
-            command=self._refresh_tx_state_label,
-        )
+        self.btn_net_refresh = ttk.Button(net_controls, text="Actualizar IP", command=self._refresh_tx_state_label)
         self.btn_net_refresh.pack(side="left", padx=(0, 8))
 
-        self.lbl_net_state = ttk.Label(net_controls, text="Red: buscando interfaz...")
+        self.lbl_net_state = ttk.Label(
+            net_controls,
+            text="Servidor TCP escuchando en todas las interfaces (0.0.0.0)",
+        )
         self.lbl_net_state.pack(side="left")
 
         self.lbl_labview_ip = tk.Label(
             self,
-            text="IP LABVIEW: ---.---.---.---",
+            text="IP Ethernet para LabVIEW: ---.---.---.---",
             fg="red",
             font=("Arial", 16, "bold"),
             anchor="w",
@@ -107,6 +98,17 @@ class App(tk.Tk):
             pady=4,
         )
         self.lbl_labview_ip.pack(fill="x", padx=8, pady=(0, 6))
+
+        self.lbl_wifi_ip = tk.Label(
+            self,
+            text="IP WiFi: no disponible",
+            fg="black",
+            font=("Arial", 12),
+            anchor="w",
+            padx=12,
+            pady=2,
+        )
+        self.lbl_wifi_ip.pack(fill="x", padx=8, pady=(0, 6))
 
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True)
@@ -146,26 +148,36 @@ class App(tk.Tk):
 
     def _refresh_tx_state_label(self):
         active = self.telemetry_server.get_active_channel()
-        preferred = self.var_net_pref.get().strip().lower()
-        selected_if = pick_preferred_interface(preferred)
-        all_ifaces = get_network_interfaces()
+        ethernet_if = get_primary_interface_by_kind("ethernet")
+        wifi_if = get_primary_interface_by_kind("wifi")
+        primary_if = ethernet_if or pick_preferred_interface("auto")
 
-        if selected_if is not None:
-            net_txt = f"Red: {selected_if.kind.upper()} {selected_if.ipv4} ({selected_if.name})"
-            ip_txt = selected_if.ipv4
+        self.lbl_net_state.configure(
+            text=f"Servidor TCP escuchando en todas las interfaces ({self.server_bind_host})"
+        )
+
+        if ethernet_if is not None:
+            ethernet_txt = f"IP Ethernet para LabVIEW: {ethernet_if.ipv4} ({ethernet_if.name})"
+            ip_txt = ethernet_if.ipv4
+        elif primary_if is not None:
+            ethernet_txt = (
+                "IP Ethernet para LabVIEW: Ethernet no disponible"
+                f" | interfaz activa: {primary_if.ipv4} ({primary_if.name})"
+            )
+            ip_txt = primary_if.ipv4
         else:
-            wanted = "Ethernet" if preferred == "ethernet" else "WiFi" if preferred == "wifi" else "Auto"
-            net_txt = f"Red: sin interfaz {wanted}"
-            if all_ifaces:
-                fallback = all_ifaces[0]
-                net_txt += f" | disponible {fallback.ipv4} ({fallback.name})"
+            ethernet_txt = "IP Ethernet para LabVIEW: sin IPv4 disponible"
             ip_txt = "sin IP"
+        self.lbl_labview_ip.configure(text=ethernet_txt)
 
-        self.lbl_net_state.configure(text=net_txt)
-        self.lbl_labview_ip.configure(text=f"IP LABVIEW: {ip_txt}")
+        if wifi_if is not None:
+            wifi_txt = f"IP WiFi: {wifi_if.ipv4} ({wifi_if.name})"
+        else:
+            wifi_txt = "IP WiFi: no disponible"
+        self.lbl_wifi_ip.configure(text=wifi_txt)
 
         if active in CHANNEL_TO_PORT:
-            txt = f"TX: A{active} -> {ip_txt}:{CHANNEL_TO_PORT[active]}"
+            txt = f"TX: A{active} disponible en puerto {CHANNEL_TO_PORT[active]} | IP recomendada: {ip_txt}"
         else:
             txt = "TX: OFF"
         self.lbl_tx_state.configure(text=txt)
