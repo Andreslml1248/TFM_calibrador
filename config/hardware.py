@@ -151,13 +151,13 @@ OFFSET_2PT: float = 0.0
 # ============================
 # PI CONTROL (un solo PI para manual y auto)
 # ============================
-KP_LOW: float = 0.01542
+KP_LOW: float = 0.03542
 KI_LOW: float = 0.001560
 
-KP_MID: float = 0.004779
+KP_MID: float = 0.006779
 KI_MID: float = 0.0004252
 
-KP_HIGH: float = 0.003
+KP_HIGH: float = 0.00166
 KI_HIGH: float = 0.0004429
 
 DT_PI: float = 0.1
