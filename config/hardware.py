@@ -154,8 +154,8 @@ OFFSET_2PT: float = 0.0
 KP_LOW: float = 0.01383026
 KI_LOW: float = 0.0014258
 
-KP_MID: float = 0.006779
-KI_MID: float = 0.0004252
+KP_MID: float = 0.011736
+KI_MID: float = 0.0011736
 
 KP_HIGH: float = 0.00166
 KI_HIGH: float = 0.0004429
