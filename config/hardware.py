@@ -151,15 +151,14 @@ OFFSET_2PT: float = 0.0
 # ============================
 # PI CONTROL (un solo PI para manual y auto)
 # ============================
-#0 a 30 Kpa
-KP_LOW: float = 0.18079
-KI_LOW: float = 0.01830
-#30 a 100 Kpa
-KP_MID: float = 0.03596
-KI_MID: float = 0.003200
-#mayor a 100Kpa
-KP_HIGH: float = 0.02415
-KI_HIGH: float = 0.002921
+KP_LOW: float = 0.01542
+KI_LOW: float = 0.001560
+
+KP_MID: float = 0.004779
+KI_MID: float = 0.0004252
+
+KP_HIGH: float = 0.003
+KI_HIGH: float = 0.0004429
 
 DT_PI: float = 0.1
 U_MIN: float = 0.0
