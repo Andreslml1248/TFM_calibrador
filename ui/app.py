@@ -97,17 +97,6 @@ class App(tk.Tk):
         self.lbl_net_state = ttk.Label(net_controls, text="Red: buscando interfaz...")
         self.lbl_net_state.pack(side="left")
 
-        self.lbl_labview_ip = tk.Label(
-            self,
-            text="IP LABVIEW: ---.---.---.---",
-            fg="red",
-            font=("Arial", 16, "bold"),
-            anchor="w",
-            padx=12,
-            pady=4,
-        )
-        self.lbl_labview_ip.pack(fill="x", padx=8, pady=(0, 6))
-
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True)
 
@@ -162,7 +151,6 @@ class App(tk.Tk):
             ip_txt = "sin IP"
 
         self.lbl_net_state.configure(text=net_txt)
-        self.lbl_labview_ip.configure(text=f"IP LABVIEW: {ip_txt}")
 
         if active in CHANNEL_TO_PORT:
             txt = f"TX: A{active} -> {ip_txt}:{CHANNEL_TO_PORT[active]}"
