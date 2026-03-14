@@ -12,7 +12,7 @@ PWM_PIN: int = 12
 PWM_FREQ_HZ: int = 40
 RELE_BOMBA_PIN: int = 17
 
-# Electroválvula NC: energizar = abrir ✅
+# Electroválvula NC: energizar = abrir
 VALV_PIN: int = 27
 USE_VALVULA: bool = True
 VALV_ACTIVE_HIGH: bool = True  # True => ON = energizada = ABIERTA
@@ -151,14 +151,14 @@ OFFSET_2PT: float = 0.0
 # ============================
 # PI CONTROL (un solo PI para manual y auto)
 # ============================
-KP_LOW: float = 0.005
-KI_LOW: float = 0.002
+KP_LOW: float = 0.01542
+KI_LOW: float = 0.001560
 
-KP_MID: float = 0.0100
-KI_MID: float = 0.004
+KP_MID: float = 0.004779
+KI_MID: float = 0.0004252
 
-KP_HIGH: float = 0.0100
-KI_HIGH: float = 0.004
+KP_HIGH: float = 0.003
+KI_HIGH: float = 0.0004429
 
 DT_PI: float = 0.1
 U_MIN: float = 0.0

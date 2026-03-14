@@ -70,9 +70,9 @@ class PIController:
 
     def _select_zone_gains(self, sp_kpa: float) -> tuple[float, float]:
         sp = float(sp_kpa)
-        if sp < 30.0:
+        if sp <= 30.0:
             return float(self.cfg.kp_low), float(self.cfg.ki_low)
-        if sp < 100.0:
+        if sp <= 100.0:
             return float(self.cfg.kp_mid), float(self.cfg.ki_mid)
         return float(self.cfg.kp_high), float(self.cfg.ki_high)
 
