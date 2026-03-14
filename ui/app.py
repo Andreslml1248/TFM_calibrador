@@ -99,17 +99,6 @@ class App(tk.Tk):
         )
         self.lbl_labview_ip.pack(fill="x", padx=8, pady=(0, 6))
 
-        self.lbl_eth_dhcp = tk.Label(
-            self,
-            text="DHCP Ethernet para PC: no disponible",
-            fg="black",
-            font=("Arial", 12),
-            anchor="w",
-            padx=12,
-            pady=2,
-        )
-        self.lbl_eth_dhcp.pack(fill="x", padx=8, pady=(0, 4))
-
         self.lbl_wifi_ip = tk.Label(
             self,
             text="IP WiFi: no disponible",
@@ -170,20 +159,16 @@ class App(tk.Tk):
         if ethernet_if is not None:
             ethernet_txt = f"IP Ethernet para LabVIEW: {ethernet_if.ipv4} ({ethernet_if.name})"
             ip_txt = ethernet_if.ipv4
-            dhcp_txt = "DHCP Ethernet para PC: activo"
         elif primary_if is not None:
             ethernet_txt = (
                 "IP Ethernet para LabVIEW: Ethernet no disponible"
                 f" | interfaz activa: {primary_if.ipv4} ({primary_if.name})"
             )
             ip_txt = primary_if.ipv4
-            dhcp_txt = "DHCP Ethernet para PC: no disponible"
         else:
             ethernet_txt = "IP Ethernet para LabVIEW: sin IPv4 disponible"
             ip_txt = "sin IP"
-            dhcp_txt = "DHCP Ethernet para PC: no disponible"
         self.lbl_labview_ip.configure(text=ethernet_txt)
-        self.lbl_eth_dhcp.configure(text=dhcp_txt)
 
         if wifi_if is not None:
             wifi_txt = f"IP WiFi: {wifi_if.ipv4} ({wifi_if.name})"

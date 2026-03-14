@@ -27,8 +27,3 @@
 - Reporta RMS/STD y pico dominante (Hz).
 - Parametros: `FFT_N_SAMPLES`, `FFT_USE_WINDOW`, `ADS_SPS`.
 
-## Ethernet directo con LabVIEW
-- Para conexion directa por cable con LabVIEW, el PC debe dejar su adaptador Ethernet en obtener IP automaticamente (DHCP).
-- LabVIEW debe conectarse siempre a `192.168.50.2`.
-- Puertos TCP sin cambios: `5000`, `5001`, `5002`.
-
