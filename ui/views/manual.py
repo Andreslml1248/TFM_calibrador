@@ -697,6 +697,7 @@ class ManualView(ttk.Frame):
             var_a2_p = tk.StringVar(value="0.00")
             var_a2_state = tk.StringVar(value="PI OFF")
             a2_pi_enabled = {"on": False}
+            a2_last_sp = {"value": None}
             a2_pi_after = {"id": None}
 
             def _update_units():
@@ -870,6 +871,7 @@ class ManualView(ttk.Frame):
 
             def _a2_pi_disable():
                 a2_pi_enabled["on"] = False
+                a2_last_sp["value"] = None
                 try:
                     self.pi_worker.freeze()
                 except Exception:
@@ -892,10 +894,16 @@ class ManualView(ttk.Frame):
                 except Exception:
                     messagebox.showerror("Calibracion", "SP invalido para PI.", parent=win)
                     return
+                try:
+                    p_now = float(self._read_control_pressure_kpa())
+                except Exception:
+                    p_now = 0.0
                 self.rt.running = False
                 self.pi_worker.reset()
+                self.pi_worker.retarget(sp_kpa=float(sp), p_kpa=float(p_now))
                 self.pi_worker.unfreeze()
                 a2_pi_enabled["on"] = True
+                a2_last_sp["value"] = float(sp)
                 btn_a2_pi.configure(text="PI OFF")
                 var_a2_state.set(f"PI ON | SP={sp:.2f} kPa")
 
@@ -919,6 +927,9 @@ class ManualView(ttk.Frame):
                                 sp = float(var_a2_sp.get().strip().replace(",", "."))
                             except Exception:
                                 sp = float(self.cfg.sp_kpa)
+                            if a2_last_sp["value"] is None or abs(float(sp) - float(a2_last_sp["value"])) > 1e-9:
+                                self.pi_worker.retarget(sp_kpa=float(sp), p_kpa=float(p_now))
+                                a2_last_sp["value"] = float(sp)
                             self.set_valve(False)
                             self.set_relay(True)
                             self.pi_worker.set_inputs(sp_kpa=sp, p_kpa=p_now, dt=float(config.PI_CFG.dt))
@@ -1552,15 +1563,22 @@ class ManualView(ttk.Frame):
 
     # Solo aplica SP con botÃ³n/Enter
     def _apply_sp(self):
+        prev_sp_kpa = float(self.cfg.sp_kpa)
         self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
         self._sync_pressure_display_from_kpa()
         if self.rt.running:
             self.rt.target_reached = False
-            self.pi_worker.unfreeze()
             try:
                 p_now = self._read_control_pressure_kpa()
             except Exception:
                 p_now = 0.0
+            sp_changed = abs(float(self.cfg.sp_kpa) - prev_sp_kpa) > 1e-9
+            if sp_changed:
+                self.pi_worker.retarget(
+                    sp_kpa=float(self.cfg.sp_kpa),
+                    p_kpa=float(p_now),
+                )
+            self.pi_worker.unfreeze()
             error_now = float(self.cfg.sp_kpa) - float(p_now)
             self.pi_worker.set_zone_from_sp(
                 zone_sp_kpa=float(self.cfg.sp_kpa),

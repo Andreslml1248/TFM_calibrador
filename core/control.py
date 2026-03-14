@@ -95,6 +95,30 @@ class PIController:
         self.kp_active = kp_new
         self.ki_active = ki_new
 
+    def retarget(self, sp_kpa: float, p_kpa: Optional[float] = None) -> None:
+        """
+        Rearma el PI para un cambio de setpoint en caliente.
+        - Borra el integrador para no arrastrar accion previa.
+        - Selecciona la zona de ganancias del nuevo SP.
+        - Si se facilita la PV actual, re-sema el filtro de presion.
+        """
+        sp = float(sp_kpa)
+        kp_new, ki_new = self._select_zone_gains(sp)
+
+        self.I = 0.0
+        self.last_sp = None
+        self.zone_sp_active = sp
+        self.kp_active = kp_new
+        self.ki_active = ki_new
+
+        if p_kpa is None:
+            self.last_p = None
+            self._p_filt = None
+        else:
+            p = float(p_kpa)
+            self.last_p = p
+            self._p_filt = p
+
     def step(self, sp_kpa: float, p_kpa: float, dt: Optional[float] = None) -> float:
         if self.frozen:
             return self.last_u
@@ -207,6 +231,11 @@ class PIWorker:
     def set_zone_from_sp(self, zone_sp_kpa: float, error_now: float) -> None:
         with self._lock:
             self.controller.set_zone_from_sp(zone_sp_kpa=float(zone_sp_kpa), error_now=float(error_now))
+
+    def retarget(self, sp_kpa: float, p_kpa: Optional[float] = None) -> None:
+        with self._lock:
+            self.controller.retarget(sp_kpa=float(sp_kpa), p_kpa=p_kpa)
+            self._last_u = self.controller.last_u
 
     def _run(self) -> None:
         while not self._stop_evt.is_set():
