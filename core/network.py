@@ -32,19 +32,6 @@ def _classify_interface(name: str) -> str:
     return "unknown"
 
 
-def _interface_priority(item: NetworkInterfaceInfo) -> tuple[int, str, str]:
-    raw = (item.name or "").strip().lower()
-    if item.kind == "ethernet":
-        if raw == "eth0":
-            return (0, raw, item.ipv4)
-        return (1, raw, item.ipv4)
-    if item.kind == "wifi":
-        if raw == "wlan0":
-            return (2, raw, item.ipv4)
-        return (3, raw, item.ipv4)
-    return (4, raw, item.ipv4)
-
-
 def _parse_windows_ipconfig(stdout: str) -> List[NetworkInterfaceInfo]:
     interfaces: List[NetworkInterfaceInfo] = []
     current_name: Optional[str] = None
@@ -164,7 +151,7 @@ def get_network_interfaces() -> List[NetworkInterfaceInfo]:
 
 def pick_preferred_interface(preferred: str) -> Optional[NetworkInterfaceInfo]:
     pref = (preferred or "auto").strip().lower()
-    interfaces = sorted(get_network_interfaces(), key=_interface_priority)
+    interfaces = get_network_interfaces()
     if not interfaces:
         return None
 
@@ -185,15 +172,3 @@ def pick_preferred_interface(preferred: str) -> Optional[NetworkInterfaceInfo]:
             if item.kind == wanted_kind:
                 return item
     return interfaces[0]
-
-
-def get_primary_interface_by_kind(kind: str) -> Optional[NetworkInterfaceInfo]:
-    wanted = (kind or "").strip().lower()
-    if wanted not in {"ethernet", "wifi", "unknown"}:
-        return None
-
-    interfaces = sorted(get_network_interfaces(), key=_interface_priority)
-    for item in interfaces:
-        if item.kind == wanted:
-            return item
-    return None
