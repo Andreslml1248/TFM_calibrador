@@ -1023,7 +1023,7 @@ class AutoView(ttk.Frame):
 
             self._last_tick_ts = None
             first_sp = float(self.rt.points[0]) if self.rt.points else 0.0
-            if first_sp == 0.0:
+            if abs(first_sp) <= 1e-9:
                 self._goto_state(HOLD_MEASURE)
             else:
                 self._goto_state(GOTO_SP)
@@ -1074,12 +1074,8 @@ class AutoView(ttk.Frame):
         return abs(sp - max(self.rt.points)) < 1e-9 if self.rt.points else False
 
     def _current_hold_wait_s(self, sp: float) -> float:
-        if (
-            self.cfg.direction in ("UP", "BOTH")
-            and self.rt.step_index == 0
-            and abs(float(sp)) <= 1e-9
-        ):
-            return 5.0
+        if self.rt.step_index == 0 and abs(float(sp)) <= 1e-9:
+            return 0.0
         if self._is_max_point(sp):
             return float(self.cfg.settle_time_max_s)
         return float(self.cfg.settle_time_s)
@@ -1261,7 +1257,7 @@ class AutoView(ttk.Frame):
                 is_down = self._is_down_phase()
 
                 if not is_down:
-                    self.set_valve(False)
+                    self.set_valve(True)
                     self.set_relay(True)
                     self._apply_active_zone(sp_nominal=sp_nominal, sp_ctrl=sp_ctrl, pv_kpa=p)
 
@@ -1284,7 +1280,7 @@ class AutoView(ttk.Frame):
                         self._goto_state(IN_BAND_WAIT_DOWN)
 
             elif st == IN_BAND_WAIT_UP:
-                self.set_valve(False)
+                self.set_valve(True)
                 self.set_relay(True)
                 self._apply_active_zone(sp_nominal=sp_nominal, sp_ctrl=sp_ctrl, pv_kpa=p)
 
@@ -1299,6 +1295,7 @@ class AutoView(ttk.Frame):
                         self.set_pump(1.0)
                         self.set_relay(False)
                         self.pi_worker.freeze()
+                        self.set_valve(False)
                         self._goto_state(HOLD_MEASURE)
 
             elif st == IN_BAND_WAIT_DOWN:
