@@ -23,7 +23,7 @@ BOMBA_ACTIVE_LOW: bool = True
 
 # Minimo PWM hardware para mantener bomba activa durante control PI.
 # Solo debe aplicarse en la ruta de control activo (no en apagados/seguridad).
-PWM_HW_MIN_HOLD: float = 0.1
+PWM_HW_MIN_HOLD: float = 0.15
 
 # ============================
 # VENTILACIÓN + TEMPERATURA (DS18B20)
