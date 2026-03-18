@@ -158,7 +158,7 @@ KP_MID: float = 0.0030
 KI_MID: float = 0.00029108
 
 KP_HIGH: float = 0.00323474
-KI_HIGH: float = 0.00084028
+KI_HIGH: float = 0.00029108
 
 DT_PI: float = 0.1
 U_MIN: float = 0.0
