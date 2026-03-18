@@ -155,7 +155,7 @@ KP_LOW: float = 0.01383026
 KI_LOW: float = 0.0025569
 
 KP_MID: float = 0.0030
-KI_MID: float = 0.00035
+KI_MID: float = 0.00029108
 
 KP_HIGH: float = 0.01865592
 KI_HIGH: float = 0.0023032
