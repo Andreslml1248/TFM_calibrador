@@ -1232,6 +1232,7 @@ class AutoView(ttk.Frame):
             self.rt.last_p = p
 
             sp_nominal = self._current_sp()
+            sp = sp_nominal
             sp_ctrl = self._current_control_sp()
             if p >= float(self.cfg.p_max_seguridad_kpa):
                 raise RuntimeError(f"OVERPRESSURE: P={p:.2f} kPa")
@@ -1331,11 +1332,11 @@ class AutoView(ttk.Frame):
                 self.set_pump(1.0)
                 self.set_relay(False)
 
-                wait = self._current_hold_wait_s(sp)
+                wait = self._current_hold_wait_s(sp_nominal)
                 if dt_st >= wait:
                     # ✅ AQUÍ SOLO AÑADIMOS MEDICIÓN Y REGISTRO (no cambia control)
                     try:
-                        self._record_point_result(sp_kpa=float(sp))
+                        self._record_point_result(sp_kpa=float(sp_nominal))
                     except Exception as e:
                         # si falla medición, aborta con error claro
                         raise RuntimeError(f"Fallo medición punto (SP={sp:.2f}): {e}")
