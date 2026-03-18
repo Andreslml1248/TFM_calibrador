@@ -171,6 +171,11 @@ HOLD_BAND_KPA: float = 0.0
 KP_HOLD: float = 0.0
 KI_HOLD: float = 0.0
 
+# Manual: al permanecer dentro de esta banda alrededor del SP, se apaga la
+# bomba y se cierra la electroválvula para mantener presión estática.
+MANUAL_STATIC_HOLD_BAND_KPA: float = 1.0
+MANUAL_STATIC_HOLD_DELAY_S: float = 1.0
+
 # ============================
 # FFT / RUIDO
 # ============================

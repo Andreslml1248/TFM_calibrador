@@ -79,6 +79,7 @@ class ManualRuntime:
     target_reached: bool = False
     p_zero_kpa: float = 0.0
     last_update_ts: float = 0.0
+    in_band_since_ts: Optional[float] = None
 
 
 # =========================
@@ -152,6 +153,14 @@ class ManualView(ttk.Frame):
         self._tx_refresh_period_ms = max(
             20,
             int(round(float(getattr(config, "TELEMETRY_FORCE_REFRESH_S", 0.05)) * 1000.0)),
+        )
+        self._manual_hold_band_kpa = max(
+            0.0,
+            float(getattr(config, "MANUAL_STATIC_HOLD_BAND_KPA", 1.0)),
+        )
+        self._manual_hold_delay_s = max(
+            0.0,
+            float(getattr(config, "MANUAL_STATIC_HOLD_DELAY_S", 1.0)),
         )
         pi_u_min, pi_u_max = self._effective_u_bounds(config.PI_CFG.u_min, config.PI_CFG.u_max)
 
@@ -418,6 +427,7 @@ class ManualView(ttk.Frame):
     def _apply_state_config(self):
         self.rt.running = False
         self.rt.target_reached = False
+        self.rt.in_band_since_ts = None
         self.pi_worker.reset()
         self.pi_worker.freeze()
         self.rt.last_update_ts = 0.0
@@ -428,6 +438,7 @@ class ManualView(ttk.Frame):
     def _apply_state_run(self):
         self.rt.running = True
         self.rt.target_reached = False
+        self.rt.in_band_since_ts = None
         self._reset_live_plot()
         self.pi_worker.reset()
         self.pi_worker.unfreeze()
@@ -1568,6 +1579,7 @@ class ManualView(ttk.Frame):
         self._sync_pressure_display_from_kpa()
         if self.rt.running:
             self.rt.target_reached = False
+            self.rt.in_band_since_ts = None
             try:
                 p_now = self._read_control_pressure_kpa()
             except Exception:
@@ -1584,6 +1596,8 @@ class ManualView(ttk.Frame):
                 zone_sp_kpa=float(self.cfg.sp_kpa),
                 error_now=error_now,
             )
+            self.set_valve(True)
+            self.set_relay(True)
             u_cmd = self.pi_worker.step_now(
                 sp_kpa=float(self.cfg.sp_kpa),
                 p_kpa=float(p_now),
@@ -1591,6 +1605,54 @@ class ManualView(ttk.Frame):
             )
             self.set_pump(float(u_cmd))
             self.var_pwm.set(f"u={float(u_cmd):.3f}")
+
+    def _enter_manual_static_hold(self) -> None:
+        self.rt.target_reached = True
+        self.rt.in_band_since_ts = None
+        self.pi_worker.freeze()
+        self.set_pump(1.0)
+        self.set_relay(False)
+        self.set_valve(False)
+        self.var_pwm.set("u=HOLD")
+
+    def _resume_manual_control(self, p_kpa: float) -> None:
+        self.rt.target_reached = False
+        self.rt.in_band_since_ts = None
+        self.pi_worker.retarget(
+            sp_kpa=float(self.cfg.sp_kpa),
+            p_kpa=float(p_kpa),
+        )
+        self.pi_worker.unfreeze()
+        self.set_valve(True)
+        self.set_relay(True)
+
+    def _update_manual_static_hold(self, now_ts: float, p_kpa: float) -> bool:
+        band = float(self._manual_hold_band_kpa)
+        err_abs = abs(float(self.cfg.sp_kpa) - float(p_kpa))
+
+        if self.rt.target_reached:
+            if err_abs > band:
+                self._resume_manual_control(p_kpa=float(p_kpa))
+                return False
+            self.set_pump(1.0)
+            self.set_relay(False)
+            self.set_valve(False)
+            self.var_pwm.set("u=HOLD")
+            return True
+
+        if err_abs > band:
+            self.rt.in_band_since_ts = None
+            return False
+
+        if self.rt.in_band_since_ts is None:
+            self.rt.in_band_since_ts = float(now_ts)
+            return False
+
+        if (float(now_ts) - float(self.rt.in_band_since_ts)) >= float(self._manual_hold_delay_s):
+            self._enter_manual_static_hold()
+            return True
+
+        return False
 
     def _start(self):
         try:
@@ -1762,6 +1824,9 @@ class ManualView(ttk.Frame):
 
                 sp = float(self.cfg.sp_kpa)
                 sp_ctrl = sp
+
+                if self._update_manual_static_hold(now_ts=now, p_kpa=p):
+                    return
 
                 self.set_valve(True)
                 self.set_relay(True)
