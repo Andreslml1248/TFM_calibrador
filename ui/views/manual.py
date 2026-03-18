@@ -1615,25 +1615,11 @@ class ManualView(ttk.Frame):
         self.set_valve(False)
         self.var_pwm.set("u=HOLD")
 
-    def _resume_manual_control(self, p_kpa: float) -> None:
-        self.rt.target_reached = False
-        self.rt.in_band_since_ts = None
-        self.pi_worker.retarget(
-            sp_kpa=float(self.cfg.sp_kpa),
-            p_kpa=float(p_kpa),
-        )
-        self.pi_worker.unfreeze()
-        self.set_valve(True)
-        self.set_relay(True)
-
     def _update_manual_static_hold(self, now_ts: float, p_kpa: float) -> bool:
         band = float(self._manual_hold_band_kpa)
         err_abs = abs(float(self.cfg.sp_kpa) - float(p_kpa))
 
         if self.rt.target_reached:
-            if err_abs > band:
-                self._resume_manual_control(p_kpa=float(p_kpa))
-                return False
             self.set_pump(1.0)
             self.set_relay(False)
             self.set_valve(False)
