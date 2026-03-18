@@ -41,12 +41,13 @@ class AutoConfig:
     settle_time_max_s: float = 10.0
 
     # ====== CONDICIONES DE CONTROL (se editan en ventana aparte) ======
-    deadband_kpa: float = 3.0
-    inband_up_s: float = 1.5
-    inband_down_s: float = 0.5
+    deadband_kpa: float = float(getattr(config, "AUTO_STATIC_HOLD_BAND_KPA", 1.0))
+    inband_up_s: float = float(getattr(config, "AUTO_STATIC_HOLD_DELAY_S", 1.5))
+    inband_down_s: float = float(getattr(config, "AUTO_STATIC_HOLD_DELAY_S", 1.5))
 
-    # Cierre retardado de EV cuando llega al deadband en bajada:
-    valve_close_delay_s: float = 0.5  # FIJO por requisito
+    # Retardo extra opcional antes de cerrar EV en bajada.
+    # Por defecto se deja a 0 para usar el mismo criterio estatico del modo manual.
+    valve_close_delay_s: float = 0.0
 
     # Límites y feedforward del PI
     u_min: float = 0.0
@@ -1066,6 +1067,9 @@ class AutoView(ttk.Frame):
             error_now=error_now,
         )
 
+    def _is_point_within_hold_band(self, sp_nominal: float, pv_kpa: float) -> bool:
+        return abs(float(sp_nominal) - float(pv_kpa)) <= float(self.cfg.deadband_kpa)
+
     def _is_max_point(self, sp: float) -> bool:
         return abs(sp - max(self.rt.points)) < 1e-9 if self.rt.points else False
 
@@ -1229,8 +1233,6 @@ class AutoView(ttk.Frame):
 
             sp_nominal = self._current_sp()
             sp_ctrl = self._current_control_sp()
-            dead = float(self.cfg.deadband_kpa)
-
             if p >= float(self.cfg.p_max_seguridad_kpa):
                 raise RuntimeError(f"OVERPRESSURE: P={p:.2f} kPa")
 
@@ -1243,7 +1245,7 @@ class AutoView(ttk.Frame):
                 self.set_relay(False)
                 self.set_valve(True)
 
-                if abs(p - 0.0) <= dead:
+                if abs(p - 0.0) <= float(self.cfg.deadband_kpa):
                     self._goto_state(ZERO_HOLD)
 
             elif st == ZERO_HOLD:
@@ -1266,11 +1268,8 @@ class AutoView(ttk.Frame):
                     self.rt.last_u = float(u)
                     self.set_pump(u)
 
-                    if p >= sp_ctrl:
-                        self.set_pump(1.0)
-                        self.set_relay(False)
-                        self.pi_worker.freeze()
-                        self._goto_state(HOLD_MEASURE)
+                    if self._is_point_within_hold_band(sp_nominal=sp_nominal, pv_kpa=p):
+                        self._goto_state(IN_BAND_WAIT_UP)
 
                 else:
                     self.set_pump(1.0)
@@ -1280,9 +1279,8 @@ class AutoView(ttk.Frame):
                     self.set_valve(True)
                     self.rt.last_u = 1.0
 
-                    if p <= sp_ctrl:
-                        self.set_valve(False)
-                        self._goto_state(HOLD_MEASURE)
+                    if self._is_point_within_hold_band(sp_nominal=sp_nominal, pv_kpa=p):
+                        self._goto_state(IN_BAND_WAIT_DOWN)
 
             elif st == IN_BAND_WAIT_UP:
                 self.set_valve(False)
@@ -1293,7 +1291,7 @@ class AutoView(ttk.Frame):
                 self.rt.last_u = float(u)
                 self.set_pump(u)
 
-                if abs(sp_ctrl - p) > dead:
+                if not self._is_point_within_hold_band(sp_nominal=sp_nominal, pv_kpa=p):
                     self._goto_state(GOTO_SP)
                 else:
                     if dt_st >= float(self.cfg.inband_up_s):
@@ -1308,11 +1306,15 @@ class AutoView(ttk.Frame):
                 self.pi_worker.freeze()
                 self.set_valve(True)
 
-                if abs(sp_ctrl - p) > dead:
+                if not self._is_point_within_hold_band(sp_nominal=sp_nominal, pv_kpa=p):
                     self._goto_state(GOTO_SP)
                 else:
                     if dt_st >= float(self.cfg.inband_down_s):
-                        self._goto_state(DOWN_CLOSE_DELAY)
+                        if float(self.cfg.valve_close_delay_s) > 0.0:
+                            self._goto_state(DOWN_CLOSE_DELAY)
+                        else:
+                            self.set_valve(False)
+                            self._goto_state(HOLD_MEASURE)
 
             elif st == DOWN_CLOSE_DELAY:
                 self.set_pump(1.0)

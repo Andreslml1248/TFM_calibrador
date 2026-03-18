@@ -176,6 +176,10 @@ KI_HOLD: float = 0.0
 MANUAL_STATIC_HOLD_BAND_KPA: float = 1.0
 MANUAL_STATIC_HOLD_DELAY_S: float = 1.5
 
+# Auto: mismo criterio de entrada en hold estático por punto.
+AUTO_STATIC_HOLD_BAND_KPA: float = MANUAL_STATIC_HOLD_BAND_KPA
+AUTO_STATIC_HOLD_DELAY_S: float = MANUAL_STATIC_HOLD_DELAY_S
+
 # ============================
 # FFT / RUIDO
 # ============================
