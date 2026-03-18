@@ -635,8 +635,8 @@ class ManualView(ttk.Frame):
         def on_cancel():
             dialog.destroy()
 
-        ttk.Button(action_frm, text="âœ“ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
-        ttk.Button(action_frm, text="âœ• Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="✓ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
 
         entry.bind("<Return>", lambda e: on_save())
         entry.bind("<Escape>", lambda e: on_cancel())
@@ -1276,8 +1276,8 @@ class ManualView(ttk.Frame):
         def on_cancel():
             dialog.destroy()
 
-        ttk.Button(action_frm, text="âœ“ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
-        ttk.Button(action_frm, text="âœ• Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="✓ Guardar", command=on_save).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
 
         entry.bind("<Return>", lambda e: on_save())
         entry.bind("<Escape>", lambda e: on_cancel())
@@ -1444,8 +1444,8 @@ class ManualView(ttk.Frame):
         def on_cancel():
             dialog.destroy()
 
-        ttk.Button(action_frm, text="âœ“ Guardar", command=save_and_close).pack(side="left", padx=2, pady=2, fill="both", expand=True)
-        ttk.Button(action_frm, text="âœ• Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="✓ Guardar", command=save_and_close).pack(side="left", padx=2, pady=2, fill="both", expand=True)
+        ttk.Button(action_frm, text="✕ Cancelar", command=on_cancel).pack(side="left", padx=2, pady=2, fill="both", expand=True)
 
         entry.bind("<Return>", lambda e: save_and_close())
         entry.bind("<Escape>", lambda e: on_cancel())
