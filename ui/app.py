@@ -83,8 +83,6 @@ class App(tk.Tk):
             read_vadc=self.hw.read_vadc,
             read_vadc_live=self.hw.read_channel_live_filtered,
             set_pump=self.hw.set_pump,
-            get_pump_freq_hz=self.hw.get_pump_frequency_hz,
-            set_pump_freq_hz=self.hw.set_pump_frequency_hz,
             set_relay=self.hw.set_relay,
             set_valve=self.hw.set_valve,
             request_event=self.event_handler.request_event,

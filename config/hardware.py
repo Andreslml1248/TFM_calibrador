@@ -22,7 +22,6 @@ VALV_ACTIVE_HIGH: bool = True  # True => ON = energizada = ABIERTA
 BOMBA_ACTIVE_LOW: bool = True
 
 # Minimo PWM hardware para mantener bomba activa durante control PI.
-# Solo debe aplicarse en la ruta de control activo (no en apagados/seguridad).
 PWM_HW_MIN_HOLD: float = 0.15
 
 # ============================
@@ -31,10 +30,10 @@ PWM_HW_MIN_HOLD: float = 0.15
 FAN_PWM_PIN: int = 18
 FAN_PWM_FREQ_HZ: int = 200
 
-# DS18B20 se lee por 1-Wire (w1). GPIO donde está cableado/habilitado.
+# DS18B20 se lee por 1-Wire (w1).
 DS18B20_GPIO: int = 4
 
-# Objetivo térmico (tu regla)
+# Objetivo térmico
 TEMP_TARGET_C: float = 25.0       # desde aquí empieza a subir el PWM
 TEMP_FULLSPEED_C: float = 35.0    # a esta temp: ventilador al 100%
 TEMP_HYST_C: float = 0.5          # histéresis para evitar parpadeo
