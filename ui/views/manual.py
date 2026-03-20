@@ -334,7 +334,7 @@ class ManualView(ttk.Frame):
         ref_hdr = tk.Frame(live_panel, bg="#080b11")
         ref_hdr.grid(row=0, column=0, sticky="ew", padx=sp(12, 6), pady=(sp(8, 4), sp(4, 2)))
         ref_hdr.grid_columnconfigure(0, weight=1)
-        tk.Label(ref_hdr, text="PRES. REF.", font=sf(22, "bold"), bg="#080b11", fg="#f3f4f6").grid(row=0, column=0, sticky="w")
+        tk.Label(ref_hdr, text="PRES. REF.", font=sf(11, "bold"), bg="#080b11", fg="#f3f4f6").grid(row=0, column=0, sticky="w")
         tk.Label(
             ref_hdr,
             text="MPX5600DP",
@@ -360,7 +360,7 @@ class ManualView(ttk.Frame):
 
         dut_hdr = tk.Frame(live_panel, bg="#080b11")
         dut_hdr.grid(row=3, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(3, 1)))
-        tk.Label(dut_hdr, text="PRES. DUT", font=sf(20, "bold"), bg="#080b11", fg="#f3f4f6").pack(side="left")
+        tk.Label(dut_hdr, text="PRES. DUT", font=sf(10, "bold"), bg="#080b11", fg="#f3f4f6").pack(side="left")
 
         tk.Label(
             live_panel,
@@ -400,7 +400,7 @@ class ManualView(ttk.Frame):
 
         err_box = tk.Frame(footer, bg="#0b0f16")
         err_box.grid(row=0, column=0, sticky="nsew", padx=sp(8, 4), pady=sp(6, 3))
-        tk.Label(err_box, text="ERROR", font=sf(16, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w")
+        tk.Label(err_box, text="ERROR", font=sf(8, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w")
         tk.Label(err_box, textvariable=self.var_err, font=sf(30, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
 
         tol_box = tk.Frame(footer, bg="#0b0f16")
@@ -431,7 +431,7 @@ class ManualView(ttk.Frame):
 
         sp_box = tk.Frame(controls, bg="#141922")
         sp_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(6, 3))
-        tk.Label(sp_box, text="SETPOINT:", font=sf(17, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(8, 4)))
+        tk.Label(sp_box, text="SETPOINT:", font=sf(10, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(8, 4)))
         self.btn_sp = tk.Button(
             sp_box,
             text=f"[{self.var_sp.get()}]",
