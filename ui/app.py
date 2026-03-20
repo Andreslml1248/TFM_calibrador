@@ -54,11 +54,12 @@ class App(tk.Tk):
             bd=1,
             relief="raised",
         )
-        self.btn_exit.place(relx=1.0, x=-self._sp(6, 4), y=self._sp(6, 4), anchor="ne")
 
         nb = ttk.Notebook(self, style="Main.TNotebook")
         nb.pack(fill="both", expand=True, padx=0, pady=0)
         self.nb = nb
+        self.btn_exit.place(in_=self.nb, relx=1.0, x=-self._sp(6, 4), y=self._sp(3, 2), anchor="ne")
+        self.btn_exit.lift()
 
         upd_ms = max(10, int(round(config.DT_PI * 1000)))
 
