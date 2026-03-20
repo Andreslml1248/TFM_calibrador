@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import time
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, font as tkFont
 from dataclasses import dataclass
 from collections import deque
+from queue import SimpleQueue, Empty
 from typing import Callable, Optional, Dict, Any
 
 import numpy as np
@@ -119,8 +121,8 @@ class ManualView(ttk.Frame):
         "inHg",
     )
     _LIVE_PLOT_WINDOW_S = 60.0
-    _LIVE_PLOT_MAX_POINTS = 1200
-    _LIVE_PLOT_MIN_REDRAW_S = 0.10
+    _LIVE_PLOT_MAX_POINTS = 600
+    _LIVE_PLOT_MIN_REDRAW_S = 0.25
 
     def __init__(
         self,
@@ -180,11 +182,33 @@ class ManualView(ttk.Frame):
 
         self.cfg = ManualConfig()
         self.rt = ManualRuntime()
+        self._runtime_lock = threading.Lock()
+        self._runtime_stop_evt = threading.Event()
+        self._runtime_worker: Optional[threading.Thread] = None
+        self._runtime_event_queue = SimpleQueue()
+        self._runtime_overpressure_latched = False
+        self._runtime_fault_latched = False
+        self._runtime_snapshot: Dict[str, Any] = {
+            "p_kpa": 0.0,
+            "dut_eng": 0.0,
+            "span_pct": 0.0,
+            "err_pct": 0.0,
+            "dut_mode": self.cfg.dut_mode,
+            "u_text": "u=0.000",
+        }
+        self._live_plot_lock = threading.Lock()
         self._live_plot_t0: Optional[float] = None
         self._live_plot_last_draw_ts: float = 0.0
         self._live_plot_t = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
         self._live_plot_p_pat = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
         self._live_plot_p_dut = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
+        self._live_plot_queue = SimpleQueue()
+        self._live_plot_after_id: Optional[str] = None
+        self._fig_live: Optional[Figure] = None
+        self._ax_live = None
+        self._canvas_live: Optional[FigureCanvasTkAgg] = None
+        self._line_live_pat = None
+        self._line_live_dut = None
         self._settings_window: Optional[tk.Toplevel] = None
         self._calibration_window: Optional[tk.Toplevel] = None
 
@@ -223,9 +247,12 @@ class ManualView(ttk.Frame):
         self._settings_snapshot: Optional[Dict[str, Any]] = None
 
         self._build_ui_compact()
+        self._build_live_plot()
         self._apply_state_config()
 
         self._safe_outputs()
+        self._schedule_live_plot_poll()
+        self._start_runtime_worker()
         self.after(self.update_period_ms, self._tick)
         self._schedule_tx_refresh()
 
@@ -319,6 +346,36 @@ class ManualView(ttk.Frame):
 
         self._on_mode_changed()
         self._update_sp_unit_ui()
+
+    def _build_live_plot(self):
+        plot_box = ttk.LabelFrame(self.frm_live, text="Presion vs tiempo")
+        plot_box.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=8, pady=(4, 8))
+        plot_box.grid_rowconfigure(0, weight=1)
+        plot_box.grid_columnconfigure(0, weight=1)
+
+        fig = Figure(figsize=(5.2, 2.4), dpi=90)
+        ax = fig.add_subplot(111)
+        ax.set_title("Patron vs DUT")
+        ax.set_xlabel("Tiempo (s)")
+        ax.set_ylabel("Presion")
+        ax.grid(True, alpha=0.25)
+        ax.set_xlim(0.0, self._LIVE_PLOT_WINDOW_S)
+        ax.set_ylim(0.0, 1.0)
+
+        line_pat, = ax.plot([], [], color="#0b5aa2", linewidth=1.6, label="Patron")
+        line_dut, = ax.plot([], [], color="#d97706", linewidth=1.4, label="DUT")
+        ax.legend(loc="upper left", fontsize=8)
+        fig.subplots_adjust(left=0.11, right=0.98, top=0.88, bottom=0.20)
+
+        canvas = FigureCanvasTkAgg(fig, master=plot_box)
+        canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        canvas.draw()
+
+        self._fig_live = fig
+        self._ax_live = ax
+        self._canvas_live = canvas
+        self._line_live_pat = line_pat
+        self._line_live_dut = line_dut
 
     @staticmethod
     def _widget_exists(widget) -> bool:
@@ -1911,10 +1968,7 @@ class ManualView(ttk.Frame):
         if self.rt.running:
             self.rt.target_reached = False
             self.rt.in_band_since_ts = None
-            try:
-                p_now = self._read_control_pressure_kpa()
-            except Exception:
-                p_now = 0.0
+            p_now = float(self._get_runtime_snapshot().get("p_kpa", 0.0))
             sp_changed = abs(float(self.cfg.sp_kpa) - prev_sp_kpa) > 1e-9
             if sp_changed:
                 self.pi_worker.retarget(
@@ -1927,15 +1981,8 @@ class ManualView(ttk.Frame):
                 zone_sp_kpa=float(self.cfg.sp_kpa),
                 error_now=error_now,
             )
-            self.set_valve(True)
-            self.set_relay(True)
-            u_cmd = self.pi_worker.step_now(
-                sp_kpa=float(self.cfg.sp_kpa),
-                p_kpa=float(p_now),
-                dt=float(config.PI_CFG.dt),
-            )
-            self.set_pump(float(u_cmd))
-            self.var_pwm.set(f"u={float(u_cmd):.3f}")
+            with self._runtime_lock:
+                self._runtime_snapshot["u_text"] = "u=SYNC"
 
     def _enter_manual_static_hold(self) -> None:
         self.rt.target_reached = True
@@ -1944,7 +1991,6 @@ class ManualView(ttk.Frame):
         self.set_pump(1.0)
         self.set_relay(False)
         self.set_valve(False)
-        self.var_pwm.set("u=HOLD")
 
     def _update_manual_static_hold(self, now_ts: float, p_kpa: float) -> bool:
         band = float(self._manual_hold_band_kpa)
@@ -1954,7 +2000,6 @@ class ManualView(ttk.Frame):
             self.set_pump(1.0)
             self.set_relay(False)
             self.set_valve(False)
-            self.var_pwm.set("u=HOLD")
             return True
 
         if err_abs > band:
@@ -2035,12 +2080,7 @@ class ManualView(ttk.Frame):
         return sig_pct - p_pct
 
     def _get_live_signal_bounds(self) -> tuple[float, float]:
-        def _parse_sig(var: tk.StringVar, default: float) -> float:
-            try:
-                return float(var.get().strip().replace(",", "."))
-            except Exception:
-                return float(default)
-        return _parse_sig(self.var_sigmin, self.cfg.sig_min), _parse_sig(self.var_sigmax, self.cfg.sig_max)
+        return float(self.cfg.sig_min), float(self.cfg.sig_max)
 
     @staticmethod
     def _dut_est_pressure_kpa(x_meas: float, x_min: float, x_max: float, p_min: float, p_max: float) -> float:
@@ -2049,35 +2089,180 @@ class ManualView(ttk.Frame):
             return float(p_min)
         return float(p_min + (x_meas - x_min) * (p_max - p_min) / den)
 
+    def _start_runtime_worker(self):
+        if self._runtime_worker is not None and self._runtime_worker.is_alive():
+            return
+        self._runtime_stop_evt.clear()
+        self._runtime_worker = threading.Thread(
+            target=self._runtime_worker_loop,
+            name="ManualRuntimeWorker",
+            daemon=True,
+        )
+        self._runtime_worker.start()
+
+    def _queue_runtime_event(self, name: str, payload: Optional[Dict[str, Any]] = None):
+        self._runtime_event_queue.put((name, payload))
+
+    def _get_runtime_snapshot(self) -> Dict[str, Any]:
+        with self._runtime_lock:
+            return dict(self._runtime_snapshot)
+
+    def _runtime_worker_loop(self):
+        period_s = max(0.02, float(self.update_period_ms) / 1000.0)
+
+        while not self._runtime_stop_evt.is_set():
+            loop_started = time.time()
+            try:
+                now = loop_started
+                dt_real = None
+                if self.rt.last_update_ts > 0.0:
+                    dt_real = now - self.rt.last_update_ts
+                    dt_real = max(0.02, min(dt_real, 0.20))
+                self.rt.last_update_ts = now
+
+                p = self._read_control_pressure_kpa()
+                dut_eng = self._read_dut_eng()
+                sig_min_live, sig_max_live = self._get_live_signal_bounds()
+                span_pct = self._compute_span_percent(dut_eng)
+                err_pct = self._compute_error_percent_fluke_style(p, dut_eng)
+                p_dut_est = self._dut_est_pressure_kpa(
+                    x_meas=dut_eng,
+                    x_min=sig_min_live,
+                    x_max=sig_max_live,
+                    p_min=self.cfg.p_min_kpa,
+                    p_max=self.cfg.p_max_kpa,
+                )
+
+                u_text = "u=0.000"
+                pmax_seg = float(self.cfg.p_max_seguridad_kpa)
+                if p >= pmax_seg:
+                    self._safe_outputs(valve_open=False)
+                    u_text = "u=SAFE"
+                    if not self._runtime_overpressure_latched:
+                        self._runtime_overpressure_latched = True
+                        self._queue_runtime_event("EV_OVERPRESSURE", {"p_kpa": p, "pmax_kpa": pmax_seg})
+                else:
+                    self._runtime_overpressure_latched = False
+                    if self.rt.running:
+                        if self._update_manual_static_hold(now_ts=now, p_kpa=p):
+                            u_text = "u=HOLD"
+                        else:
+                            self.set_valve(True)
+                            self.set_relay(True)
+                            u_cmd = self.pi_worker.step_now(
+                                sp_kpa=float(self.cfg.sp_kpa),
+                                p_kpa=float(p),
+                                dt=dt_real,
+                            )
+                            self.set_pump(float(u_cmd))
+                            u_text = f"u={float(u_cmd):.3f}"
+
+                        self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
+                    else:
+                        u_text = "u=0.000"
+
+                with self._runtime_lock:
+                    self._runtime_snapshot = {
+                        "p_kpa": float(p),
+                        "dut_eng": float(dut_eng),
+                        "span_pct": float(span_pct),
+                        "err_pct": float(err_pct),
+                        "dut_mode": str(self.cfg.dut_mode),
+                        "u_text": u_text,
+                    }
+                self._runtime_fault_latched = False
+            except Exception as e:
+                self._safe_outputs(valve_open=True)
+                with self._runtime_lock:
+                    self._runtime_snapshot["u_text"] = "u=FAIL"
+                if not self._runtime_fault_latched:
+                    self._runtime_fault_latched = True
+                    self._queue_runtime_event("EV_SENSOR_FAIL_CRITICAL", {"error": str(e)})
+
+            sleep_s = period_s - (time.time() - loop_started)
+            if sleep_s > 0.0:
+                self._runtime_stop_evt.wait(timeout=sleep_s)
+
+    def _schedule_live_plot_poll(self):
+        if self._live_plot_after_id is not None:
+            return
+        poll_ms = max(80, int(round(self._LIVE_PLOT_MIN_REDRAW_S * 1000.0)))
+        self._live_plot_after_id = self.after(poll_ms, self._poll_live_plot_queue)
+
+    def _poll_live_plot_queue(self):
+        self._live_plot_after_id = None
+        latest = None
+        try:
+            while True:
+                latest = self._live_plot_queue.get_nowait()
+        except Empty:
+            pass
+
+        if latest is not None:
+            self._apply_live_plot_data(*latest)
+
+        if self.winfo_exists():
+            self._schedule_live_plot_poll()
+
+    def _apply_live_plot_data(self, x, y_pat, y_dut):
+        if self._ax_live is None or self._canvas_live is None:
+            return
+
+        self._line_live_pat.set_data(x, y_pat)
+        self._line_live_dut.set_data(x, y_dut)
+
+        if x:
+            x_end = float(x[-1])
+            x_start = max(0.0, x_end - float(self._LIVE_PLOT_WINDOW_S))
+            if (x_end - x_start) < 1.0:
+                x_end = x_start + 1.0
+            self._ax_live.set_xlim(x_start, x_end)
+
+            y_all = list(y_pat) + list(y_dut)
+            y_min = min(y_all)
+            y_max = max(y_all)
+            if abs(y_max - y_min) < 1e-6:
+                pad = max(1.0, abs(y_max) * 0.05 + 0.5)
+            else:
+                pad = max(0.5, (y_max - y_min) * 0.10)
+            self._ax_live.set_ylim(y_min - pad, y_max + pad)
+        else:
+            self._ax_live.set_xlim(0.0, self._LIVE_PLOT_WINDOW_S)
+            self._ax_live.set_ylim(0.0, 1.0)
+
+        self._canvas_live.draw_idle()
+
     def _update_live_plot(self, now_ts: float, p_pat_kpa: float, p_dut_est_kpa: float):
         try:
-            if self._live_plot_t0 is None:
-                self._live_plot_t0 = now_ts
-            t_rel = now_ts - self._live_plot_t0
-            self._live_plot_t.append(float(t_rel))
-            self._live_plot_p_pat.append(float(p_pat_kpa))
-            self._live_plot_p_dut.append(float(p_dut_est_kpa))
+            with self._live_plot_lock:
+                if self._live_plot_t0 is None:
+                    self._live_plot_t0 = now_ts
+                t_rel = now_ts - self._live_plot_t0
+                self._live_plot_t.append(float(t_rel))
+                self._live_plot_p_pat.append(float(p_pat_kpa))
+                self._live_plot_p_dut.append(float(p_dut_est_kpa))
 
-            if (now_ts - self._live_plot_last_draw_ts) < self._LIVE_PLOT_MIN_REDRAW_S:
-                return
+                if (now_ts - self._live_plot_last_draw_ts) < self._LIVE_PLOT_MIN_REDRAW_S:
+                    return
 
-            x = list(self._live_plot_t)
-            y_pat = list(self._live_plot_p_pat)
-            y_dut = list(self._live_plot_p_dut)
-            if not x:
-                return
+                x = list(self._live_plot_t)
+                y_pat = list(self._live_plot_p_pat)
+                y_dut = list(self._live_plot_p_dut)
+                self._live_plot_last_draw_ts = now_ts
 
-            self._live_plot_last_draw_ts = now_ts
+            self._live_plot_queue.put((x, y_pat, y_dut))
         except Exception:
-            # Fallo de render no debe tumbar el ciclo de adquisicion.
+            # Fallo de cola/render no debe tumbar el ciclo de adquisicion.
             pass
 
     def _reset_live_plot(self):
-        self._live_plot_t0 = None
-        self._live_plot_last_draw_ts = 0.0
-        self._live_plot_t.clear()
-        self._live_plot_p_pat.clear()
-        self._live_plot_p_dut.clear()
+        with self._live_plot_lock:
+            self._live_plot_t0 = None
+            self._live_plot_last_draw_ts = 0.0
+            self._live_plot_t.clear()
+            self._live_plot_p_pat.clear()
+            self._live_plot_p_dut.clear()
+        self._live_plot_queue.put(([], [], []))
 
     # -------------------------
     # Loop
@@ -2097,59 +2282,30 @@ class ManualView(ttk.Frame):
             except Exception:
                 self.var_temp.set("Temp: --.- C")
 
-            now = time.time()
-            dt_real = None
-            if self.rt.last_update_ts > 0.0:
-                dt_real = now - self.rt.last_update_ts
-                dt_real = max(0.02, min(dt_real, 0.20))
-            self.rt.last_update_ts = now
-
-            p = self._read_control_pressure_kpa()
-
-            dut_eng = self._read_dut_eng()
-
+            snapshot = self._get_runtime_snapshot()
+            p = float(snapshot.get("p_kpa", 0.0))
+            dut_eng = float(snapshot.get("dut_eng", 0.0))
+            dut_mode = str(snapshot.get("dut_mode", self.cfg.dut_mode))
             self.var_p_source.set(f"{p:,.2f} kPa".replace(",", ""))
-            if self.cfg.dut_mode == "A0":
+            if dut_mode == "A0":
                 self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
             else:
                 self.var_sig.set(f"{dut_eng:,.3f} mA".replace(",", ""))
 
-            span_pct = self._compute_span_percent(dut_eng)
-            err_pct = self._compute_error_percent_fluke_style(p, dut_eng)
-
+            span_pct = float(snapshot.get("span_pct", 0.0))
+            err_pct = float(snapshot.get("err_pct", 0.0))
             self.var_span.set(f"{span_pct:,.2f} %".replace(",", ""))
             self.var_err.set(f"{err_pct:+,.2f} %".replace(",", ""))
+            self.var_pwm.set(str(snapshot.get("u_text", "u=0.000")))
 
-            pmax_seg = self.cfg.p_max_seguridad_kpa
-            if p >= pmax_seg:
-                self._safe_outputs(valve_open=False)
-                self.request_event("EV_OVERPRESSURE", {"p_kpa": p, "pmax_kpa": pmax_seg})
-                return
-
-            if self.rt.running:
-                sig_min_live, sig_max_live = self._get_live_signal_bounds()
-                p_dut_est = self._dut_est_pressure_kpa(
-                    x_meas=dut_eng,
-                    x_min=sig_min_live,
-                    x_max=sig_max_live,
-                    p_min=self.cfg.p_min_kpa,
-                    p_max=self.cfg.p_max_kpa,
-                )
-                self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
-
-                sp = float(self.cfg.sp_kpa)
-                sp_ctrl = sp
-
-                if self._update_manual_static_hold(now_ts=now, p_kpa=p):
-                    return
-
-                self.set_valve(True)
-                self.set_relay(True)
-                u_cmd = self.pi_worker.step_now(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
-                self.set_pump(u_cmd)
-                self.var_pwm.set(f"u={u_cmd:.3f}")
-            else:
-                self.var_pwm.set("u=0.000")
+            try:
+                while True:
+                    name, payload = self._runtime_event_queue.get_nowait()
+                    if name in ("EV_OVERPRESSURE", "EV_SENSOR_FAIL_CRITICAL"):
+                        self._apply_state_config()
+                    self.request_event(name, payload)
+            except Empty:
+                pass
 
         except Exception as e:
             self._safe_outputs(valve_open=True)
@@ -2265,6 +2421,20 @@ class ManualView(ttk.Frame):
             if self._tx_refresh_after_id is not None:
                 self.after_cancel(self._tx_refresh_after_id)
                 self._tx_refresh_after_id = None
+        except Exception:
+            pass
+        try:
+            if self._live_plot_after_id is not None:
+                self.after_cancel(self._live_plot_after_id)
+                self._live_plot_after_id = None
+        except Exception:
+            pass
+        try:
+            self._runtime_stop_evt.set()
+            worker = self._runtime_worker
+            if worker is not None:
+                worker.join(timeout=1.0)
+            self._runtime_worker = None
         except Exception:
             pass
         try:

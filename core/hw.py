@@ -35,6 +35,7 @@ from core.telemetry import get_global_telemetry_snapshot
 class HW:
     def __init__(self):
         self.factory = LGPIOFactory()
+        self._io_lock = threading.Lock()
         self._fan_pwm = None
         self._fan_init_attempted = False
         self._fan_pwm_cmd = clamp(float(config.FAN_PWM_MIN), 0.0, 1.0)
@@ -79,12 +80,14 @@ class HW:
 
     # ---------- Actuadores ----------
     def set_relay(self, on: bool):
-        self.rele_bomba.on() if on else self.rele_bomba.off()
+        with self._io_lock:
+            self.rele_bomba.on() if on else self.rele_bomba.off()
 
     def set_pump(self, u_cmd: float):
         u = clamp(float(u_cmd), 0.0, 1.0)
         pwm_hw = (1.0 - u) if config.BOMBA_ACTIVE_LOW else u
-        self.pwm_bomba.value = clamp(pwm_hw, 0.0, 1.0)
+        with self._io_lock:
+            self.pwm_bomba.value = clamp(pwm_hw, 0.0, 1.0)
 
     def get_pump_frequency_hz(self) -> float:
         try:
@@ -142,15 +145,17 @@ class HW:
     def set_valve(self, open_: bool):
         if not self.valvula:
             return
-        if config.VALV_ACTIVE_HIGH:
-            self.valvula.on() if open_ else self.valvula.off()
-        else:
-            self.valvula.off() if open_ else self.valvula.on()
+        with self._io_lock:
+            if config.VALV_ACTIVE_HIGH:
+                self.valvula.on() if open_ else self.valvula.off()
+            else:
+                self.valvula.off() if open_ else self.valvula.on()
 
     # ---------- Lecturas ----------
     def read_vadc(self, ch: int) -> float:
         ch_i = int(ch)
-        value = float(ads_read_v_once(self.bus, ch_i))
+        with self._io_lock:
+            value = float(ads_read_v_once(self.bus, ch_i))
         self._telemetry_snapshot.update(ch_i, value)
         return value
 
