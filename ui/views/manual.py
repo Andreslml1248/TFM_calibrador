@@ -391,9 +391,9 @@ class ManualView(ttk.Frame):
         tk.Label(err_box, textvariable=self.var_err, font=sf(30, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
 
         tol_box = tk.Frame(footer, bg="#0b0f16")
-        tol_box.grid(row=0, column=1, sticky="nsew", padx=(sp(2, 1), sp(8, 4)), pady=sp(6, 3))
+        tol_box.grid(row=0, column=1, sticky="nsw", padx=(0, sp(10, 5)), pady=sp(6, 3))
         tk.Label(tol_box, text="TOL", font=sf(14, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w", padx=(0, 0))
-        tk.Label(tol_box, textvariable=self.var_tol, font=sf(20, "bold"), bg="#0b0f16", fg="#f8fafc", justify="left", anchor="w").pack(anchor="w", fill="x", padx=(0, 0))
+        tk.Label(tol_box, textvariable=self.var_tol, font=sf(18, "bold"), bg="#0b0f16", fg="#f8fafc", justify="left", anchor="w").pack(anchor="w", padx=(0, 0))
 
         plot_panel = tk.LabelFrame(
             body,
