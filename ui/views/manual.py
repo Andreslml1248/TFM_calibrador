@@ -430,7 +430,7 @@ class ManualView(ttk.Frame):
         self.frm_cfg = controls
 
         sp_box = tk.Frame(controls, bg="#141922")
-        sp_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(6, 3))
+        sp_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(2, 1))
         tk.Label(sp_box, text="SETPOINT:", font=sf(10, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(8, 4)))
         self.btn_sp = tk.Button(
             sp_box,
@@ -445,7 +445,7 @@ class ManualView(ttk.Frame):
             bd=2,
             relief="raised",
             padx=sp(4, 2),
-            pady=sp(4, 2),
+            pady=sp(2, 1),
         )
         self.btn_sp.grid(row=1, column=0, sticky="w")
         self.btn_sp_unit = tk.Button(
@@ -461,14 +461,14 @@ class ManualView(ttk.Frame):
             bd=2,
             relief="raised",
             padx=sp(3, 1),
-            pady=sp(4, 2),
+            pady=sp(2, 1),
         )
         self.btn_sp_unit.grid(row=1, column=1, sticky="w", padx=(sp(6, 3), 0))
 
         btns = tk.Frame(controls, bg="#141922")
-        btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(6, 3))
+        btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(2, 1))
 
-        def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=18, pad_x=6, pad_y=6):
+        def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=18, pad_x=6, pad_y=3):
             return tk.Button(
                 btns,
                 text=text,
@@ -485,11 +485,11 @@ class ManualView(ttk.Frame):
                 pady=sp(pad_y, 2),
             )
 
-        self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45", width=9, font_size=15, pad_x=5, pad_y=5)
-        self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=6, font_size=15, pad_x=5, pad_y=5)
-        self.btn_stop_cfg = make_action_button("DETENER", self._stop_and_back, "#dc2626", width=9, font_size=15, pad_x=5, pad_y=5)
-        self.btn_fft = make_action_button("FFT", self._open_fft_window, "#111827", width=5, font_size=15, pad_x=5, pad_y=5)
-        self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=3, font_size=15, pad_x=4, pad_y=5)
+        self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45", width=9, font_size=15, pad_x=5, pad_y=3)
+        self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=6, font_size=15, pad_x=5, pad_y=3)
+        self.btn_stop_cfg = make_action_button("DETENER", self._stop_and_back, "#dc2626", width=9, font_size=15, pad_x=5, pad_y=3)
+        self.btn_fft = make_action_button("FFT", self._open_fft_window, "#111827", width=5, font_size=15, pad_x=5, pad_y=3)
+        self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=3, font_size=15, pad_x=4, pad_y=3)
 
         self.btn_start.pack(side="left", padx=sp(4, 2))
         self.btn_zero.pack(side="left", padx=sp(4, 2))
@@ -498,7 +498,7 @@ class ManualView(ttk.Frame):
         self.btn_settings.pack(side="left", padx=(sp(4, 2), 0))
 
         tx_bar = tk.Frame(shell, bg="#0f1218")
-        tx_bar.grid(row=3, column=0, sticky="ew", padx=sp(8, 4), pady=(sp(6, 3), sp(8, 4)))
+        tx_bar.grid(row=3, column=0, sticky="ew", padx=sp(8, 4), pady=(sp(2, 1), sp(6, 3)))
         tx_center = tk.Frame(tx_bar, bg="#0f1218")
         tx_center.pack(anchor="center")
 
