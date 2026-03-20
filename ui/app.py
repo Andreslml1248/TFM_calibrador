@@ -41,11 +41,8 @@ class App(tk.Tk):
         self.telemetry_server = ADSTelemetryServer(get_global_telemetry_snapshot())
         self.telemetry_server.start()
 
-        top_bar = tk.Frame(self, bg="#0f1218")
-        top_bar.pack(fill="x", padx=self._sp(6, 4), pady=(self._sp(4, 2), 0))
-
         self.btn_exit = tk.Button(
-            top_bar,
+            self,
             text="X",
             width=3,
             command=self.on_close,
@@ -57,10 +54,10 @@ class App(tk.Tk):
             bd=1,
             relief="raised",
         )
-        self.btn_exit.pack(side="right")
+        self.btn_exit.place(relx=1.0, x=-self._sp(6, 4), y=self._sp(6, 4), anchor="ne")
 
         nb = ttk.Notebook(self, style="Main.TNotebook")
-        nb.pack(fill="both", expand=True, padx=self._sp(6, 4), pady=(self._sp(4, 2), self._sp(6, 4)))
+        nb.pack(fill="both", expand=True, padx=0, pady=0)
         self.nb = nb
 
         upd_ms = max(10, int(round(config.DT_PI * 1000)))
@@ -113,7 +110,7 @@ class App(tk.Tk):
         tab_font = ("Arial", max(9, self._sp(13, 9)), "bold")
         tab_pad_x = self._sp(18, 12)
         tab_pad_y = self._sp(7, 5)
-        style.configure("Main.TNotebook", background="#0f1218", borderwidth=0, tabmargins=(self._sp(6, 4), self._sp(4, 2), self._sp(6, 4), 0))
+        style.configure("Main.TNotebook", background="#0f1218", borderwidth=0, tabmargins=(0, 0, 0, 0))
         style.configure(
             "Main.TNotebook.Tab",
             background="#1b2130",
