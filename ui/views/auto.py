@@ -727,6 +727,50 @@ class AutoView(ttk.Frame):
         except Exception:
             pass
 
+    def _prepare_popup_same_as_main(self, window: tk.Toplevel) -> None:
+        window.resizable(False, False)
+        try:
+            window.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+        main_window = self.winfo_toplevel()
+        main_window.update_idletasks()
+        window.transient(main_window)
+        screen_width = max(260, int(main_window.winfo_screenwidth()))
+        screen_height = max(240, int(main_window.winfo_screenheight()))
+
+        def _apply_maximized():
+            try:
+                window.geometry(f"{screen_width}x{screen_height}+0+0")
+            except Exception:
+                pass
+            try:
+                if str(window.tk.call("tk", "windowingsystem")).lower() == "x11":
+                    window.attributes("-fullscreen", True)
+                    return
+            except tk.TclError:
+                pass
+            try:
+                window.state("zoomed")
+                return
+            except tk.TclError:
+                pass
+            try:
+                window.attributes("-zoomed", True)
+                return
+            except tk.TclError:
+                pass
+            try:
+                window.geometry(f"{screen_width}x{screen_height}+0+0")
+            except Exception:
+                pass
+
+        _apply_maximized()
+        window.lift()
+        window.focus_force()
+        window.grab_set()
+        window.after_idle(_apply_maximized)
+
     def _save_settings_window(self) -> None:
         try:
             self._pull_cfg()
@@ -747,27 +791,7 @@ class AutoView(ttk.Frame):
         win = tk.Toplevel(self)
         self._settings_window = win
         win.title("Configuracion automatica")
-        win.resizable(False, False)
-        try:
-            win.attributes("-topmost", True)
-        except tk.TclError:
-            pass
-        win.transient(self.winfo_toplevel())
-        win.update_idletasks()
-
-        main_window = self.winfo_toplevel()
-        main_x = main_window.winfo_x()
-        main_y = main_window.winfo_y()
-        main_width = main_window.winfo_width()
-        main_height = main_window.winfo_height()
-        width = min(max(520, self._screen_width - 80), max(520, main_width - 20))
-        height = min(max(420, self._screen_height - 80), max(420, main_height - 20))
-        center_x = main_x + main_width // 2
-        center_y = main_y + main_height // 2
-        x = max(0, center_x - width // 2)
-        y = max(0, center_y - height // 2)
-        win.geometry(f"{width}x{height}+{x}+{y}")
-        win.grab_set()
+        self._prepare_popup_same_as_main(win)
 
         frm = ttk.Frame(win, padding=14)
         frm.pack(fill="both", expand=True)
