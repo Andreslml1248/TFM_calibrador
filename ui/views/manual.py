@@ -431,7 +431,7 @@ class ManualView(ttk.Frame):
 
         sp_box = tk.Frame(controls, bg="#141922")
         sp_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(2, 1))
-        tk.Label(sp_box, text="SETPOINT:", font=sf(10, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(8, 4)))
+        tk.Label(sp_box, text="SETPOINT:", font=sf(10, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(6, 3)))
         self.btn_sp = tk.Button(
             sp_box,
             text=f"[{self.var_sp.get()}]",
@@ -441,13 +441,13 @@ class ManualView(ttk.Frame):
             fg="#f8fafc",
             activebackground="#171b24",
             activeforeground="#ffffff",
-            width=sw(9, 7),
+            width=sw(7, 5),
             bd=2,
             relief="raised",
             padx=sp(4, 2),
             pady=sp(2, 1),
         )
-        self.btn_sp.grid(row=1, column=0, sticky="w")
+        self.btn_sp.grid(row=0, column=1, sticky="w")
         self.btn_sp_unit = tk.Button(
             sp_box,
             text=self.var_sp_unit.get(),
@@ -463,7 +463,7 @@ class ManualView(ttk.Frame):
             padx=sp(3, 1),
             pady=sp(2, 1),
         )
-        self.btn_sp_unit.grid(row=1, column=1, sticky="w", padx=(sp(6, 3), 0))
+        self.btn_sp_unit.grid(row=0, column=2, sticky="w", padx=(sp(6, 3), 0))
 
         btns = tk.Frame(controls, bg="#141922")
         btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(2, 1))
