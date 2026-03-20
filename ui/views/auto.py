@@ -3,7 +3,7 @@
 
 import time
 import tkinter as tk
-from tkinter import ttk, messagebox, font as tkFont
+from tkinter import ttk, messagebox
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, Any, List
 import os
@@ -12,6 +12,7 @@ from datetime import datetime
 from config import hardware as config
 from core.control import PIController, PIConfig, PIWorker
 from core.filters import MedianPtByPt
+from ui.numeric_keypad import open_numeric_keypad_dialog
 
 # Matplotlib embebido en Tk (para gráfica tipo Excel)
 import matplotlib
@@ -1093,6 +1094,28 @@ class AutoView(ttk.Frame):
 
         # Esperar a que el modal se cierre
         dialog.wait_window()
+
+    def _open_edit_dialog(self, var: tk.StringVar, label: str, min_val: float, max_val: float, button: ttk.Button):
+        def _save(raw_value: str) -> None:
+            valor = float(raw_value.strip().replace(",", "."))
+            if valor < min_val or valor > max_val:
+                raise ValueError(f"Valor fuera de rango [{min_val}, {max_val}]")
+
+            var.set(str(valor))
+            if self._widget_exists(button):
+                button.config(text=f"[{valor}]")
+            self._refresh_sequence_summary()
+            self._refresh_registered_plot()
+
+        open_numeric_keypad_dialog(
+            self,
+            title=label,
+            range_text=f"Rango: {min_val} - {max_val}",
+            initial_value=var.get(),
+            on_save=_save,
+            error_title="Error",
+            error_mode="error",
+        )
 
     def _update_button_display(self):
         """

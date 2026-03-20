@@ -19,6 +19,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from config import hardware as config
 from core.control import PIController, PIConfig, PIWorker
 from core.calibration import two_point_cal, save_calibration
+from ui.numeric_keypad import open_numeric_keypad_dialog
 
 
 # =========================
@@ -1006,6 +1007,26 @@ class ManualView(ttk.Frame):
 
         dialog.wait_window()
 
+    def _open_edit_dialog(self, var: tk.StringVar, label: str, min_val: float, max_val: float, button: ttk.Button):
+        def _save(raw_value: str) -> None:
+            valor = float(raw_value.strip().replace(",", "."))
+            if valor < min_val or valor > max_val:
+                raise ValueError(f"Valor fuera de rango [{min_val}, {max_val}]")
+
+            var.set(str(valor))
+            if self._widget_exists(button):
+                button.config(text=f"[{valor}]")
+
+        open_numeric_keypad_dialog(
+            self,
+            title=label,
+            range_text=f"Rango: {min_val} - {max_val}",
+            initial_value=var.get(),
+            on_save=_save,
+            error_title="Error",
+            error_mode="error",
+        )
+
     def _close_settings_window(self, clear_snapshot: bool = False):
         win = self._settings_window
         self._settings_window = None
@@ -1897,6 +1918,26 @@ class ManualView(ttk.Frame):
 
         dialog.wait_window()
 
+    def _open_edit_dialog_sp(self):
+        unit = self.var_sp_unit.get().strip() or "kPa"
+        label = f"SP ({unit})"
+        min_val = self._pressure_kpa_to_display(self._PRESSURE_MIN_KPA)
+        max_val = self._pressure_kpa_to_display(self._PRESSURE_MAX_KPA)
+
+        def _save(raw_value: str) -> None:
+            self.var_sp.set(raw_value)
+            self._apply_sp()
+
+        open_numeric_keypad_dialog(
+            self,
+            title=label,
+            range_text=f"Rango: {self._fmt_display_pressure(min_val)} - {self._fmt_display_pressure(max_val)} {unit}",
+            initial_value=self.var_sp.get(),
+            on_save=_save,
+            error_title="Rango invalido",
+            error_mode="warning",
+        )
+
     def _open_edit_dialog_pmin(self):
         self._open_edit_dialog_pressure_value("p_min_kpa", "P mÃ­n")
 
@@ -2085,6 +2126,17 @@ class ManualView(ttk.Frame):
         entry.bind("<Escape>", lambda e: on_cancel())
 
         dialog.wait_window()
+
+    def _open_numeric_keypad_dialog(self, title: str, range_text: str, initial_value: str, on_save):
+        open_numeric_keypad_dialog(
+            self,
+            title=title,
+            range_text=range_text,
+            initial_value=initial_value,
+            on_save=on_save,
+            error_title="Rango invalido",
+            error_mode="warning",
+        )
 
     def _open_sp_unit_selector(self):
         dialog = tk.Toplevel(self)
