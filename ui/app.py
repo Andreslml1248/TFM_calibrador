@@ -46,12 +46,14 @@ class App(tk.Tk):
         self.btn_tx_a2 = ttk.Button(top_controls, text="Enviar A2", command=lambda: self._set_tx_channel(2))
         self.btn_tx_stop = ttk.Button(top_controls, text="Detener transmision", command=lambda: self._set_tx_channel(None))
         self.lbl_tx_state = ttk.Label(top_controls, text="TX: OFF")
+        self.btn_exit = ttk.Button(top_controls, text="X", width=3, command=self.on_close)
 
         self.btn_tx_a0.pack(side="left", padx=3)
         self.btn_tx_a1.pack(side="left", padx=3)
         self.btn_tx_a2.pack(side="left", padx=3)
         self.btn_tx_stop.pack(side="left", padx=3)
         self.lbl_tx_state.pack(side="left", padx=(8, 0))
+        self.btn_exit.pack(side="right", padx=(6, 0))
 
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True)
