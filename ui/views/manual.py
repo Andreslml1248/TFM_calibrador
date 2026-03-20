@@ -353,7 +353,8 @@ class ManualView(ttk.Frame):
             font=sf(42, "bold"),
             bg="#080b11",
             fg="#5ab0ff",
-            anchor="center",
+            anchor="e",
+            justify="right",
         ).grid(row=1, column=0, sticky="ew", padx=sp(10, 4), pady=(sp(2, 1), sp(4, 2)))
 
         tk.Frame(live_panel, bg="#3a4150", height=sp(2, 1)).grid(row=2, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(8, 4)))
@@ -368,7 +369,8 @@ class ManualView(ttk.Frame):
             font=sf(36, "bold"),
             bg="#080b11",
             fg="#f8fafc",
-            anchor="center",
+            anchor="e",
+            justify="right",
         ).grid(row=4, column=0, sticky="ew", padx=sp(10, 4), pady=(0, sp(2, 1)))
 
         tk.Label(
