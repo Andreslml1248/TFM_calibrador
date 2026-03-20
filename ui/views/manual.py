@@ -1111,7 +1111,7 @@ class ManualView(ttk.Frame):
 
             win._manual_close_handler = _on_close
             win.protocol("WM_DELETE_WINDOW", _on_close)
-            self._prepare_popup_window(win, 430, 620)
+            self._prepare_popup_same_as_main(win)
             _refresh_pwm_status()
         except Exception as e:
             self._calibration_window = None
