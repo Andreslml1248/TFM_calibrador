@@ -325,7 +325,7 @@ class ManualView(ttk.Frame):
         tk.Label(
             live_panel,
             textvariable=self.var_p_source,
-            font=("Arial", 46, "bold"),
+            font=("Arial", 42, "bold"),
             bg="#080b11",
             fg="#5ab0ff",
             anchor="center",
@@ -340,7 +340,7 @@ class ManualView(ttk.Frame):
         tk.Label(
             live_panel,
             textvariable=self.var_dut_pressure,
-            font=("Arial", 40, "bold"),
+            font=("Arial", 36, "bold"),
             bg="#080b11",
             fg="#f8fafc",
             anchor="center",
@@ -376,7 +376,7 @@ class ManualView(ttk.Frame):
         err_box = tk.Frame(footer, bg="#0b0f16")
         err_box.grid(row=0, column=0, sticky="nsew", padx=12, pady=10)
         tk.Label(err_box, text="ERROR", font=("Arial", 16, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w")
-        tk.Label(err_box, textvariable=self.var_err, font=("Arial", 34, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
+        tk.Label(err_box, textvariable=self.var_err, font=("Arial", 30, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
 
         tol_box = tk.Frame(footer, bg="#0b0f16")
         tol_box.grid(row=0, column=1, sticky="nsew", padx=12, pady=10)
