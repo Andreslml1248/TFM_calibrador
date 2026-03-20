@@ -2,12 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import time
-import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, font as tkFont
 from dataclasses import dataclass
 from collections import deque
-from queue import SimpleQueue, Empty
 from typing import Callable, Optional, Dict, Any
 
 import numpy as np
@@ -121,8 +119,8 @@ class ManualView(ttk.Frame):
         "inHg",
     )
     _LIVE_PLOT_WINDOW_S = 60.0
-    _LIVE_PLOT_MAX_POINTS = 600
-    _LIVE_PLOT_MIN_REDRAW_S = 0.25
+    _LIVE_PLOT_MAX_POINTS = 1200
+    _LIVE_PLOT_MIN_REDRAW_S = 0.10
 
     def __init__(
         self,
@@ -187,15 +185,6 @@ class ManualView(ttk.Frame):
         self._live_plot_t = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
         self._live_plot_p_pat = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
         self._live_plot_p_dut = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
-        self._live_plot_lock = threading.Lock()
-        self._live_plot_queue: SimpleQueue = SimpleQueue()
-        self._live_plot_stop = threading.Event()
-        self._live_plot_thread: Optional[threading.Thread] = None
-        self._live_plot_poll_after_id: Optional[str] = None
-        self._live_plot_canvas = None
-        self._live_plot_ax = None
-        self._live_plot_line_pat = None
-        self._live_plot_line_dut = None
         self._settings_window: Optional[tk.Toplevel] = None
         self._calibration_window: Optional[tk.Toplevel] = None
 
@@ -239,8 +228,6 @@ class ManualView(ttk.Frame):
         self._safe_outputs()
         self.after(self.update_period_ms, self._tick)
         self._schedule_tx_refresh()
-        self._start_live_plot_worker()
-        self._schedule_live_plot_poll()
 
     # -------------------------
     # UI compacta (SIN scroll)
@@ -330,12 +317,6 @@ class ManualView(ttk.Frame):
         ttk.Label(frm_live, text="PWM:", font=normal).grid(row=4, column=0, sticky="w", padx=8, pady=(0, 2))
         ttk.Label(frm_live, textvariable=self.var_pwm, font=normal).grid(row=4, column=1, sticky="w", padx=8, pady=(0, 2))
 
-        plot_box = ttk.LabelFrame(frm_live, text="Presion vs tiempo")
-        plot_box.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=8, pady=(4, 8))
-        plot_box.grid_rowconfigure(0, weight=1)
-        plot_box.grid_columnconfigure(0, weight=1)
-        self._build_live_plot(plot_box)
-
         self._on_mode_changed()
         self._update_sp_unit_ui()
 
@@ -415,108 +396,6 @@ class ManualView(ttk.Frame):
         window.focus_force()
         window.grab_set()
         window.after_idle(_apply_maximized)
-
-    def _build_live_plot(self, parent):
-        fig = Figure(figsize=(4.4, 2.2), dpi=100)
-        ax = fig.add_subplot(111)
-        ax.set_title("Patron vs DUT", fontsize=9, fontweight="bold")
-        ax.set_xlabel("Tiempo (s)", fontsize=8)
-        ax.set_ylabel("Presion (kPa)", fontsize=8)
-        ax.tick_params(labelsize=7)
-        ax.grid(True, alpha=0.3)
-        ax.set_xlim(0.0, self._LIVE_PLOT_WINDOW_S)
-        ax.set_ylim(0.0, max(5.0, float(self.cfg.p_max_kpa)))
-
-        self._live_plot_line_pat, = ax.plot([], [], color="#1f77b4", linewidth=1.6, label="Patron")
-        self._live_plot_line_dut, = ax.plot([], [], color="#ff7f0e", linewidth=1.4, label="DUT")
-        ax.legend(loc="upper right", fontsize=7)
-        fig.tight_layout(pad=0.8)
-
-        self._live_plot_ax = ax
-        self._live_plot_canvas = FigureCanvasTkAgg(fig, master=parent)
-        self._live_plot_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
-        self._live_plot_canvas.draw_idle()
-
-    def _start_live_plot_worker(self):
-        if self._live_plot_thread is not None and self._live_plot_thread.is_alive():
-            return
-        self._live_plot_stop.clear()
-        self._live_plot_thread = threading.Thread(
-            target=self._live_plot_worker_loop,
-            name="manual-live-plot",
-            daemon=True,
-        )
-        self._live_plot_thread.start()
-
-    def _live_plot_worker_loop(self):
-        refresh_s = max(0.15, float(self._LIVE_PLOT_MIN_REDRAW_S) * 2.0)
-        while not self._live_plot_stop.wait(refresh_s):
-            try:
-                with self._live_plot_lock:
-                    if not self._live_plot_t:
-                        continue
-                    x = list(self._live_plot_t)
-                    y_pat = list(self._live_plot_p_pat)
-                    y_dut = list(self._live_plot_p_dut)
-
-                n = len(x)
-                if n > 240:
-                    step = max(1, n // 240)
-                    x = x[::step]
-                    y_pat = y_pat[::step]
-                    y_dut = y_dut[::step]
-
-                self._live_plot_queue.put((x, y_pat, y_dut))
-            except Exception:
-                pass
-
-    def _schedule_live_plot_poll(self):
-        self._live_plot_poll_after_id = self.after(250, self._poll_live_plot_queue)
-
-    def _poll_live_plot_queue(self):
-        try:
-            latest = None
-            while True:
-                try:
-                    latest = self._live_plot_queue.get_nowait()
-                except Empty:
-                    break
-
-            if latest is not None:
-                self._apply_live_plot_data(*latest)
-        finally:
-            if self.winfo_exists():
-                self._schedule_live_plot_poll()
-
-    def _apply_live_plot_data(self, x, y_pat, y_dut):
-        if self._live_plot_canvas is None or self._live_plot_ax is None:
-            return
-
-        try:
-            canvas_widget = self._live_plot_canvas.get_tk_widget()
-            if not canvas_widget.winfo_exists():
-                return
-        except Exception:
-            return
-
-        self._live_plot_line_pat.set_data(x, y_pat)
-        self._live_plot_line_dut.set_data(x, y_dut)
-
-        if x:
-            x_max = max(float(x[-1]), self._LIVE_PLOT_WINDOW_S)
-            x_min = max(0.0, x_max - self._LIVE_PLOT_WINDOW_S)
-            self._live_plot_ax.set_xlim(x_min, x_max)
-            y_max = max(
-                5.0,
-                float(self.cfg.p_max_kpa),
-                float(self.cfg.p_max_seguridad_kpa),
-            )
-            self._live_plot_ax.set_ylim(0.0, y_max)
-        else:
-            self._live_plot_ax.set_xlim(0.0, self._LIVE_PLOT_WINDOW_S)
-            self._live_plot_ax.set_ylim(0.0, max(5.0, float(self.cfg.p_max_kpa)))
-
-        self._live_plot_canvas.draw_idle()
 
     def _update_sp_unit_ui(self):
         unit = self.var_sp_unit.get().strip() or "kPa"
@@ -2050,12 +1929,11 @@ class ManualView(ttk.Frame):
             )
             self.set_valve(True)
             self.set_relay(True)
-            self.pi_worker.set_inputs(
+            u_cmd = self.pi_worker.step_now(
                 sp_kpa=float(self.cfg.sp_kpa),
                 p_kpa=float(p_now),
                 dt=float(config.PI_CFG.dt),
             )
-            u_cmd = self.pi_worker.get_output()
             self.set_pump(float(u_cmd))
             self.var_pwm.set(f"u={float(u_cmd):.3f}")
 
@@ -2173,30 +2051,33 @@ class ManualView(ttk.Frame):
 
     def _update_live_plot(self, now_ts: float, p_pat_kpa: float, p_dut_est_kpa: float):
         try:
-            with self._live_plot_lock:
-                if self._live_plot_t0 is None:
-                    self._live_plot_t0 = now_ts
-                t_rel = float(now_ts - self._live_plot_t0)
-                self._live_plot_t.append(t_rel)
-                self._live_plot_p_pat.append(float(p_pat_kpa))
-                self._live_plot_p_dut.append(float(p_dut_est_kpa))
+            if self._live_plot_t0 is None:
+                self._live_plot_t0 = now_ts
+            t_rel = now_ts - self._live_plot_t0
+            self._live_plot_t.append(float(t_rel))
+            self._live_plot_p_pat.append(float(p_pat_kpa))
+            self._live_plot_p_dut.append(float(p_dut_est_kpa))
 
-                while self._live_plot_t and (t_rel - float(self._live_plot_t[0])) > self._LIVE_PLOT_WINDOW_S:
-                    self._live_plot_t.popleft()
-                    self._live_plot_p_pat.popleft()
-                    self._live_plot_p_dut.popleft()
+            if (now_ts - self._live_plot_last_draw_ts) < self._LIVE_PLOT_MIN_REDRAW_S:
+                return
+
+            x = list(self._live_plot_t)
+            y_pat = list(self._live_plot_p_pat)
+            y_dut = list(self._live_plot_p_dut)
+            if not x:
+                return
+
+            self._live_plot_last_draw_ts = now_ts
         except Exception:
-            # Fallo de captura no debe tumbar el ciclo de adquisicion.
+            # Fallo de render no debe tumbar el ciclo de adquisicion.
             pass
 
     def _reset_live_plot(self):
-        with self._live_plot_lock:
-            self._live_plot_t0 = None
-            self._live_plot_last_draw_ts = 0.0
-            self._live_plot_t.clear()
-            self._live_plot_p_pat.clear()
-            self._live_plot_p_dut.clear()
-        self._live_plot_queue.put(([], [], []))
+        self._live_plot_t0 = None
+        self._live_plot_last_draw_ts = 0.0
+        self._live_plot_t.clear()
+        self._live_plot_p_pat.clear()
+        self._live_plot_p_dut.clear()
 
     # -------------------------
     # Loop
@@ -2239,16 +2120,6 @@ class ManualView(ttk.Frame):
             self.var_span.set(f"{span_pct:,.2f} %".replace(",", ""))
             self.var_err.set(f"{err_pct:+,.2f} %".replace(",", ""))
 
-            sig_min_live, sig_max_live = self._get_live_signal_bounds()
-            p_dut_est = self._dut_est_pressure_kpa(
-                x_meas=dut_eng,
-                x_min=sig_min_live,
-                x_max=sig_max_live,
-                p_min=self.cfg.p_min_kpa,
-                p_max=self.cfg.p_max_kpa,
-            )
-            self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
-
             pmax_seg = self.cfg.p_max_seguridad_kpa
             if p >= pmax_seg:
                 self._safe_outputs(valve_open=False)
@@ -2256,6 +2127,16 @@ class ManualView(ttk.Frame):
                 return
 
             if self.rt.running:
+                sig_min_live, sig_max_live = self._get_live_signal_bounds()
+                p_dut_est = self._dut_est_pressure_kpa(
+                    x_meas=dut_eng,
+                    x_min=sig_min_live,
+                    x_max=sig_max_live,
+                    p_min=self.cfg.p_min_kpa,
+                    p_max=self.cfg.p_max_kpa,
+                )
+                self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
+
                 sp = float(self.cfg.sp_kpa)
                 sp_ctrl = sp
 
@@ -2264,8 +2145,7 @@ class ManualView(ttk.Frame):
 
                 self.set_valve(True)
                 self.set_relay(True)
-                self.pi_worker.set_inputs(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
-                u_cmd = self.pi_worker.get_output()
+                u_cmd = self.pi_worker.step_now(sp_kpa=sp_ctrl, p_kpa=p, dt=dt_real)
                 self.set_pump(u_cmd)
                 self.var_pwm.set(f"u={u_cmd:.3f}")
             else:
@@ -2381,18 +2261,6 @@ class ManualView(ttk.Frame):
     def destroy(self):
         self._close_settings_window()
         self._close_calibration_2pt_window()
-        try:
-            if self._live_plot_poll_after_id is not None:
-                self.after_cancel(self._live_plot_poll_after_id)
-                self._live_plot_poll_after_id = None
-        except Exception:
-            pass
-        self._live_plot_stop.set()
-        try:
-            if self._live_plot_thread is not None and self._live_plot_thread.is_alive():
-                self._live_plot_thread.join(timeout=0.5)
-        except Exception:
-            pass
         try:
             if self._tx_refresh_after_id is not None:
                 self.after_cancel(self._tx_refresh_after_id)
