@@ -380,21 +380,8 @@ class ManualView(ttk.Frame):
             anchor="center",
         ).grid(row=5, column=0, sticky="ew", padx=sp(10, 4), pady=(0, sp(2, 1)))
 
-        aux_row = tk.Frame(live_panel, bg="#080b11")
-        aux_row.grid(row=6, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(6, 3)))
-        aux_row.grid_columnconfigure(0, weight=1)
-        aux_row.grid_columnconfigure(1, weight=1)
-        aux_left = tk.Frame(aux_row, bg="#080b11")
-        aux_left.grid(row=0, column=0, sticky="w")
-        tk.Label(aux_left, text="SPAN", font=sf(11, "bold"), bg="#080b11", fg="#94a3b8").pack(anchor="w")
-        tk.Label(aux_left, textvariable=self.var_span, font=sf(14, "bold"), bg="#080b11", fg="#e2e8f0").pack(anchor="w")
-        aux_right = tk.Frame(aux_row, bg="#080b11")
-        aux_right.grid(row=0, column=1, sticky="e")
-        tk.Label(aux_right, text="PWM", font=sf(11, "bold"), bg="#080b11", fg="#94a3b8").pack(anchor="e")
-        tk.Label(aux_right, textvariable=self.var_pwm, font=sf(14, "bold"), bg="#080b11", fg="#e2e8f0").pack(anchor="e")
-
         footer = tk.Frame(live_panel, bg="#0b0f16", bd=1, relief="groove")
-        footer.grid(row=7, column=0, sticky="ew", padx=sp(12, 6), pady=(sp(4, 2), sp(10, 4)))
+        footer.grid(row=6, column=0, sticky="ew", padx=sp(12, 6), pady=(sp(4, 2), sp(10, 4)))
         footer.grid_columnconfigure(0, weight=3)
         footer.grid_columnconfigure(1, weight=1)
 
