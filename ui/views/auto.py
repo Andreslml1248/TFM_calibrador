@@ -823,7 +823,7 @@ class AutoView(ttk.Frame):
         self.btn_sig_max.grid(row=4, column=1, sticky="ew", padx=6, pady=6)
 
         seq_box = ttk.LabelFrame(frm, text="Secuencia", padding=10)
-        seq_box.grid(row=2, column=0, sticky="nsew", padx=(0, 8))
+        seq_box.grid(row=2, column=0, columnspan=2, sticky="nsew")
         seq_box.grid_columnconfigure(1, weight=1)
 
         ttk.Label(seq_box, text="Puntos").grid(row=0, column=0, sticky="w", pady=6)
@@ -849,21 +849,6 @@ class AutoView(ttk.Frame):
             command=lambda: self._open_edit_dialog(self.var_tmax, "P max (s)", 0, 60, self.btn_tmax),
         )
         self.btn_tmax.grid(row=3, column=1, sticky="ew", padx=(6, 0), pady=6)
-
-        control_box = ttk.LabelFrame(frm, text="Control", padding=10)
-        control_box.grid(row=2, column=1, sticky="nsew", padx=(8, 0))
-        control_box.grid_columnconfigure(0, weight=1)
-        ttk.Button(
-            control_box,
-            text="CONDICIONES DE CONTROL",
-            command=self._open_control_window,
-        ).grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        ttk.Label(
-            control_box,
-            text="Las ediciones de esta ventana actualizan la configuracion usada al iniciar el ciclo.",
-            wraplength=max(240, width // 2 - 50),
-            justify="left",
-        ).grid(row=1, column=0, sticky="w")
 
         btns = ttk.Frame(frm)
         btns.grid(row=3, column=0, columnspan=2, pady=(12, 0))
