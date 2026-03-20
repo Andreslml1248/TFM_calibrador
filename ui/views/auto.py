@@ -574,47 +574,10 @@ class AutoView(ttk.Frame):
 
         controls = tk.Frame(shell, bg="#141922", bd=1, relief="groove")
         controls.grid(row=2, column=0, sticky="ew", padx=sp(8, 4), pady=(0, 0))
-        controls.grid_columnconfigure(0, weight=3)
-        controls.grid_columnconfigure(1, weight=5)
-
-        seq_box = tk.Frame(controls, bg="#141922")
-        seq_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(2, 1))
-        tk.Label(seq_box, text="SECUENCIA:", font=sf(10, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(6, 3)))
-        self.btn_seq_points = tk.Button(
-            seq_box,
-            text=self._sequence_points_text(),
-            command=self._open_settings_window,
-            font=sf(19, "bold"),
-            bg="#090c12",
-            fg="#f8fafc",
-            activebackground="#171b24",
-            activeforeground="#ffffff",
-            width=sw(8, 5),
-            bd=2,
-            relief="raised",
-            padx=sp(4, 2),
-            pady=sp(2, 1),
-        )
-        self.btn_seq_points.grid(row=0, column=1, sticky="w")
-        self.btn_seq_dir = tk.Button(
-            seq_box,
-            text=self._direction_label(self.var_dir.get()),
-            command=self._open_settings_window,
-            width=sw(7, 4),
-            font=sf(17, "bold"),
-            bg="#090c12",
-            fg="#e2e8f0",
-            activebackground="#171b24",
-            activeforeground="#ffffff",
-            bd=2,
-            relief="raised",
-            padx=sp(3, 1),
-            pady=sp(2, 1),
-        )
-        self.btn_seq_dir.grid(row=0, column=2, sticky="w", padx=(sp(6, 3), 0))
+        controls.grid_columnconfigure(0, weight=1)
 
         btns = tk.Frame(controls, bg="#141922")
-        btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(2, 1))
+        btns.grid(row=0, column=0, sticky="e", padx=sp(10, 4), pady=sp(2, 1))
 
         def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=18, pad_x=6, pad_y=3):
             return tk.Button(
