@@ -32,15 +32,22 @@ def open_numeric_keypad_dialog(
     error_title: str = "Error",
     error_mode: str = "error",
 ) -> None:
-    scale = float(getattr(owner, "_ui_scale", 1.0))
-
-    def sp(value: float, minimum: int = 0) -> int:
-        return max(int(minimum), int(round(float(value) * scale)))
-
     parent_window = owner.winfo_toplevel()
     parent_window.update_idletasks()
     screen_width = max(360, int(parent_window.winfo_screenwidth()))
     screen_height = max(300, int(parent_window.winfo_screenheight()))
+    base_scale = float(getattr(owner, "_ui_scale", 1.0))
+    if screen_height <= 480:
+        layout_scale = min(base_scale, 0.74)
+    elif screen_height <= 520:
+        layout_scale = min(base_scale, 0.82)
+    elif screen_height <= 640:
+        layout_scale = min(base_scale, 0.90)
+    else:
+        layout_scale = base_scale
+
+    def sp(value: float, minimum: int = 0) -> int:
+        return max(int(minimum), int(round(float(value) * layout_scale)))
 
     dialog = tk.Toplevel(owner)
     dialog.title(f"Editar: {title}")
@@ -52,8 +59,8 @@ def open_numeric_keypad_dialog(
         pass
     dialog.transient(parent_window)
 
-    width = min(max(sp(520, 380), 360), max(360, screen_width - 32))
-    height = min(max(sp(640, 460), 440), max(440, screen_height - 32))
+    width = min(max(sp(460, 340), 340), max(340, screen_width - 20))
+    height = min(max(sp(520, 400), 400), max(400, screen_height - 20))
     center_x = parent_window.winfo_x() + parent_window.winfo_width() // 2
     center_y = parent_window.winfo_y() + parent_window.winfo_height() // 2
     pos_x = max(0, center_x - width // 2)
@@ -63,23 +70,23 @@ def open_numeric_keypad_dialog(
     dialog.focus_force()
     dialog.grab_set()
 
-    shell = tk.Frame(dialog, bg=_BG_ROOT, padx=sp(16, 10), pady=sp(14, 10))
+    shell = tk.Frame(dialog, bg=_BG_ROOT, padx=sp(12, 8), pady=sp(10, 8))
     shell.pack(fill="both", expand=True)
 
     tk.Label(
         shell,
         text=title,
-        font=("Arial", sp(22, 16), "bold"),
+        font=("Arial", sp(18, 14), "bold"),
         bg=_BG_ROOT,
         fg=_FG_PRIMARY,
-    ).pack(pady=(sp(8, 4), sp(4, 2)))
+    ).pack(pady=(sp(6, 3), sp(2, 1)))
     tk.Label(
         shell,
         text=range_text,
-        font=("Arial", sp(12, 10)),
+        font=("Arial", sp(11, 9)),
         bg=_BG_ROOT,
         fg=_FG_SECONDARY,
-    ).pack(pady=(0, sp(14, 8)))
+    ).pack(pady=(0, sp(8, 5)))
 
     var_edit = tk.StringVar(value=str(initial_value))
     replace_on_first_input = True
@@ -96,9 +103,9 @@ def open_numeric_keypad_dialog(
         highlightthickness=2,
         highlightbackground=_BORDER_GREEN,
         highlightcolor=_BORDER_GREEN,
-        font=("Arial", sp(28, 22), "bold"),
+        font=("Arial", sp(23, 18), "bold"),
     )
-    value_entry.pack(fill="x", ipady=sp(16, 10), pady=(0, sp(14, 8)))
+    value_entry.pack(fill="x", ipady=sp(11, 6), pady=(0, sp(8, 5)))
     value_entry.icursor("end")
     value_entry.focus_set()
 
@@ -169,11 +176,11 @@ def open_numeric_keypad_dialog(
     tk.Label(
         shell,
         text="Teclado",
-        font=("Arial", sp(13, 11)),
+        font=("Arial", sp(12, 10)),
         bg=_BG_ROOT,
         fg=_FG_SECONDARY,
         anchor="w",
-    ).pack(fill="x", pady=(0, sp(6, 4)))
+    ).pack(fill="x", pady=(0, sp(4, 3)))
 
     keypad_box = tk.Frame(
         shell,
@@ -184,7 +191,7 @@ def open_numeric_keypad_dialog(
     )
     keypad_box.pack(fill="both", expand=True)
 
-    key_grid = tk.Frame(keypad_box, bg=_BG_PANEL, padx=sp(10, 8), pady=sp(10, 8))
+    key_grid = tk.Frame(keypad_box, bg=_BG_PANEL, padx=sp(8, 6), pady=sp(8, 6))
     key_grid.pack(fill="both", expand=True)
     for row in range(4):
         key_grid.grid_rowconfigure(row, weight=1, uniform="keypad_rows")
@@ -215,9 +222,9 @@ def open_numeric_keypad_dialog(
             highlightthickness=1,
             highlightbackground=border,
             highlightcolor=border,
-            font=("Arial", sp(font_size or 18, 14), "bold"),
+            font=("Arial", sp(font_size or 16, 12), "bold"),
             padx=sp(6, 4),
-            pady=sp(10, 6),
+            pady=sp(6, 4),
             takefocus=0,
         )
 
@@ -243,8 +250,8 @@ def open_numeric_keypad_dialog(
             row=row,
             column=column,
             sticky="nsew",
-            padx=sp(5, 3),
-            pady=sp(5, 3),
+            padx=sp(4, 2),
+            pady=sp(4, 2),
         )
 
     make_button(
@@ -255,11 +262,11 @@ def open_numeric_keypad_dialog(
         active_bg=_BG_CLEAR_ACTIVE,
         fg="#f87171",
         border=_BORDER_RED,
-        font_size=15,
-    ).pack(fill="x", padx=sp(10, 8), pady=(0, sp(10, 8)))
+        font_size=13,
+    ).pack(fill="x", padx=sp(8, 6), pady=(0, sp(8, 6)))
 
     actions = tk.Frame(shell, bg=_BG_ROOT)
-    actions.pack(fill="x", pady=(sp(14, 8), 0))
+    actions.pack(fill="x", pady=(sp(8, 5), 0))
     actions.grid_columnconfigure(0, weight=1, uniform="actions")
     actions.grid_columnconfigure(1, weight=1, uniform="actions")
 
@@ -288,7 +295,7 @@ def open_numeric_keypad_dialog(
         active_bg=_BG_SAVE_ACTIVE,
         fg="#86efac",
         border="#4ade80",
-        font_size=15,
+        font_size=13,
     ).grid(row=0, column=0, sticky="ew", padx=(0, sp(6, 4)))
     make_button(
         actions,
@@ -298,7 +305,7 @@ def open_numeric_keypad_dialog(
         active_bg=_BG_CANCEL_ACTIVE,
         fg=_FG_SECONDARY,
         border=_BORDER_KEY,
-        font_size=15,
+        font_size=13,
     ).grid(row=0, column=1, sticky="ew", padx=(sp(6, 4), 0))
 
     dialog.protocol("WM_DELETE_WINDOW", on_cancel)
