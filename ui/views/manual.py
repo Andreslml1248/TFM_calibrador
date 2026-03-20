@@ -198,6 +198,10 @@ class ManualView(ttk.Frame):
         self.var_sigmax = tk.StringVar(value=f"{self.cfg.sig_max:.3f}")
         self.var_pmaxseg = tk.StringVar(value=f"{self.cfg.p_max_seguridad_kpa:.1f}")
         self.var_mode = tk.StringVar(value=self.cfg.dut_mode)
+        self.var_settings_pressure_unit = tk.StringVar(value=self.cfg.sp_unit)
+        self.var_settings_signal_unit = tk.StringVar(
+            value="V" if self.cfg.dut_mode == "A0" else "mA"
+        )
 
         # Lecturas en vivo
         self.var_p_source = tk.StringVar(value="0.00 kPa")
@@ -216,6 +220,7 @@ class ManualView(ttk.Frame):
         self.btn_sp_unit_popup = None
         self.lbl_sigmin = None
         self.lbl_sigmax = None
+        self._settings_snapshot: Optional[Dict[str, Any]] = None
 
         self._build_ui_compact()
         self._apply_state_config()
@@ -374,12 +379,34 @@ class ManualView(ttk.Frame):
             unit = "kPa"
         self.var_sp_unit.set(unit)
         self.cfg.sp_unit = unit
+        self.var_settings_pressure_unit.set(unit)
         self.var_sp_label.set(f"SP ({unit}):")
         if self._widget_exists(self.btn_sp_unit):
             self.btn_sp_unit.configure(text=unit)
         if self._widget_exists(self.btn_sp_unit_popup):
             self.btn_sp_unit_popup.configure(text=unit)
         self._sync_pressure_display_from_kpa()
+
+    def _update_settings_signal_ui(self, mode: Optional[str] = None):
+        mode = (mode or self.var_mode.get().strip() or "A1").upper()
+        if mode == "A0":
+            label_min = "V mÃ­n"
+            label_max = "V mÃ¡x"
+            unit = "V"
+        else:
+            label_min = "I mÃ­n"
+            label_max = "I mÃ¡x"
+            unit = "mA"
+
+        self.var_settings_signal_unit.set(unit)
+        if self._widget_exists(self.lbl_sigmin):
+            self.lbl_sigmin.configure(text=label_min)
+        if self._widget_exists(self.lbl_sigmax):
+            self.lbl_sigmax.configure(text=label_max)
+        if self._widget_exists(self.btn_sigmin):
+            self.btn_sigmin.configure(text=f"[{self.var_sigmin.get()}]")
+        if self._widget_exists(self.btn_sigmax):
+            self.btn_sigmax.configure(text=f"[{self.var_sigmax.get()}]")
 
     def _pressure_display_to_kpa(self, display_value: float) -> float:
         unit = self.var_sp_unit.get().strip() or "kPa"
@@ -666,7 +693,7 @@ class ManualView(ttk.Frame):
 
         dialog.wait_window()
 
-    def _close_settings_window(self):
+    def _close_settings_window(self, clear_snapshot: bool = False):
         win = self._settings_window
         self._settings_window = None
         self.btn_pmin = None
@@ -677,6 +704,8 @@ class ManualView(ttk.Frame):
         self.btn_sp_unit_popup = None
         self.lbl_sigmin = None
         self.lbl_sigmax = None
+        if clear_snapshot:
+            self._settings_snapshot = None
 
         if not self._widget_exists(win):
             return
@@ -689,98 +718,192 @@ class ManualView(ttk.Frame):
         except Exception:
             pass
 
+    def _capture_settings_snapshot(self) -> Dict[str, Any]:
+        return {
+            "var_mode": self.var_mode.get(),
+            "var_sp": self.var_sp.get(),
+            "var_sp_unit": self.var_sp_unit.get(),
+            "var_pmin": self.var_pmin.get(),
+            "var_pmax": self.var_pmax.get(),
+            "var_sigmin": self.var_sigmin.get(),
+            "var_sigmax": self.var_sigmax.get(),
+            "var_pmaxseg": self.var_pmaxseg.get(),
+            "cfg_sp_kpa": float(self.cfg.sp_kpa),
+            "cfg_sp_unit": str(self.cfg.sp_unit),
+            "cfg_dut_mode": str(self.cfg.dut_mode),
+            "cfg_p_min_kpa": float(self.cfg.p_min_kpa),
+            "cfg_p_max_kpa": float(self.cfg.p_max_kpa),
+            "cfg_sig_min": float(self.cfg.sig_min),
+            "cfg_sig_max": float(self.cfg.sig_max),
+            "cfg_p_max_seguridad_kpa": float(self.cfg.p_max_seguridad_kpa),
+        }
+
+    def _restore_settings_snapshot(self):
+        snap = self._settings_snapshot
+        if not snap:
+            return
+
+        self.var_mode.set(str(snap["var_mode"]))
+        self.var_sp_unit.set(str(snap["var_sp_unit"]))
+        self.var_sp.set(str(snap["var_sp"]))
+        self.var_pmin.set(str(snap["var_pmin"]))
+        self.var_pmax.set(str(snap["var_pmax"]))
+        self.var_sigmin.set(str(snap["var_sigmin"]))
+        self.var_sigmax.set(str(snap["var_sigmax"]))
+        self.var_pmaxseg.set(str(snap["var_pmaxseg"]))
+
+        self.cfg.sp_kpa = float(snap["cfg_sp_kpa"])
+        self.cfg.sp_unit = str(snap["cfg_sp_unit"])
+        self.cfg.dut_mode = str(snap["cfg_dut_mode"])
+        self.cfg.p_min_kpa = float(snap["cfg_p_min_kpa"])
+        self.cfg.p_max_kpa = float(snap["cfg_p_max_kpa"])
+        self.cfg.sig_min = float(snap["cfg_sig_min"])
+        self.cfg.sig_max = float(snap["cfg_sig_max"])
+        self.cfg.p_max_seguridad_kpa = float(snap["cfg_p_max_seguridad_kpa"])
+
+        self._update_sp_unit_ui()
+        self._update_settings_signal_ui(self.cfg.dut_mode)
+        self._sync_pressure_display_from_kpa()
+
+    def _save_settings_window(self):
+        try:
+            self._pull_config_from_ui()
+            self._validate_config()
+        except Exception as e:
+            messagebox.showerror("CONFIGURACION", str(e), parent=self._settings_window)
+            return
+
+        self._close_settings_window(clear_snapshot=True)
+
+    def _cancel_settings_window(self):
+        self._restore_settings_snapshot()
+        self._close_settings_window(clear_snapshot=True)
+
     def _open_settings_window(self):
         if self._widget_exists(self._settings_window):
             self._settings_window.lift()
             self._settings_window.focus_force()
             return
 
+        if self._settings_snapshot is None:
+            self._settings_snapshot = self._capture_settings_snapshot()
+
         win = tk.Toplevel(self)
         win.title("Configuracion manual")
         self._prepare_popup_same_as_main(win)
         self._settings_window = win
 
-        frm = ttk.Frame(win, padding=12)
+        frm = ttk.Frame(win, padding=16)
         frm.pack(fill="both", expand=True)
         frm.grid_columnconfigure(0, weight=1)
+        frm.grid_rowconfigure(1, weight=1)
 
-        mode_box = ttk.LabelFrame(frm, text="Transmisor")
-        mode_box.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        title = ttk.Label(frm, text="CONFIGURACION DEL DUT", font=("Arial", 18, "bold"))
+        title.grid(row=0, column=0, sticky="ew", pady=(0, 16))
+
+        body = ttk.Frame(frm)
+        body.grid(row=1, column=0, sticky="nsew")
+        body.grid_columnconfigure(0, weight=1, uniform="settings")
+        body.grid_columnconfigure(1, weight=1, uniform="settings")
+        body.grid_rowconfigure(1, weight=1)
+
+        mode_box = ttk.LabelFrame(body, text="DUT")
+        mode_box.grid(row=0, column=0, sticky="new", padx=(0, 10), pady=(0, 10))
         mode_box.grid_columnconfigure(0, weight=1)
 
         ttk.Radiobutton(
             mode_box,
-            text="Transmisor de presion P/I",
+            text="P/I (4-20 mA)",
             value="A1",
             variable=self.var_mode,
             command=self._on_mode_changed,
-        ).grid(row=0, column=0, sticky="w", padx=8, pady=(6, 2))
+        ).grid(row=0, column=0, sticky="w", padx=12, pady=(10, 6))
         ttk.Radiobutton(
             mode_box,
-            text="Transmisor de presion P/V",
+            text="P/V (0-10 V)",
             value="A0",
             variable=self.var_mode,
             command=self._on_mode_changed,
-        ).grid(row=1, column=0, sticky="w", padx=8, pady=(2, 8))
+        ).grid(row=1, column=0, sticky="w", padx=12, pady=(4, 12))
 
-        rng_box = ttk.LabelFrame(frm, text="Rangos")
-        rng_box.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        cal_box = ttk.Frame(body)
+        cal_box.grid(row=1, column=0, sticky="new", padx=(0, 10))
+        cal_box.grid_columnconfigure(0, weight=1)
+        ttk.Button(
+            cal_box,
+            text="CALIBRACION 2 PUNTOS",
+            command=self._open_calibration_2pt_from_settings,
+        ).grid(row=0, column=0, sticky="ew", pady=(8, 0), ipady=8)
+
+        rng_box = ttk.LabelFrame(body, text="Rangos")
+        rng_box.grid(row=0, column=1, rowspan=2, sticky="nsew", pady=(0, 10))
         rng_box.grid_columnconfigure(1, weight=1)
+        rng_box.grid_columnconfigure(2, weight=0)
 
-        ttk.Label(rng_box, text="P mÃ­n").grid(row=0, column=0, sticky="w", padx=6, pady=(6, 2))
+        ttk.Label(rng_box, text="P min").grid(row=0, column=0, sticky="w", padx=10, pady=(12, 6))
         self.btn_pmin = ttk.Button(rng_box, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
-        self.btn_pmin.grid(row=0, column=1, sticky="ew", padx=6, pady=(6, 2))
+        self.btn_pmin.grid(row=0, column=1, sticky="ew", padx=6, pady=(12, 6))
+        ttk.Label(rng_box, textvariable=self.var_settings_pressure_unit).grid(row=0, column=2, sticky="w", padx=(6, 10), pady=(12, 6))
 
-        ttk.Label(rng_box, text="P mÃ¡x").grid(row=1, column=0, sticky="w", padx=6, pady=2)
+        ttk.Label(rng_box, text="P max").grid(row=1, column=0, sticky="w", padx=10, pady=6)
         self.btn_pmax = ttk.Button(rng_box, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
-        self.btn_pmax.grid(row=1, column=1, sticky="ew", padx=6, pady=2)
+        self.btn_pmax.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+        ttk.Label(rng_box, textvariable=self.var_settings_pressure_unit).grid(row=1, column=2, sticky="w", padx=(6, 10), pady=6)
 
         self.lbl_sigmin = ttk.Label(rng_box, text="I mÃ­n")
-        self.lbl_sigmin.grid(row=2, column=0, sticky="w", padx=6, pady=2)
+        self.lbl_sigmin.grid(row=2, column=0, sticky="w", padx=10, pady=6)
         self.btn_sigmin = ttk.Button(
             rng_box,
             text=f"[{self.var_sigmin.get()}]",
             command=lambda: self._open_edit_dialog(self.var_sigmin, "SeÃ±al mÃ­n", 0, 100, self.btn_sigmin),
         )
-        self.btn_sigmin.grid(row=2, column=1, sticky="ew", padx=6, pady=2)
+        self.btn_sigmin.grid(row=2, column=1, sticky="ew", padx=6, pady=6)
+        ttk.Label(rng_box, textvariable=self.var_settings_signal_unit).grid(row=2, column=2, sticky="w", padx=(6, 10), pady=6)
 
         self.lbl_sigmax = ttk.Label(rng_box, text="I mÃ¡x")
-        self.lbl_sigmax.grid(row=3, column=0, sticky="w", padx=6, pady=2)
+        self.lbl_sigmax.grid(row=3, column=0, sticky="w", padx=10, pady=6)
         self.btn_sigmax = ttk.Button(
             rng_box,
             text=f"[{self.var_sigmax.get()}]",
             command=lambda: self._open_edit_dialog(self.var_sigmax, "SeÃ±al mÃ¡x", 0, 100, self.btn_sigmax),
         )
-        self.btn_sigmax.grid(row=3, column=1, sticky="ew", padx=6, pady=2)
+        self.btn_sigmax.grid(row=3, column=1, sticky="ew", padx=6, pady=6)
+        ttk.Label(rng_box, textvariable=self.var_settings_signal_unit).grid(row=3, column=2, sticky="w", padx=(6, 10), pady=6)
 
-        ttk.Label(rng_box, text="P seg").grid(row=4, column=0, sticky="w", padx=6, pady=(2, 8))
+        ttk.Label(rng_box, text="P seg").grid(row=4, column=0, sticky="w", padx=10, pady=6)
         self.btn_pmaxseg = ttk.Button(rng_box, text=f"[{self.var_pmaxseg.get()}]", command=self._open_edit_dialog_pmaxseg)
-        self.btn_pmaxseg.grid(row=4, column=1, sticky="ew", padx=6, pady=(2, 8))
+        self.btn_pmaxseg.grid(row=4, column=1, sticky="ew", padx=6, pady=6)
+        ttk.Label(rng_box, textvariable=self.var_settings_pressure_unit).grid(row=4, column=2, sticky="w", padx=(6, 10), pady=6)
 
-        unit_box = ttk.LabelFrame(frm, text="Unidad de presion")
-        unit_box.grid(row=2, column=0, sticky="ew", pady=(0, 8))
-        unit_box.grid_columnconfigure(0, weight=1)
+        self.btn_sp_unit_popup = ttk.Button(
+            rng_box,
+            text=self.var_sp_unit.get(),
+            command=self._open_sp_unit_selector,
+        )
+        self.btn_sp_unit_popup.grid(row=5, column=1, columnspan=2, sticky="ew", padx=6, pady=(12, 12), ipady=6)
 
-        self.btn_sp_unit_popup = ttk.Button(unit_box, text=self.var_sp_unit.get(), command=self._open_sp_unit_selector)
-        self.btn_sp_unit_popup.grid(row=0, column=0, sticky="ew", padx=6, pady=6)
+        actions = ttk.Frame(frm)
+        actions.grid(row=2, column=0, pady=(8, 0))
+        actions.grid_columnconfigure(0, weight=1)
+        actions.grid_columnconfigure(1, weight=1)
 
-        ttk.Button(
-            frm,
-            text="Calibracion 2 puntos (A0/A1/A2)",
-            command=self._open_calibration_2pt_from_settings,
-        ).grid(row=3, column=0, sticky="ew", pady=(0, 8))
-
-        ttk.Button(frm, text="Cerrar", command=self._close_settings_window).grid(row=4, column=0, sticky="ew")
+        ttk.Button(actions, text="GUARDAR", command=self._save_settings_window).grid(
+            row=0, column=0, sticky="ew", padx=(0, 10), ipady=8
+        )
+        ttk.Button(actions, text="CANCELAR", command=self._cancel_settings_window).grid(
+            row=0, column=1, sticky="ew", padx=(10, 0), ipady=8
+        )
 
         def _on_close():
-            self._close_settings_window()
+            self._cancel_settings_window()
 
         win.protocol("WM_DELETE_WINDOW", _on_close)
-        self._on_mode_changed()
         self._update_sp_unit_ui()
+        self._update_settings_signal_ui(self.var_mode.get())
+        self._on_mode_changed()
 
     def _open_calibration_2pt_from_settings(self):
-        self._close_settings_window()
+        self._close_settings_window(clear_snapshot=False)
         self.after_idle(lambda: self._open_calibration_2pt(return_to_settings=True))
 
     def _close_calibration_2pt_window(self):
@@ -1090,7 +1213,7 @@ class ManualView(ttk.Frame):
             var_chan.trace_add("write", _on_chan_change)
             _update_units()
 
-            def _on_close():
+            def _on_close(reopen_settings: bool = False):
                 self._calibration_window = None
                 try:
                     if pwm_refresh_after["id"] is not None:
@@ -1103,14 +1226,16 @@ class ManualView(ttk.Frame):
                 except Exception:
                     pass
                 win.destroy()
+                if reopen_settings and return_to_settings:
+                    self.after_idle(self._open_settings_window)
+                elif return_to_settings:
+                    self._settings_snapshot = None
 
             def _back_to_settings():
-                self._close_calibration_2pt_window()
-                if return_to_settings:
-                    self.after_idle(self._open_settings_window)
+                _on_close(reopen_settings=True)
 
             win._manual_close_handler = _on_close
-            win.protocol("WM_DELETE_WINDOW", _on_close)
+            win.protocol("WM_DELETE_WINDOW", lambda: _on_close(reopen_settings=False))
             self._prepare_popup_same_as_main(win)
             _refresh_pwm_status()
         except Exception as e:
@@ -1692,10 +1817,6 @@ class ManualView(ttk.Frame):
         sig_max = _parse_sig(self.var_sigmax, self.cfg.sig_max)
 
         if mode == "A0":
-            if self._widget_exists(self.lbl_sigmin):
-                self.lbl_sigmin.configure(text="V mÃ­n")
-            if self._widget_exists(self.lbl_sigmax):
-                self.lbl_sigmax.configure(text="V mÃ¡x")
             # Si viene del rango tÃ­pico A1 (4-20), conmutar a 0-10 V.
             if _is_close_pair(sig_min, sig_max, self._A1_SIG_MIN_DEFAULT, self._A1_SIG_MAX_DEFAULT):
                 sig_min = self._A0_SIG_MIN_DEFAULT
@@ -1703,10 +1824,6 @@ class ManualView(ttk.Frame):
                 self.var_sigmin.set(f"{sig_min:.3f}")
                 self.var_sigmax.set(f"{sig_max:.3f}")
         else:
-            if self._widget_exists(self.lbl_sigmin):
-                self.lbl_sigmin.configure(text="I mÃ­n")
-            if self._widget_exists(self.lbl_sigmax):
-                self.lbl_sigmax.configure(text="I mÃ¡x")
             # Si viene del rango tÃ­pico A0 (0-10), conmutar a 4-20 mA.
             if _is_close_pair(sig_min, sig_max, self._A0_SIG_MIN_DEFAULT, self._A0_SIG_MAX_DEFAULT):
                 sig_min = self._A1_SIG_MIN_DEFAULT
@@ -1717,10 +1834,7 @@ class ManualView(ttk.Frame):
         # Sincronizar cÃ¡lculo live sin esperar START.
         self.cfg.sig_min = float(sig_min)
         self.cfg.sig_max = float(sig_max)
-        if self._widget_exists(self.btn_sigmin):
-            self.btn_sigmin.configure(text=f"[{self.var_sigmin.get()}]")
-        if self._widget_exists(self.btn_sigmax):
-            self.btn_sigmax.configure(text=f"[{self.var_sigmax.get()}]")
+        self._update_settings_signal_ui(mode)
 
     def _do_tare(self):
         try:
