@@ -551,14 +551,14 @@ class ManualView(ttk.Frame):
         legend.get_frame().set_edgecolor("#475569")
         for text in legend.get_texts():
             text.set_color("#f8fafc")
-        fig.subplots_adjust(left=0.18, right=0.94, top=0.90, bottom=0.16)
+        fig.subplots_adjust(left=0.17, right=0.95, top=0.90, bottom=0.16)
 
         canvas = FigureCanvasTkAgg(fig, master=plot_box)
         canvas.get_tk_widget().grid(
             row=0,
             column=0,
             sticky="nsew",
-            padx=(self._sp(8, 4), self._sp(10, 6)),
+            padx=(self._sp(6, 3), self._sp(8, 4)),
             pady=(self._sp(4, 2), self._sp(4, 2)),
         )
         canvas.draw()
