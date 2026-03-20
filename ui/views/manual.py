@@ -430,41 +430,45 @@ class ManualView(ttk.Frame):
         self.frm_cfg = controls
 
         sp_box = tk.Frame(controls, bg="#141922")
-        sp_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(8, 4))
-        tk.Label(sp_box, text="SETPOINT:", font=sf(18, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(8, 4)))
+        sp_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(6, 3))
+        tk.Label(sp_box, text="SETPOINT:", font=sf(17, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(8, 4)))
         self.btn_sp = tk.Button(
             sp_box,
             text=f"[{self.var_sp.get()}]",
             command=lambda: self._open_edit_dialog_sp(),
-            font=sf(22, "bold"),
+            font=sf(19, "bold"),
             bg="#090c12",
             fg="#f8fafc",
             activebackground="#171b24",
             activeforeground="#ffffff",
-            width=sw(10, 7),
+            width=sw(9, 7),
             bd=2,
             relief="raised",
+            padx=sp(4, 2),
+            pady=sp(4, 2),
         )
         self.btn_sp.grid(row=1, column=0, sticky="w")
         self.btn_sp_unit = tk.Button(
             sp_box,
             text=self.var_sp_unit.get(),
-            width=sw(6, 4),
+            width=sw(5, 4),
             command=self._open_sp_unit_selector,
-            font=sf(20, "bold"),
+            font=sf(17, "bold"),
             bg="#090c12",
             fg="#e2e8f0",
             activebackground="#171b24",
             activeforeground="#ffffff",
             bd=2,
             relief="raised",
+            padx=sp(3, 1),
+            pady=sp(4, 2),
         )
         self.btn_sp_unit.grid(row=1, column=1, sticky="w", padx=(sp(6, 3), 0))
 
         btns = tk.Frame(controls, bg="#141922")
-        btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(8, 4))
+        btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(6, 3))
 
-        def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=20, pad_x=8, pad_y=10):
+        def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=18, pad_x=6, pad_y=6):
             return tk.Button(
                 btns,
                 text=text,
@@ -481,11 +485,11 @@ class ManualView(ttk.Frame):
                 pady=sp(pad_y, 2),
             )
 
-        self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45", width=10, font_size=17, pad_x=6, pad_y=8)
-        self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=7, font_size=17, pad_x=6, pad_y=8)
-        self.btn_stop_cfg = make_action_button("DETENER", self._stop_and_back, "#dc2626", width=10, font_size=17, pad_x=6, pad_y=8)
-        self.btn_fft = make_action_button("FFT", self._open_fft_window, "#111827", width=6)
-        self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=4)
+        self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45", width=9, font_size=15, pad_x=5, pad_y=5)
+        self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=6, font_size=15, pad_x=5, pad_y=5)
+        self.btn_stop_cfg = make_action_button("DETENER", self._stop_and_back, "#dc2626", width=9, font_size=15, pad_x=5, pad_y=5)
+        self.btn_fft = make_action_button("FFT", self._open_fft_window, "#111827", width=5, font_size=15, pad_x=5, pad_y=5)
+        self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=3, font_size=15, pad_x=4, pad_y=5)
 
         self.btn_start.pack(side="left", padx=sp(4, 2))
         self.btn_zero.pack(side="left", padx=sp(4, 2))
