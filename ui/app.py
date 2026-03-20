@@ -24,26 +24,7 @@ class App(tk.Tk):
         super().__init__()
         self.title("Calibrador de Presión")
 
-        # Obtener dimensiones de la pantalla
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-
-        # Establecer geometría a tamaño máximo de pantalla
-        self.geometry(f"{screen_width}x{screen_height}+0+0")
-
-        # Maximizar ventana (compatible con Windows, Linux y Raspberry Pi)
-        try:
-            self.state('zoomed')  # Windows
-        except:
-            try:
-                self.attributes('-zoomed', True)  # Linux
-            except:
-                try:
-                    # Fallback: usar estado normal y forzar tamaño máximo
-                    self.state('normal')
-                    self.update_idletasks()
-                except:
-                    pass
+        self._ensure_main_maximized()
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -103,6 +84,24 @@ class App(tk.Tk):
         )
         nb.add(auto, text="Automático")
         self._refresh_tx_state_label()
+        self.after_idle(self._ensure_main_maximized)
+
+    def _ensure_main_maximized(self):
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        self.geometry(f"{screen_width}x{screen_height}+0+0")
+        self.update_idletasks()
+        try:
+            self.state("zoomed")
+            return
+        except tk.TclError:
+            pass
+        try:
+            self.attributes("-zoomed", True)
+            return
+        except tk.TclError:
+            pass
+        self.geometry(f"{screen_width}x{screen_height}+0+0")
 
     def _set_tx_channel(self, channel):
         self.telemetry_server.set_active_channel(channel)

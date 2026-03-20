@@ -362,16 +362,34 @@ class ManualView(ttk.Frame):
         main_window = self.winfo_toplevel()
         main_window.update_idletasks()
         window.transient(main_window)
+        screen_width = max(260, int(main_window.winfo_screenwidth()))
+        screen_height = max(240, int(main_window.winfo_screenheight()))
 
-        width = max(260, int(main_window.winfo_width()))
-        height = max(240, int(main_window.winfo_height()))
-        x = max(0, int(main_window.winfo_x()))
-        y = max(0, int(main_window.winfo_y()))
+        def _apply_maximized():
+            try:
+                window.geometry(f"{screen_width}x{screen_height}+0+0")
+            except Exception:
+                pass
+            try:
+                window.state("zoomed")
+                return
+            except tk.TclError:
+                pass
+            try:
+                window.attributes("-zoomed", True)
+                return
+            except tk.TclError:
+                pass
+            try:
+                window.geometry(f"{screen_width}x{screen_height}+0+0")
+            except Exception:
+                pass
 
-        window.geometry(f"{width}x{height}+{x}+{y}")
+        _apply_maximized()
         window.lift()
         window.focus_force()
         window.grab_set()
+        window.after_idle(_apply_maximized)
 
     def _update_sp_unit_ui(self):
         unit = self.var_sp_unit.get().strip() or "kPa"
