@@ -727,6 +727,17 @@ class AutoView(ttk.Frame):
         except Exception:
             pass
 
+    def _save_settings_window(self) -> None:
+        try:
+            self._pull_cfg()
+        except Exception as e:
+            messagebox.showerror("CONFIGURACION", str(e), parent=self._settings_window)
+            return
+
+        self._refresh_sequence_summary()
+        self._refresh_registered_plot()
+        self._close_settings_window()
+
     def _open_settings_window(self) -> None:
         if self._widget_exists(self._settings_window):
             self._settings_window.lift()
@@ -852,7 +863,8 @@ class AutoView(ttk.Frame):
 
         btns = ttk.Frame(frm)
         btns.grid(row=3, column=0, columnspan=2, pady=(12, 0))
-        ttk.Button(btns, text="Cerrar", command=self._close_settings_window).pack(ipadx=18, ipady=6)
+        ttk.Button(btns, text="Guardar", command=self._save_settings_window).pack(side="left", padx=(0, 8), ipadx=18, ipady=6)
+        ttk.Button(btns, text="Cerrar", command=self._close_settings_window).pack(side="left", ipadx=18, ipady=6)
 
         def _on_close():
             self._close_settings_window()
