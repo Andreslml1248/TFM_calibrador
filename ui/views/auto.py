@@ -146,6 +146,9 @@ class AutoView(ttk.Frame):
         self.set_valve = set_valve
         self.request_event = request_event
         self.update_period_ms = update_period_ms
+        self._screen_width = max(1, int(self.winfo_screenwidth()))
+        self._screen_height = max(1, int(self.winfo_screenheight()))
+        self._ui_scale = self._compute_ui_scale()
 
         self.cfg = AutoConfig()
         self.rt = AutoRuntime(points=[])
@@ -153,7 +156,54 @@ class AutoView(ttk.Frame):
         # RESULTADOS (solo se añade esto, no cambia control)
         self.results: List[Dict[str, Any]] = []
         self._results_win: Optional[tk.Toplevel] = None
-        self.var_temp = tk.StringVar(value="Temp: --.- C")
+        self._settings_window: Optional[tk.Toplevel] = None
+        self.btn_seq_points = None
+        self.btn_seq_dir = None
+        self.btn_start = None
+        self.btn_zero = None
+        self.btn_stop_cfg = None
+        self.btn_settings = None
+        self.btn_pressure_unit = None
+        self.btn_sig_min = None
+        self.btn_sig_max = None
+        self.btn_pmin = None
+        self.btn_pmax = None
+        self.btn_npts = None
+        self.btn_dir = None
+        self.btn_tsettle = None
+        self.btn_tmax = None
+        self.lbl_status = None
+        self.lbl_cycle = None
+        self.lbl_flow_notice = None
+        self._plot_host = None
+        self._fig_registered: Optional[Figure] = None
+        self._ax_registered = None
+        self._canvas_registered: Optional[FigureCanvasTkAgg] = None
+        self._line_registered = None
+
+        # Variables Tk de configuracion
+        self.var_mode = tk.StringVar(value=self.cfg.dut_mode)
+        self.var_sigmin_label = tk.StringVar(value="I min")
+        self.var_sigmax_label = tk.StringVar(value="I max")
+        self.var_pressure_unit = tk.StringVar(value="kPa")
+        self.var_pmin_label = tk.StringVar(value="P min (kPa)")
+        self.var_pmax_label = tk.StringVar(value="P max (kPa)")
+        self.var_sig_min = tk.StringVar(value=f"{self.cfg.sig_min:.3f}")
+        self.var_sig_max = tk.StringVar(value=f"{self.cfg.sig_max:.3f}")
+        self.var_pmin = tk.StringVar(value=self._fmt_display_pressure(self.cfg.p_min_kpa))
+        self.var_pmax = tk.StringVar(value=self._fmt_display_pressure(self.cfg.p_max_kpa))
+        self.var_npts = tk.StringVar(value=str(self.cfg.n_points))
+        self.var_dir = tk.StringVar(value=self.cfg.direction)
+        self.var_tsettle = tk.StringVar(value=self._fmt_display_pressure(self.cfg.settle_time_s))
+        self.var_tmax = tk.StringVar(value=self._fmt_display_pressure(self.cfg.settle_time_max_s))
+
+        # Variables Tk de vista
+        self.var_temp = tk.StringVar(value="TEMP: --.- C")
+        self.var_flow_notice = tk.StringVar(value="")
+        self.var_p_source = tk.StringVar(value="0.00 kPa")
+        self.var_dut_pressure = tk.StringVar(value="0.00 kPa")
+        self.var_sig = tk.StringVar(value="0.000 mA")
+        self.var_err = tk.StringVar(value="+0.00 %")
         pi_u_min, pi_u_max = self._effective_u_bounds(config.PI_CFG.u_min, config.PI_CFG.u_max)
 
         # PI (base IGUAL a config; en START aplicamos overrides desde cfg)
@@ -184,13 +234,21 @@ class AutoView(ttk.Frame):
         self._control_win: Optional[tk.Toplevel] = None
 
         self._build_ui()
+        self._build_registered_plot()
+        self._on_mode_changed()
+        self._update_pressure_unit_ui()
+        self._refresh_sequence_summary()
+        self._refresh_registered_plot()
+        self._update_action_buttons()
+        self._set_status_text("IDLE")
+        self._set_cycle_text("0/0")
         self._safe_outputs(valve_open=True)
         self.after(self.update_period_ms, self._tick)
 
     # ========================================================
     # UI
     # ========================================================
-    def _build_ui(self):
+    def _build_ui_legacy(self):
         ttk.Label(self, text="MODO AUTOMÁTICO", font=("Arial", 16, "bold")).pack(pady=8)
 
         self.lbl_temp = ttk.Label(self, textvariable=self.var_temp, font=("Arial", 11, "bold"))
@@ -290,6 +348,572 @@ class AutoView(ttk.Frame):
 
         self._on_mode_changed()
         self._update_pressure_unit_ui()
+
+    def _compute_ui_scale(self) -> float:
+        scale_w = float(self._screen_width) / 920.0
+        scale_h = float(self._screen_height) / 540.0
+        scale = min(scale_w, scale_h)
+        if self._screen_height <= 480:
+            scale = min(scale, 0.88)
+        return max(0.78, min(scale, 1.0))
+
+    def _sp(self, value: float, minimum: int = 0) -> int:
+        return max(int(minimum), int(round(float(value) * self._ui_scale)))
+
+    def _sf(self, size: int, weight: str = "normal") -> tuple[str, int, str]:
+        return "Arial", max(8, int(round(float(size) * self._ui_scale))), weight
+
+    def _sw(self, chars: int, minimum: int = 1) -> int:
+        char_scale = max(0.82, self._ui_scale)
+        return max(int(minimum), int(round(float(chars) * char_scale)))
+
+    @staticmethod
+    def _widget_exists(widget) -> bool:
+        try:
+            return widget is not None and bool(widget.winfo_exists())
+        except Exception:
+            return False
+
+    @staticmethod
+    def _set_button_enabled(button, enabled: bool):
+        if button is None:
+            return
+        state = "normal" if enabled else "disabled"
+        try:
+            button.state(["!disabled"] if enabled else ["disabled"])
+            return
+        except Exception:
+            pass
+        try:
+            button.configure(state=state)
+        except Exception:
+            pass
+
+    def _plot_signal_axis_label(self) -> str:
+        return "Voltaje (V)" if self.var_mode.get().strip().upper() == "A0" else "Corriente (mA)"
+
+    def _sequence_points_text(self) -> str:
+        pts = self.var_npts.get().strip() or str(self.cfg.n_points)
+        return f"[{pts} PTS]"
+
+    def _refresh_sequence_summary(self) -> None:
+        if self._widget_exists(self.btn_seq_points):
+            self.btn_seq_points.configure(text=self._sequence_points_text())
+        if self._widget_exists(self.btn_seq_dir):
+            self.btn_seq_dir.configure(text=self._direction_label(self.var_dir.get()))
+
+    def _set_status_text(self, text: str) -> None:
+        if self._widget_exists(self.lbl_status):
+            self.lbl_status.configure(text=text)
+
+    def _set_cycle_text(self, text: str) -> None:
+        if self._widget_exists(self.lbl_cycle):
+            self.lbl_cycle.configure(text=text)
+
+    def _update_action_buttons(self) -> None:
+        running = bool(self.rt.running)
+        self._set_button_enabled(self.btn_start, not running)
+        self._set_button_enabled(self.btn_stop_cfg, running)
+        self._set_button_enabled(self.btn_zero, True)
+        self._set_button_enabled(self.btn_settings, not running)
+
+    def _update_cycle_indicator(self) -> None:
+        total = len(self.rt.points)
+        if total <= 0:
+            self._set_cycle_text("0/0")
+            return
+        if self.rt.running:
+            current = min(self.rt.step_index + 1, total)
+        else:
+            current = min(len(self.results), total)
+        self._set_cycle_text(f"{current}/{total}")
+
+    def _build_ui(self):
+        sp = self._sp
+        sf = self._sf
+        sw = self._sw
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        shell = tk.Frame(self, bg="#0f1218", bd=2, relief="groove")
+        shell.grid(row=0, column=0, sticky="nsew", padx=sp(6, 4), pady=sp(6, 4))
+        shell.grid_rowconfigure(1, weight=1)
+        shell.grid_columnconfigure(0, weight=1)
+
+        header = tk.Frame(shell, bg="#171b24", bd=1, relief="groove")
+        header.grid(row=0, column=0, sticky="ew", padx=sp(8, 4), pady=(sp(8, 4), sp(6, 3)))
+        header.grid_columnconfigure(0, weight=1)
+
+        title_wrap = tk.Frame(header, bg="#171b24")
+        title_wrap.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(7, 3))
+        tk.Label(title_wrap, text="MODO:", font=sf(16, "bold"), bg="#171b24", fg="#f1f5f9").pack(side="left")
+        tk.Label(title_wrap, text=" AUTOMATICO", font=sf(20, "bold"), bg="#171b24", fg="#ffffff").pack(side="left")
+
+        tk.Label(
+            header,
+            textvariable=self.var_temp,
+            font=sf(18, "bold"),
+            bg="#0c1018",
+            fg="#f8fafc",
+            bd=1,
+            relief="groove",
+            padx=sp(12, 6),
+            pady=sp(4, 2),
+        ).grid(row=0, column=1, sticky="e", padx=sp(8, 4), pady=sp(6, 3))
+
+        body = tk.Frame(shell, bg="#0f1218")
+        body.grid(row=1, column=0, sticky="nsew", padx=sp(8, 4), pady=(0, sp(6, 3)))
+        body.grid_rowconfigure(0, weight=1)
+        body.grid_columnconfigure(0, weight=3, uniform="mainbody")
+        body.grid_columnconfigure(1, weight=2, uniform="mainbody")
+
+        live_panel = tk.Frame(body, bg="#080b11", bd=2, relief="groove")
+        live_panel.grid(row=0, column=0, sticky="nsew", padx=(0, sp(6, 3)))
+        live_panel.grid_columnconfigure(0, weight=1)
+
+        ref_hdr = tk.Frame(live_panel, bg="#080b11")
+        ref_hdr.grid(row=0, column=0, sticky="ew", padx=sp(12, 6), pady=(sp(8, 4), sp(4, 2)))
+        ref_hdr.grid_columnconfigure(0, weight=1)
+        tk.Label(ref_hdr, text="PRES. REF.", font=sf(11, "bold"), bg="#080b11", fg="#f3f4f6").grid(row=0, column=0, sticky="w")
+        tk.Label(
+            ref_hdr,
+            text="MPX5600DP",
+            font=sf(12, "bold"),
+            bg="#121826",
+            fg="#b6c2cf",
+            bd=1,
+            relief="groove",
+            padx=sp(8, 4),
+            pady=sp(3, 1),
+        ).grid(row=0, column=1, sticky="e")
+
+        tk.Label(
+            live_panel,
+            textvariable=self.var_p_source,
+            font=sf(42, "bold"),
+            bg="#080b11",
+            fg="#5ab0ff",
+            anchor="e",
+            justify="right",
+        ).grid(row=1, column=0, sticky="ew", padx=sp(10, 4), pady=(sp(2, 1), sp(4, 2)))
+
+        tk.Frame(live_panel, bg="#3a4150", height=sp(2, 1)).grid(row=2, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(8, 4)))
+
+        dut_hdr = tk.Frame(live_panel, bg="#080b11")
+        dut_hdr.grid(row=3, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(3, 1)))
+        tk.Label(dut_hdr, text="PRES. DUT", font=sf(10, "bold"), bg="#080b11", fg="#f3f4f6").pack(side="left")
+
+        tk.Label(
+            live_panel,
+            textvariable=self.var_dut_pressure,
+            font=sf(36, "bold"),
+            bg="#080b11",
+            fg="#f8fafc",
+            anchor="e",
+            justify="right",
+        ).grid(row=4, column=0, sticky="ew", padx=sp(10, 4), pady=(0, sp(2, 1)))
+
+        tk.Label(
+            live_panel,
+            textvariable=self.var_sig,
+            font=sf(13, "bold"),
+            bg="#080b11",
+            fg="#cbd5e1",
+            anchor="center",
+        ).grid(row=5, column=0, sticky="ew", padx=sp(10, 4), pady=(0, sp(6, 3)))
+
+        self.lbl_flow_notice = tk.Label(
+            live_panel,
+            textvariable=self.var_flow_notice,
+            font=sf(10, "bold"),
+            fg="#fca5a5",
+            bg="#201216",
+            justify="center",
+            anchor="center",
+            wraplength=max(240, self._screen_width // 2),
+            bd=1,
+            relief="groove",
+            padx=sp(8, 4),
+            pady=sp(4, 2),
+        )
+        self.lbl_flow_notice.grid(row=6, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(6, 3)))
+
+        footer = tk.Frame(live_panel, bg="#0b0f16", bd=1, relief="groove")
+        footer.grid(row=7, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(10, 4)))
+        footer.grid_columnconfigure(0, weight=9, uniform="errstate")
+        footer.grid_columnconfigure(1, weight=5, uniform="errstate")
+
+        err_box = tk.Frame(footer, bg="#0b0f16")
+        err_box.grid(row=0, column=0, sticky="nsew", padx=(sp(8, 4), sp(2, 1)), pady=sp(6, 3))
+        tk.Label(err_box, text="ERROR", font=sf(8, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w")
+        tk.Label(err_box, textvariable=self.var_err, font=sf(30, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
+
+        state_box = tk.Frame(footer, bg="#0b0f16")
+        state_box.grid(row=0, column=1, sticky="nsew", padx=(sp(2, 1), sp(8, 4)), pady=sp(6, 3))
+        tk.Label(state_box, text="ESTADO", font=sf(11, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="center")
+        self.lbl_status = tk.Label(state_box, text="IDLE", font=sf(14, "bold"), bg="#0b0f16", fg="#f8fafc", justify="center")
+        self.lbl_status.pack(anchor="center")
+        self.lbl_cycle = tk.Label(state_box, text="0/0", font=sf(12, "bold"), bg="#0b0f16", fg="#cbd5e1", justify="center")
+        self.lbl_cycle.pack(anchor="center")
+
+        plot_panel = tk.LabelFrame(
+            body,
+            text="CURVA DE CALIBRACION",
+            font=sf(14, "bold"),
+            bg="#080b11",
+            fg="#f3f4f6",
+            bd=2,
+            relief="groove",
+            labelanchor="n",
+        )
+        plot_panel.grid(row=0, column=1, sticky="nsew")
+        plot_panel.grid_rowconfigure(0, weight=1)
+        plot_panel.grid_columnconfigure(0, weight=1)
+        self._plot_host = plot_panel
+
+        controls = tk.Frame(shell, bg="#141922", bd=1, relief="groove")
+        controls.grid(row=2, column=0, sticky="ew", padx=sp(8, 4), pady=(0, 0))
+        controls.grid_columnconfigure(0, weight=3)
+        controls.grid_columnconfigure(1, weight=5)
+
+        seq_box = tk.Frame(controls, bg="#141922")
+        seq_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(2, 1))
+        tk.Label(seq_box, text="SECUENCIA:", font=sf(10, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(6, 3)))
+        self.btn_seq_points = tk.Button(
+            seq_box,
+            text=self._sequence_points_text(),
+            command=self._open_settings_window,
+            font=sf(19, "bold"),
+            bg="#090c12",
+            fg="#f8fafc",
+            activebackground="#171b24",
+            activeforeground="#ffffff",
+            width=sw(8, 5),
+            bd=2,
+            relief="raised",
+            padx=sp(4, 2),
+            pady=sp(2, 1),
+        )
+        self.btn_seq_points.grid(row=0, column=1, sticky="w")
+        self.btn_seq_dir = tk.Button(
+            seq_box,
+            text=self._direction_label(self.var_dir.get()),
+            command=self._open_settings_window,
+            width=sw(7, 4),
+            font=sf(17, "bold"),
+            bg="#090c12",
+            fg="#e2e8f0",
+            activebackground="#171b24",
+            activeforeground="#ffffff",
+            bd=2,
+            relief="raised",
+            padx=sp(3, 1),
+            pady=sp(2, 1),
+        )
+        self.btn_seq_dir.grid(row=0, column=2, sticky="w", padx=(sp(6, 3), 0))
+
+        btns = tk.Frame(controls, bg="#141922")
+        btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(2, 1))
+
+        def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=18, pad_x=6, pad_y=3):
+            return tk.Button(
+                btns,
+                text=text,
+                command=command,
+                font=sf(font_size, "bold"),
+                width=sw(width, 4),
+                bg=bg,
+                fg=fg,
+                activebackground=bg,
+                activeforeground=fg,
+                bd=2,
+                relief="raised",
+                padx=sp(pad_x, 2),
+                pady=sp(pad_y, 2),
+            )
+
+        self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45", width=9, font_size=15, pad_x=5, pad_y=3)
+        self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=6, font_size=15, pad_x=5, pad_y=3)
+        self.btn_stop_cfg = make_action_button("DETENER", self._stop, "#dc2626", width=9, font_size=15, pad_x=5, pad_y=3)
+        self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=3, font_size=15, pad_x=4, pad_y=3)
+
+        self.btn_start.pack(side="left", padx=sp(4, 2))
+        self.btn_zero.pack(side="left", padx=sp(4, 2))
+        self.btn_stop_cfg.pack(side="left", padx=sp(4, 2))
+        self.btn_settings.pack(side="left", padx=(sp(4, 2), 0))
+
+    def _build_registered_plot(self):
+        plot_box = self._plot_host
+        if plot_box is None:
+            return
+
+        fig = Figure(
+            figsize=(
+                max(4.0, 6.0 * max(self._ui_scale, 0.80)),
+                max(2.8, 4.0 * max(self._ui_scale, 0.78)),
+            ),
+            dpi=90,
+        )
+        fig.patch.set_facecolor("#080b11")
+        ax = fig.add_subplot(111)
+        ax.set_facecolor("#080b11")
+        ax.set_title("Registro por puntos", color="#f8fafc", fontsize=max(10, self._sp(13, 10)), fontweight="bold")
+        ax.set_xlabel(self._plot_signal_axis_label(), color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
+        ax.set_ylabel("Presion (kPa)", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
+        ax.yaxis.labelpad = max(8, self._sp(10, 8))
+        ax.tick_params(axis="x", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
+        ax.tick_params(axis="y", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
+        ax.grid(True, alpha=0.25, color="#94a3b8")
+        for spine in ax.spines.values():
+            spine.set_color("#94a3b8")
+        ax.set_xlim(float(self.cfg.sig_min), float(self.cfg.sig_max))
+        ax.set_ylim(float(self.cfg.p_min_kpa), max(float(self.cfg.p_max_kpa), 1.0))
+
+        line_registered, = ax.plot(
+            [],
+            [],
+            color="#38bdf8",
+            linewidth=1.8,
+            marker="o",
+            markersize=max(5, self._sp(6, 5)),
+        )
+        fig.subplots_adjust(left=0.17, right=0.95, top=0.90, bottom=0.16)
+
+        canvas = FigureCanvasTkAgg(fig, master=plot_box)
+        canvas.get_tk_widget().grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=(self._sp(6, 3), self._sp(8, 4)),
+            pady=(self._sp(4, 2), self._sp(4, 2)),
+        )
+        canvas.draw()
+
+        self._fig_registered = fig
+        self._ax_registered = ax
+        self._canvas_registered = canvas
+        self._line_registered = line_registered
+
+    def _refresh_registered_plot(self) -> None:
+        if self._ax_registered is None or self._canvas_registered is None or self._line_registered is None:
+            return
+
+        x = [float(row.get("dut_eng", 0.0)) for row in self.results]
+        y = [float(row.get("p_kpa", 0.0)) for row in self.results]
+
+        self._line_registered.set_data(x, y)
+        self._ax_registered.set_xlabel(
+            self._plot_signal_axis_label(),
+            color="#e2e8f0",
+            fontsize=max(8, self._sp(10, 8)),
+        )
+
+        sig_min, sig_max = self._get_live_signal_bounds()
+        p_min, p_max = self._get_live_pressure_bounds()
+
+        if x:
+            x_min = min(min(x), sig_min)
+            x_max = max(max(x), sig_max)
+        else:
+            x_min = sig_min
+            x_max = sig_max
+        if abs(x_max - x_min) < 1e-9:
+            x_pad = max(0.5, abs(x_max) * 0.1 + 0.1)
+        else:
+            x_pad = max(0.1, (x_max - x_min) * 0.08)
+
+        if y:
+            y_min = min(min(y), p_min)
+            y_max = max(max(y), p_max)
+        else:
+            y_min = p_min
+            y_max = p_max
+        if abs(y_max - y_min) < 1e-9:
+            y_pad = max(1.0, abs(y_max) * 0.1 + 0.5)
+        else:
+            y_pad = max(0.5, (y_max - y_min) * 0.08)
+
+        self._ax_registered.set_xlim(x_min - x_pad, x_max + x_pad)
+        self._ax_registered.set_ylim(max(0.0, y_min - y_pad), y_max + y_pad)
+        self._canvas_registered.draw_idle()
+
+    def _close_settings_window(self) -> None:
+        win = self._settings_window
+        self._settings_window = None
+        for attr in (
+            "btn_pressure_unit",
+            "btn_sig_min",
+            "btn_sig_max",
+            "btn_pmin",
+            "btn_pmax",
+            "btn_npts",
+            "btn_dir",
+            "btn_tsettle",
+            "btn_tmax",
+        ):
+            setattr(self, attr, None)
+        if not self._widget_exists(win):
+            return
+        try:
+            win.grab_release()
+        except Exception:
+            pass
+        try:
+            win.destroy()
+        except Exception:
+            pass
+
+    def _open_settings_window(self) -> None:
+        if self._widget_exists(self._settings_window):
+            self._settings_window.lift()
+            self._settings_window.focus_force()
+            return
+
+        win = tk.Toplevel(self)
+        self._settings_window = win
+        win.title("Configuracion automatica")
+        win.resizable(False, False)
+        try:
+            win.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+        win.transient(self.winfo_toplevel())
+        win.update_idletasks()
+
+        main_window = self.winfo_toplevel()
+        main_x = main_window.winfo_x()
+        main_y = main_window.winfo_y()
+        main_width = main_window.winfo_width()
+        main_height = main_window.winfo_height()
+        width = min(max(520, self._screen_width - 80), max(520, main_width - 20))
+        height = min(max(420, self._screen_height - 80), max(420, main_height - 20))
+        center_x = main_x + main_width // 2
+        center_y = main_y + main_height // 2
+        x = max(0, center_x - width // 2)
+        y = max(0, center_y - height // 2)
+        win.geometry(f"{width}x{height}+{x}+{y}")
+        win.grab_set()
+
+        frm = ttk.Frame(win, padding=14)
+        frm.pack(fill="both", expand=True)
+        frm.grid_columnconfigure(0, weight=1, uniform="auto_settings")
+        frm.grid_columnconfigure(1, weight=1, uniform="auto_settings")
+
+        ttk.Label(frm, text="CONFIGURACION AUTOMATICA", font=("Arial", 16, "bold")).grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(0, 10),
+        )
+
+        dut_box = ttk.LabelFrame(frm, text="DUT", padding=10)
+        dut_box.grid(row=1, column=0, sticky="nsew", padx=(0, 8), pady=(0, 8))
+        dut_box.grid_columnconfigure(0, weight=1)
+        ttk.Radiobutton(
+            dut_box,
+            text="Transmisor de presion P/I",
+            variable=self.var_mode,
+            value="A1",
+            command=self._on_mode_changed,
+        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
+        ttk.Radiobutton(
+            dut_box,
+            text="Transmisor de presion P/V",
+            variable=self.var_mode,
+            value="A0",
+            command=self._on_mode_changed,
+        ).grid(row=1, column=0, sticky="w")
+
+        range_box = ttk.LabelFrame(frm, text="Rangos", padding=10)
+        range_box.grid(row=1, column=1, sticky="nsew", padx=(8, 0), pady=(0, 8))
+        range_box.grid_columnconfigure(1, weight=1)
+        range_box.grid_columnconfigure(2, weight=0)
+
+        ttk.Label(range_box, text="Unidad").grid(row=0, column=0, sticky="w", pady=(0, 6))
+        self.btn_pressure_unit = ttk.Button(range_box, text=self.var_pressure_unit.get(), command=self._open_pressure_unit_selector)
+        self.btn_pressure_unit.grid(row=0, column=1, columnspan=2, sticky="ew", padx=(6, 0), pady=(0, 6))
+
+        ttk.Label(range_box, textvariable=self.var_pmin_label).grid(row=1, column=0, sticky="w", pady=6)
+        self.btn_pmin = ttk.Button(range_box, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
+        self.btn_pmin.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+
+        ttk.Label(range_box, textvariable=self.var_pmax_label).grid(row=2, column=0, sticky="w", pady=6)
+        self.btn_pmax = ttk.Button(range_box, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
+        self.btn_pmax.grid(row=2, column=1, sticky="ew", padx=6, pady=6)
+
+        ttk.Label(range_box, textvariable=self.var_sigmin_label).grid(row=3, column=0, sticky="w", pady=6)
+        self.btn_sig_min = ttk.Button(
+            range_box,
+            text=f"[{self.var_sig_min.get()}]",
+            command=lambda: self._open_edit_dialog(self.var_sig_min, "Senal min", 0, 100, self.btn_sig_min),
+        )
+        self.btn_sig_min.grid(row=3, column=1, sticky="ew", padx=6, pady=6)
+
+        ttk.Label(range_box, textvariable=self.var_sigmax_label).grid(row=4, column=0, sticky="w", pady=6)
+        self.btn_sig_max = ttk.Button(
+            range_box,
+            text=f"[{self.var_sig_max.get()}]",
+            command=lambda: self._open_edit_dialog(self.var_sig_max, "Senal max", 0, 100, self.btn_sig_max),
+        )
+        self.btn_sig_max.grid(row=4, column=1, sticky="ew", padx=6, pady=6)
+
+        seq_box = ttk.LabelFrame(frm, text="Secuencia", padding=10)
+        seq_box.grid(row=2, column=0, sticky="nsew", padx=(0, 8))
+        seq_box.grid_columnconfigure(1, weight=1)
+
+        ttk.Label(seq_box, text="Puntos").grid(row=0, column=0, sticky="w", pady=6)
+        self.btn_npts = ttk.Button(seq_box, text=self.var_npts.get(), command=self._open_npts_selector)
+        self.btn_npts.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=6)
+
+        ttk.Label(seq_box, text="Direccion").grid(row=1, column=0, sticky="w", pady=6)
+        self.btn_dir = ttk.Button(seq_box, text=self._direction_label(self.var_dir.get()), command=self._open_direction_selector)
+        self.btn_dir.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=6)
+
+        ttk.Label(seq_box, text="Asentamiento (s)").grid(row=2, column=0, sticky="w", pady=6)
+        self.btn_tsettle = ttk.Button(
+            seq_box,
+            text=f"[{self.var_tsettle.get()}]",
+            command=lambda: self._open_edit_dialog(self.var_tsettle, "Asentamiento (s)", 0, 60, self.btn_tsettle),
+        )
+        self.btn_tsettle.grid(row=2, column=1, sticky="ew", padx=(6, 0), pady=6)
+
+        ttk.Label(seq_box, text="Asentamiento Pmax (s)").grid(row=3, column=0, sticky="w", pady=6)
+        self.btn_tmax = ttk.Button(
+            seq_box,
+            text=f"[{self.var_tmax.get()}]",
+            command=lambda: self._open_edit_dialog(self.var_tmax, "P max (s)", 0, 60, self.btn_tmax),
+        )
+        self.btn_tmax.grid(row=3, column=1, sticky="ew", padx=(6, 0), pady=6)
+
+        control_box = ttk.LabelFrame(frm, text="Control", padding=10)
+        control_box.grid(row=2, column=1, sticky="nsew", padx=(8, 0))
+        control_box.grid_columnconfigure(0, weight=1)
+        ttk.Button(
+            control_box,
+            text="CONDICIONES DE CONTROL",
+            command=self._open_control_window,
+        ).grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(
+            control_box,
+            text="Las ediciones de esta ventana actualizan la configuracion usada al iniciar el ciclo.",
+            wraplength=max(240, width // 2 - 50),
+            justify="left",
+        ).grid(row=1, column=0, sticky="w")
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=3, column=0, columnspan=2, pady=(12, 0))
+        ttk.Button(btns, text="Cerrar", command=self._close_settings_window).pack(ipadx=18, ipady=6)
+
+        def _on_close():
+            self._close_settings_window()
+
+        win.protocol("WM_DELETE_WINDOW", _on_close)
+        self._on_mode_changed()
+        self._update_pressure_unit_ui()
+        self._refresh_sequence_summary()
+        win.focus_force()
 
     # ========================================================
     # Modal Edit Dialog
@@ -464,6 +1088,8 @@ class AutoView(ttk.Frame):
 
                 # Actualizar el botón inmediatamente
                 button.config(text=f"[{valor}]")
+                self._refresh_sequence_summary()
+                self._refresh_registered_plot()
 
                 dialog.destroy()
             except ValueError as e:
@@ -529,10 +1155,11 @@ class AutoView(ttk.Frame):
 
         self.cfg.sig_min = float(sig_min)
         self.cfg.sig_max = float(sig_max)
-        if hasattr(self, "btn_sig_min"):
+        if self._widget_exists(self.btn_sig_min):
             self.btn_sig_min.configure(text=f"[{self.var_sig_min.get()}]")
-        if hasattr(self, "btn_sig_max"):
+        if self._widget_exists(self.btn_sig_max):
             self.btn_sig_max.configure(text=f"[{self.var_sig_max.get()}]")
+        self._refresh_registered_plot()
 
     def _pressure_display_to_kpa(self, display_value: float, unit: Optional[str] = None) -> float:
         active_unit = (unit or self.var_pressure_unit.get().strip() or "kPa")
@@ -566,9 +1193,9 @@ class AutoView(ttk.Frame):
     def _sync_pressure_display_from_kpa(self):
         self.var_pmin.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.p_min_kpa)))
         self.var_pmax.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.p_max_kpa)))
-        if hasattr(self, "btn_pmin"):
+        if self._widget_exists(self.btn_pmin):
             self.btn_pmin.configure(text=f"[{self.var_pmin.get()}]")
-        if hasattr(self, "btn_pmax"):
+        if self._widget_exists(self.btn_pmax):
             self.btn_pmax.configure(text=f"[{self.var_pmax.get()}]")
 
     def _update_pressure_unit_ui(self):
@@ -578,7 +1205,7 @@ class AutoView(ttk.Frame):
         self.var_pressure_unit.set(unit)
         self.var_pmin_label.set(f"P min ({unit})")
         self.var_pmax_label.set(f"P max ({unit})")
-        if hasattr(self, "btn_pressure_unit"):
+        if self._widget_exists(self.btn_pressure_unit):
             self.btn_pressure_unit.configure(text=unit)
         self._sync_pressure_display_from_kpa()
 
@@ -593,6 +1220,7 @@ class AutoView(ttk.Frame):
             pass
         self.var_pressure_unit.set(new_unit)
         self._update_pressure_unit_ui()
+        self._refresh_registered_plot()
 
     def _open_edit_dialog_pmin(self):
         unit = self.var_pressure_unit.get().strip() or "kPa"
@@ -600,6 +1228,7 @@ class AutoView(ttk.Frame):
         max_val = self._pressure_kpa_to_display(self._PRESSURE_MAX_KPA, unit=unit)
         self._open_edit_dialog(self.var_pmin, f"P min ({unit})", min_val, max_val, self.btn_pmin)
         self.cfg.p_min_kpa = self._parse_display_pressure_kpa(self.var_pmin.get(), "P min", unit=unit)
+        self._refresh_registered_plot()
 
     def _open_edit_dialog_pmax(self):
         unit = self.var_pressure_unit.get().strip() or "kPa"
@@ -607,6 +1236,7 @@ class AutoView(ttk.Frame):
         max_val = self._pressure_kpa_to_display(self._PRESSURE_MAX_KPA, unit=unit)
         self._open_edit_dialog(self.var_pmax, f"P max ({unit})", min_val, max_val, self.btn_pmax)
         self.cfg.p_max_kpa = self._parse_display_pressure_kpa(self.var_pmax.get(), "P max", unit=unit)
+        self._refresh_registered_plot()
 
     def _open_pressure_unit_selector(self):
         dialog = tk.Toplevel(self)
@@ -729,8 +1359,9 @@ class AutoView(ttk.Frame):
 
     def _set_npts_value(self, value: str):
         self.var_npts.set(value)
-        if hasattr(self, "btn_npts"):
+        if self._widget_exists(self.btn_npts):
             self.btn_npts.configure(text=value)
+        self._refresh_sequence_summary()
 
     def _direction_label(self, value: str) -> str:
         mapping = {
@@ -798,8 +1429,9 @@ class AutoView(ttk.Frame):
 
     def _set_direction_value(self, value: str):
         self.var_dir.set(value)
-        if hasattr(self, "btn_dir"):
+        if self._widget_exists(self.btn_dir):
             self.btn_dir.configure(text=self._direction_label(value))
+        self._refresh_sequence_summary()
 
     # ========================================================
     # Control window
@@ -1020,6 +1652,7 @@ class AutoView(ttk.Frame):
 
             # reset resultados
             self.results = []
+            self._refresh_registered_plot()
 
             self._last_tick_ts = None
             first_sp = float(self.rt.points[0]) if self.rt.points else 0.0
@@ -1027,7 +1660,9 @@ class AutoView(ttk.Frame):
                 self._goto_state(HOLD_MEASURE)
             else:
                 self._goto_state(GOTO_SP)
-            self.lbl_status.config(text=f"RUNNING | {self.rt.state}")
+            self._set_status_text(f"RUNNING | {self.rt.state}")
+            self._update_cycle_indicator()
+            self._update_action_buttons()
 
         except Exception as e:
             messagebox.showerror("AUTO", str(e))
@@ -1036,9 +1671,11 @@ class AutoView(ttk.Frame):
         self.rt.running = False
         self._safe_outputs(valve_open=True)
         self._goto_state(IDLE)
-        self.lbl_status.config(text="STOPPED")
+        self._set_status_text("STOPPED")
         self._clear_flow_notice()
         self._last_tick_ts = None
+        self._update_cycle_indicator()
+        self._update_action_buttons()
 
     # ========================================================
     # STATE MACHINE
@@ -1127,8 +1764,10 @@ class AutoView(ttk.Frame):
             self.rt.running = False
             self._safe_outputs(valve_open=True)
             self._goto_state(IDLE)
-            self.lbl_status.config(text="FINISHED")
+            self._set_status_text("FINISHED")
             self._clear_flow_notice()
+            self._update_cycle_indicator()
+            self._update_action_buttons()
             pdf_path = self._export_results_pdf()
             if pdf_path:
                 messagebox.showinfo("Exportar", f"PDF guardado en:\n{pdf_path}")
@@ -1139,6 +1778,7 @@ class AutoView(ttk.Frame):
             self._show_flow_notice()
 
         self._goto_state(GOTO_SP)
+        self._update_cycle_indicator()
 
     def _is_down_step(self) -> bool:
         if not self.rt.points or self.rt.step_index <= 0:
@@ -1165,7 +1805,8 @@ class AutoView(ttk.Frame):
 
     def _show_flow_notice(self):
         self.var_flow_notice.set("Abra la valvula reguladora de flujo de la salida de presion")
-        self.lbl_flow_notice.update_idletasks()
+        if self._widget_exists(self.lbl_flow_notice):
+            self.lbl_flow_notice.update_idletasks()
 
     def _clear_flow_notice(self):
         if hasattr(self, "var_flow_notice"):
@@ -1194,6 +1835,44 @@ class AutoView(ttk.Frame):
             down_idx = [i for i, phase in enumerate(phases) if phase == "down"]
             ax.scatter(x[down_idx], y[down_idx], s=size, alpha=0.7, color="red", label="Bajada")
 
+    def _get_live_signal_bounds(self) -> tuple[float, float]:
+        try:
+            sig_min = float(self.var_sig_min.get().strip().replace(",", "."))
+        except Exception:
+            sig_min = float(self.cfg.sig_min)
+        try:
+            sig_max = float(self.var_sig_max.get().strip().replace(",", "."))
+        except Exception:
+            sig_max = float(self.cfg.sig_max)
+        return float(sig_min), float(sig_max)
+
+    def _get_live_pressure_bounds(self) -> tuple[float, float]:
+        try:
+            p_min = self._parse_display_pressure_kpa(self.var_pmin.get(), "P min")
+        except Exception:
+            p_min = float(self.cfg.p_min_kpa)
+        try:
+            p_max = self._parse_display_pressure_kpa(self.var_pmax.get(), "P max")
+        except Exception:
+            p_max = float(self.cfg.p_max_kpa)
+        return float(p_min), float(p_max)
+
+    @staticmethod
+    def _dut_est_pressure_kpa(x_meas: float, x_min: float, x_max: float, p_min: float, p_max: float) -> float:
+        den = x_max - x_min
+        if abs(den) < 1e-9:
+            return float(p_min)
+        return float(p_min + (x_meas - x_min) * (p_max - p_min) / den)
+
+    def _apply_live_snapshot(self, *, p_kpa: float, dut_p_kpa: float, dut_eng: float, mode: str, err_pct: float) -> None:
+        self.var_p_source.set(f"{p_kpa:,.2f} kPa".replace(",", ""))
+        self.var_dut_pressure.set(f"{dut_p_kpa:,.2f} kPa".replace(",", ""))
+        if mode == "A0":
+            self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
+        else:
+            self.var_sig.set(f"{dut_eng:,.3f} mA".replace(",", ""))
+        self.var_err.set(f"{err_pct:+,.2f} %".replace(",", ""))
+
     # ========================================================
     # LOOP
     # ========================================================
@@ -1208,12 +1887,50 @@ class AutoView(ttk.Frame):
                 if temp_c is None:
                     raise RuntimeError("temperature cache empty")
                 temp_c = float(temp_c)
-                self.var_temp.set(f"Temp: {temp_c:.1f} C")
+                self.var_temp.set(f"TEMP: {temp_c:.1f} C")
             except Exception:
-                self.var_temp.set("Temp: --.- C")
+                self.var_temp.set("TEMP: --.- C")
+
+            live_read_error = None
+            mode_live = (self.var_mode.get().strip().upper() or self.cfg.dut_mode or "A1")
+            p = 0.0
+            try:
+                p_corr = self._read_pressure_corr_kpa()
+                p = max(0.0, p_corr - self.rt.p_zero_kpa)
+                self.rt.last_p = p
+                dut_eng = float(self._dut_vadc_to_eng(self._read_dut_vadc(), mode_live))
+                sig_min_live, sig_max_live = self._get_live_signal_bounds()
+                p_min_live, p_max_live = self._get_live_pressure_bounds()
+                dut_p_kpa = self._dut_est_pressure_kpa(
+                    x_meas=dut_eng,
+                    x_min=sig_min_live,
+                    x_max=sig_max_live,
+                    p_min=p_min_live,
+                    p_max=p_max_live,
+                )
+                err_pct = self._error_percent_fluke_style(p, dut_eng)
+                self._apply_live_snapshot(
+                    p_kpa=float(p),
+                    dut_p_kpa=float(dut_p_kpa),
+                    dut_eng=float(dut_eng),
+                    mode=mode_live,
+                    err_pct=float(err_pct),
+                )
+            except Exception as e:
+                live_read_error = e
+                if not self.rt.running:
+                    self.var_p_source.set("0.00 kPa")
+                    self.var_dut_pressure.set("0.00 kPa")
+                    self.var_sig.set("0.000 V" if mode_live == "A0" else "0.000 mA")
+                    self.var_err.set("+0.00 %")
 
             if not self.rt.running:
+                self._update_cycle_indicator()
+                self._update_action_buttons()
                 return
+
+            if live_read_error is not None:
+                raise live_read_error
 
             now = time.time()
             if self._last_tick_ts is None:
@@ -1222,10 +1939,6 @@ class AutoView(ttk.Frame):
                 dt_pi = now - self._last_tick_ts
                 dt_pi = max(0.02, min(dt_pi, 0.20))
             self._last_tick_ts = now
-
-            p_corr = self._read_pressure_corr_kpa()
-            p = max(0.0, p_corr - self.rt.p_zero_kpa)
-            self.rt.last_p = p
 
             sp_nominal = self._current_sp()
             sp = sp_nominal
@@ -1345,12 +2058,15 @@ class AutoView(ttk.Frame):
                 self._safe_outputs(valve_open=True)
                 self._goto_state(IDLE)
 
-            self.lbl_status.config(text=f"RUNNING | {self.rt.state} | i={self.rt.step_index}/{len(self.rt.points)-1}")
+            self._set_status_text(f"RUNNING | {self.rt.state}")
+            self._update_cycle_indicator()
 
         except Exception as e:
             self._safe_outputs(valve_open=True)
             self.rt.running = False
             self._goto_state(IDLE)
+            self._set_status_text("ERROR")
+            self._update_action_buttons()
             self.request_event("EV_AUTO_FAIL", {"error": str(e)})
 
         finally:
@@ -1416,6 +2132,8 @@ class AutoView(ttk.Frame):
             "u_last": float(self.rt.last_u),
         }
         self.results.append(row)
+        self._refresh_registered_plot()
+        self._update_cycle_indicator()
 
     def _span_percent(self, dut_eng: float) -> float:
         sig_min = float(self.cfg.sig_min)
@@ -1842,6 +2560,15 @@ class AutoView(ttk.Frame):
             pass
 
     def destroy(self):
+        try:
+            self._close_settings_window()
+        except Exception:
+            pass
+        try:
+            if self._widget_exists(self._control_win):
+                self._control_win.destroy()
+        except Exception:
+            pass
         try:
             self.pi_worker.stop()
         except Exception:
