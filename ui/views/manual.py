@@ -382,16 +382,16 @@ class ManualView(ttk.Frame):
 
         footer = tk.Frame(live_panel, bg="#0b0f16", bd=1, relief="groove")
         footer.grid(row=6, column=0, sticky="ew", padx=sp(12, 6), pady=(sp(4, 2), sp(10, 4)))
-        footer.grid_columnconfigure(0, weight=3)
-        footer.grid_columnconfigure(1, weight=1)
+        footer.grid_columnconfigure(0, weight=3, uniform="errtol")
+        footer.grid_columnconfigure(1, weight=1, uniform="errtol")
 
         err_box = tk.Frame(footer, bg="#0b0f16")
-        err_box.grid(row=0, column=0, sticky="nsew", padx=sp(8, 4), pady=sp(6, 3))
+        err_box.grid(row=0, column=0, sticky="nsew", padx=(sp(8, 4), sp(2, 1)), pady=sp(6, 3))
         tk.Label(err_box, text="ERROR", font=sf(8, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w")
         tk.Label(err_box, textvariable=self.var_err, font=sf(30, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
 
         tol_box = tk.Frame(footer, bg="#0b0f16")
-        tol_box.grid(row=0, column=1, sticky="nsew", padx=sp(8, 4), pady=sp(6, 3))
+        tol_box.grid(row=0, column=1, sticky="nsew", padx=(sp(2, 1), sp(8, 4)), pady=sp(6, 3))
         tk.Label(tol_box, text="TOL", font=sf(14, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="center")
         tk.Label(tol_box, textvariable=self.var_tol, font=sf(20, "bold"), bg="#0b0f16", fg="#f8fafc", justify="center").pack(anchor="center")
 
