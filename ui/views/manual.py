@@ -535,6 +535,7 @@ class ManualView(ttk.Frame):
         ax.set_title("Patron vs DUT", color="#f8fafc", fontsize=max(10, self._sp(13, 10)), fontweight="bold")
         ax.set_xlabel("Tiempo (s)", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
         ax.set_ylabel("Presion", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
+        ax.yaxis.labelpad = max(8, self._sp(10, 8))
         ax.tick_params(axis="x", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
         ax.tick_params(axis="y", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
         ax.grid(True, alpha=0.25, color="#94a3b8")
@@ -550,10 +551,16 @@ class ManualView(ttk.Frame):
         legend.get_frame().set_edgecolor("#475569")
         for text in legend.get_texts():
             text.set_color("#f8fafc")
-        fig.subplots_adjust(left=0.12, right=0.98, top=0.90, bottom=0.16)
+        fig.subplots_adjust(left=0.20, right=0.92, top=0.90, bottom=0.16)
 
         canvas = FigureCanvasTkAgg(fig, master=plot_box)
-        canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        canvas.get_tk_widget().grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=(self._sp(10, 6), self._sp(16, 10)),
+            pady=(self._sp(4, 2), self._sp(4, 2)),
+        )
         canvas.draw()
 
         self._fig_live = fig
