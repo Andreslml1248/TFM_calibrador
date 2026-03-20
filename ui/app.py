@@ -92,6 +92,12 @@ class App(tk.Tk):
         self.geometry(f"{screen_width}x{screen_height}+0+0")
         self.update_idletasks()
         try:
+            if str(self.tk.call("tk", "windowingsystem")).lower() == "x11":
+                self.attributes("-fullscreen", True)
+                return
+        except tk.TclError:
+            pass
+        try:
             self.state("zoomed")
             return
         except tk.TclError:

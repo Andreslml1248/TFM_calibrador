@@ -371,6 +371,12 @@ class ManualView(ttk.Frame):
             except Exception:
                 pass
             try:
+                if str(window.tk.call("tk", "windowingsystem")).lower() == "x11":
+                    window.attributes("-fullscreen", True)
+                    return
+            except tk.TclError:
+                pass
+            try:
                 window.state("zoomed")
                 return
             except tk.TclError:
