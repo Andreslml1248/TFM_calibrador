@@ -3,7 +3,7 @@
 
 """
 ui/app.py
-Interfaz gráfica principal de la aplicación
+Interfaz grafica principal de la aplicacion
 """
 
 import tkinter as tk
@@ -18,13 +18,14 @@ from ui.views.manual import ManualView
 from ui.event_handler import EventHandler
 
 
-
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Calibrador de Presión")
+        self.title("Calibrador de Presion")
+        self.configure(bg="#0f1218")
 
         self._ensure_main_maximized()
+        self._configure_notebook_style()
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -37,28 +38,28 @@ class App(tk.Tk):
         self.telemetry_server = ADSTelemetryServer(get_global_telemetry_snapshot())
         self.telemetry_server.start()
 
-        top_controls = ttk.Frame(self)
-        top_controls.pack(fill="x", padx=8, pady=(6, 2))
+        top_bar = tk.Frame(self, bg="#0f1218")
+        top_bar.pack(fill="x", padx=10, pady=(8, 0))
 
-        ttk.Label(top_controls, text="Telemetria TCP:").pack(side="left", padx=(0, 6))
-        self.btn_tx_a0 = ttk.Button(top_controls, text="Enviar A0", command=lambda: self._set_tx_channel(0))
-        self.btn_tx_a1 = ttk.Button(top_controls, text="Enviar A1", command=lambda: self._set_tx_channel(1))
-        self.btn_tx_a2 = ttk.Button(top_controls, text="Enviar A2", command=lambda: self._set_tx_channel(2))
-        self.btn_tx_stop = ttk.Button(top_controls, text="Detener transmision", command=lambda: self._set_tx_channel(None))
-        self.lbl_tx_state = ttk.Label(top_controls, text="TX: OFF")
-        self.btn_exit = ttk.Button(top_controls, text="X", width=3, command=self.on_close)
+        self.btn_exit = tk.Button(
+            top_bar,
+            text="X",
+            width=3,
+            command=self.on_close,
+            font=("Arial", 11, "bold"),
+            bg="#111827",
+            fg="#f8fafc",
+            activebackground="#dc2626",
+            activeforeground="#ffffff",
+            bd=1,
+            relief="raised",
+        )
+        self.btn_exit.pack(side="right")
 
-        self.btn_tx_a0.pack(side="left", padx=3)
-        self.btn_tx_a1.pack(side="left", padx=3)
-        self.btn_tx_a2.pack(side="left", padx=3)
-        self.btn_tx_stop.pack(side="left", padx=3)
-        self.lbl_tx_state.pack(side="left", padx=(8, 0))
-        self.btn_exit.pack(side="right", padx=(6, 0))
+        nb = ttk.Notebook(self, style="Main.TNotebook")
+        nb.pack(fill="both", expand=True, padx=10, pady=(6, 10))
+        self.nb = nb
 
-        nb = ttk.Notebook(self)
-        nb.pack(fill="both", expand=True)
-
-        # -------- MANUAL --------
         upd_ms = max(10, int(round(config.DT_PI * 1000)))
 
         manual = ManualView(
@@ -73,7 +74,6 @@ class App(tk.Tk):
         )
         nb.add(manual, text="Manual")
 
-        # -------- AUTOMÁTICO --------
         auto = AutoView(
             nb,
             read_vadc=self.hw.read_vadc,
@@ -84,9 +84,31 @@ class App(tk.Tk):
             request_event=self.event_handler.request_event,
             update_period_ms=upd_ms,
         )
-        nb.add(auto, text="Automático")
+        nb.add(auto, text="Automatico")
+
         self._refresh_tx_state_label()
         self.after_idle(self._ensure_main_maximized)
+
+    def _configure_notebook_style(self):
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+
+        style.configure("Main.TNotebook", background="#0f1218", borderwidth=0, tabmargins=(10, 6, 10, 0))
+        style.configure(
+            "Main.TNotebook.Tab",
+            background="#1b2130",
+            foreground="#e5e7eb",
+            padding=(24, 10),
+            font=("Arial", 13, "bold"),
+        )
+        style.map(
+            "Main.TNotebook.Tab",
+            background=[("selected", "#2563eb"), ("active", "#334155")],
+            foreground=[("selected", "#ffffff"), ("active", "#ffffff")],
+        )
 
     def _ensure_main_maximized(self):
         screen_width = self.winfo_screenwidth()
@@ -125,7 +147,10 @@ class App(tk.Tk):
             txt = "TX: A2 -> puerto 5002"
         else:
             txt = "TX: OFF"
-        self.lbl_tx_state.configure(text=txt)
+        label = getattr(self, "lbl_tx_state", None)
+        if label is not None:
+            label.configure(text=txt)
+        return txt
 
     def on_close(self):
         try:
@@ -133,4 +158,3 @@ class App(tk.Tk):
             self.hw.close()
         finally:
             self.destroy()
-

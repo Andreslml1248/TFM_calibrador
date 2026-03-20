@@ -473,37 +473,24 @@ class ManualView(ttk.Frame):
         tx_center = tk.Frame(tx_bar, bg="#0f1218")
         tx_center.pack(anchor="center")
 
-        self._tx_badge = tk.Label(
-            tx_center,
-            text="TX",
-            font=("Arial", 18, "bold"),
-            bg="#1b2130",
-            fg="#f8fafc",
-            bd=2,
-            relief="groove",
-            padx=18,
-            pady=8,
-        )
-        self._tx_badge.pack(side="left", padx=4)
-
         self._tx_buttons = {}
         for label, channel in (("A0", 0), ("A1", 1), ("A2", 2), ("OFF", None)):
             btn = tk.Button(
                 tx_center,
                 text=label,
                 command=lambda ch=channel: self._set_tx_channel(ch),
-                font=("Arial", 18, "bold"),
-                width=5,
+                font=("Arial", 13, "bold"),
+                width=4,
                 bg="#1b2130",
                 fg="#f8fafc",
                 activebackground="#334155",
                 activeforeground="#ffffff",
                 bd=2,
                 relief="raised",
-                padx=10,
-                pady=8,
+                padx=6,
+                pady=4,
             )
-            btn.pack(side="left", padx=4)
+            btn.pack(side="left", padx=3)
             self._tx_buttons[channel] = btn
 
         self._on_mode_changed()
