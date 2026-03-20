@@ -439,12 +439,12 @@ class ManualView(ttk.Frame):
         btns = tk.Frame(controls, bg="#141922")
         btns.grid(row=0, column=1, sticky="e", padx=14, pady=12)
 
-        def make_action_button(text, command, bg, fg="#ffffff", width=11):
+        def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=20, pad_x=8, pad_y=10):
             return tk.Button(
                 btns,
                 text=text,
                 command=command,
-                font=("Arial", 20, "bold"),
+                font=("Arial", font_size, "bold"),
                 width=width,
                 bg=bg,
                 fg=fg,
@@ -452,13 +452,13 @@ class ManualView(ttk.Frame):
                 activeforeground=fg,
                 bd=2,
                 relief="raised",
-                padx=8,
-                pady=10,
+                padx=pad_x,
+                pady=pad_y,
             )
 
-        self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45")
-        self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=8)
-        self.btn_stop_cfg = make_action_button("DETENER", self._stop_and_back, "#dc2626")
+        self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45", width=10, font_size=17, pad_x=6, pad_y=8)
+        self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=7, font_size=17, pad_x=6, pad_y=8)
+        self.btn_stop_cfg = make_action_button("DETENER", self._stop_and_back, "#dc2626", width=10, font_size=17, pad_x=6, pad_y=8)
         self.btn_fft = make_action_button("FFT", self._open_fft_window, "#111827", width=6)
         self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=4)
 
