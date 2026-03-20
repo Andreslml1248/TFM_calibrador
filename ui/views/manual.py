@@ -348,6 +348,26 @@ class ManualView(ttk.Frame):
         window.focus_force()
         window.grab_set()
 
+    def _prepare_popup_same_as_main(self, window: tk.Toplevel) -> None:
+        window.resizable(False, False)
+        try:
+            window.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+        main_window = self.winfo_toplevel()
+        main_window.update_idletasks()
+        window.transient(main_window)
+
+        width = max(260, int(main_window.winfo_width()))
+        height = max(240, int(main_window.winfo_height()))
+        x = max(0, int(main_window.winfo_x()))
+        y = max(0, int(main_window.winfo_y()))
+
+        window.geometry(f"{width}x{height}+{x}+{y}")
+        window.lift()
+        window.focus_force()
+        window.grab_set()
+
     def _update_sp_unit_ui(self):
         unit = self.var_sp_unit.get().strip() or "kPa"
         if unit not in self._UNIT_TO_KPA:
@@ -677,7 +697,7 @@ class ManualView(ttk.Frame):
 
         win = tk.Toplevel(self)
         win.title("Configuracion manual")
-        self._prepare_popup_window(win, 430, 430)
+        self._prepare_popup_same_as_main(win)
         self._settings_window = win
 
         frm = ttk.Frame(win, padding=12)
