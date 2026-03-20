@@ -382,8 +382,8 @@ class ManualView(ttk.Frame):
 
         footer = tk.Frame(live_panel, bg="#0b0f16", bd=1, relief="groove")
         footer.grid(row=6, column=0, sticky="ew", padx=sp(12, 6), pady=(sp(4, 2), sp(10, 4)))
-        footer.grid_columnconfigure(0, weight=3, uniform="errtol")
-        footer.grid_columnconfigure(1, weight=1, uniform="errtol")
+        footer.grid_columnconfigure(0, weight=10, uniform="errtol")
+        footer.grid_columnconfigure(1, weight=4, uniform="errtol")
 
         err_box = tk.Frame(footer, bg="#0b0f16")
         err_box.grid(row=0, column=0, sticky="nsew", padx=(sp(8, 4), sp(2, 1)), pady=sp(6, 3))
