@@ -23,6 +23,9 @@ class App(tk.Tk):
         super().__init__()
         self.title("Calibrador de Presion")
         self.configure(bg="#0f1218")
+        self._screen_width = max(1, int(self.winfo_screenwidth()))
+        self._screen_height = max(1, int(self.winfo_screenheight()))
+        self._ui_scale = self._compute_ui_scale()
 
         self._ensure_main_maximized()
         self._configure_notebook_style()
@@ -39,14 +42,14 @@ class App(tk.Tk):
         self.telemetry_server.start()
 
         top_bar = tk.Frame(self, bg="#0f1218")
-        top_bar.pack(fill="x", padx=10, pady=(8, 0))
+        top_bar.pack(fill="x", padx=self._sp(6, 4), pady=(self._sp(4, 2), 0))
 
         self.btn_exit = tk.Button(
             top_bar,
             text="X",
             width=3,
             command=self.on_close,
-            font=("Arial", 11, "bold"),
+            font=("Arial", max(8, self._sp(11, 8)), "bold"),
             bg="#111827",
             fg="#f8fafc",
             activebackground="#dc2626",
@@ -57,7 +60,7 @@ class App(tk.Tk):
         self.btn_exit.pack(side="right")
 
         nb = ttk.Notebook(self, style="Main.TNotebook")
-        nb.pack(fill="both", expand=True, padx=10, pady=(6, 10))
+        nb.pack(fill="both", expand=True, padx=self._sp(6, 4), pady=(self._sp(4, 2), self._sp(6, 4)))
         self.nb = nb
 
         upd_ms = max(10, int(round(config.DT_PI * 1000)))
@@ -89,6 +92,17 @@ class App(tk.Tk):
         self._refresh_tx_state_label()
         self.after_idle(self._ensure_main_maximized)
 
+    def _compute_ui_scale(self) -> float:
+        scale_w = float(self._screen_width) / 920.0
+        scale_h = float(self._screen_height) / 540.0
+        scale = min(scale_w, scale_h)
+        if self._screen_height <= 480:
+            scale = min(scale, 0.88)
+        return max(0.80, min(scale, 1.0))
+
+    def _sp(self, value: float, minimum: int = 0) -> int:
+        return max(int(minimum), int(round(float(value) * self._ui_scale)))
+
     def _configure_notebook_style(self):
         style = ttk.Style(self)
         try:
@@ -96,13 +110,16 @@ class App(tk.Tk):
         except tk.TclError:
             pass
 
-        style.configure("Main.TNotebook", background="#0f1218", borderwidth=0, tabmargins=(10, 6, 10, 0))
+        tab_font = ("Arial", max(9, self._sp(13, 9)), "bold")
+        tab_pad_x = self._sp(18, 12)
+        tab_pad_y = self._sp(7, 5)
+        style.configure("Main.TNotebook", background="#0f1218", borderwidth=0, tabmargins=(self._sp(6, 4), self._sp(4, 2), self._sp(6, 4), 0))
         style.configure(
             "Main.TNotebook.Tab",
             background="#1b2130",
             foreground="#e5e7eb",
-            padding=(24, 10),
-            font=("Arial", 13, "bold"),
+            padding=(tab_pad_x, tab_pad_y),
+            font=tab_font,
         )
         style.map(
             "Main.TNotebook.Tab",

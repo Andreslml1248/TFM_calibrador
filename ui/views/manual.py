@@ -144,6 +144,9 @@ class ManualView(ttk.Frame):
         self.set_valve = set_valve
         self.request_event = request_event
         self.update_period_ms = update_period_ms
+        self._screen_width = max(1, int(self.winfo_screenwidth()))
+        self._screen_height = max(1, int(self.winfo_screenheight()))
+        self._ui_scale = self._compute_ui_scale()
         self._tx_refresh_after_id: Optional[str] = None
         self._tx_refresh_period_ms = max(
             20,
@@ -265,128 +268,150 @@ class ManualView(ttk.Frame):
     # -------------------------
     # UI compacta (SIN scroll)
     # -------------------------
+    def _compute_ui_scale(self) -> float:
+        scale_w = float(self._screen_width) / 920.0
+        scale_h = float(self._screen_height) / 540.0
+        scale = min(scale_w, scale_h)
+        if self._screen_height <= 480:
+            scale = min(scale, 0.88)
+        return max(0.78, min(scale, 1.0))
+
+    def _sp(self, value: float, minimum: int = 0) -> int:
+        return max(int(minimum), int(round(float(value) * self._ui_scale)))
+
+    def _sf(self, size: int, weight: str = "normal") -> tuple[str, int, str]:
+        return "Arial", max(8, int(round(float(size) * self._ui_scale))), weight
+
+    def _sw(self, chars: int, minimum: int = 1) -> int:
+        char_scale = max(0.82, self._ui_scale)
+        return max(int(minimum), int(round(float(chars) * char_scale)))
+
     def _build_ui_compact(self):
+        sp = self._sp
+        sf = self._sf
+        sw = self._sw
+
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         shell = tk.Frame(self, bg="#0f1218", bd=2, relief="groove")
-        shell.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        shell.grid(row=0, column=0, sticky="nsew", padx=sp(6, 4), pady=sp(6, 4))
         shell.grid_rowconfigure(1, weight=1)
         shell.grid_columnconfigure(0, weight=1)
 
         header = tk.Frame(shell, bg="#171b24", bd=1, relief="groove")
-        header.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 8))
+        header.grid(row=0, column=0, sticky="ew", padx=sp(8, 4), pady=(sp(8, 4), sp(6, 3)))
         header.grid_columnconfigure(0, weight=1)
 
         title_wrap = tk.Frame(header, bg="#171b24")
-        title_wrap.grid(row=0, column=0, sticky="w", padx=14, pady=10)
-        tk.Label(title_wrap, text="MODO:", font=("Arial", 16, "bold"), bg="#171b24", fg="#f1f5f9").pack(side="left")
-        tk.Label(title_wrap, text=" MANUAL", font=("Arial", 20, "bold"), bg="#171b24", fg="#ffffff").pack(side="left")
+        title_wrap.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(7, 3))
+        tk.Label(title_wrap, text="MODO:", font=sf(16, "bold"), bg="#171b24", fg="#f1f5f9").pack(side="left")
+        tk.Label(title_wrap, text=" MANUAL", font=sf(20, "bold"), bg="#171b24", fg="#ffffff").pack(side="left")
 
         tk.Label(
             header,
             textvariable=self.var_temp,
-            font=("Arial", 18, "bold"),
+            font=sf(18, "bold"),
             bg="#0c1018",
             fg="#f8fafc",
             bd=1,
             relief="groove",
-            padx=18,
-            pady=6,
-        ).grid(row=0, column=1, sticky="e", padx=12, pady=8)
+            padx=sp(12, 6),
+            pady=sp(4, 2),
+        ).grid(row=0, column=1, sticky="e", padx=sp(8, 4), pady=sp(6, 3))
 
         body = tk.Frame(shell, bg="#0f1218")
-        body.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 8))
+        body.grid(row=1, column=0, sticky="nsew", padx=sp(8, 4), pady=(0, sp(6, 3)))
         body.grid_rowconfigure(0, weight=1)
         body.grid_columnconfigure(0, weight=5)
         body.grid_columnconfigure(1, weight=3)
 
         live_panel = tk.Frame(body, bg="#080b11", bd=2, relief="groove")
-        live_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        live_panel.grid(row=0, column=0, sticky="nsew", padx=(0, sp(6, 3)))
         live_panel.grid_columnconfigure(0, weight=1)
         self.frm_live = live_panel
 
         ref_hdr = tk.Frame(live_panel, bg="#080b11")
-        ref_hdr.grid(row=0, column=0, sticky="ew", padx=18, pady=(12, 6))
+        ref_hdr.grid(row=0, column=0, sticky="ew", padx=sp(12, 6), pady=(sp(8, 4), sp(4, 2)))
         ref_hdr.grid_columnconfigure(0, weight=1)
-        tk.Label(ref_hdr, text="PRES. REF.", font=("Arial", 22, "bold"), bg="#080b11", fg="#f3f4f6").grid(row=0, column=0, sticky="w")
+        tk.Label(ref_hdr, text="PRES. REF.", font=sf(22, "bold"), bg="#080b11", fg="#f3f4f6").grid(row=0, column=0, sticky="w")
         tk.Label(
             ref_hdr,
             text="MPX5600DP",
-            font=("Arial", 12, "bold"),
+            font=sf(12, "bold"),
             bg="#121826",
             fg="#b6c2cf",
             bd=1,
             relief="groove",
-            padx=10,
-            pady=4,
+            padx=sp(8, 4),
+            pady=sp(3, 1),
         ).grid(row=0, column=1, sticky="e")
 
         tk.Label(
             live_panel,
             textvariable=self.var_p_source,
-            font=("Arial", 42, "bold"),
+            font=sf(42, "bold"),
             bg="#080b11",
             fg="#5ab0ff",
             anchor="center",
-        ).grid(row=1, column=0, sticky="ew", padx=16, pady=(2, 6))
+        ).grid(row=1, column=0, sticky="ew", padx=sp(10, 4), pady=(sp(2, 1), sp(4, 2)))
 
-        tk.Frame(live_panel, bg="#3a4150", height=2).grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 10))
+        tk.Frame(live_panel, bg="#3a4150", height=sp(2, 1)).grid(row=2, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(8, 4)))
 
         dut_hdr = tk.Frame(live_panel, bg="#080b11")
-        dut_hdr.grid(row=3, column=0, sticky="ew", padx=18, pady=(0, 4))
-        tk.Label(dut_hdr, text="PRES. DUT", font=("Arial", 20, "bold"), bg="#080b11", fg="#f3f4f6").pack(side="left")
+        dut_hdr.grid(row=3, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(3, 1)))
+        tk.Label(dut_hdr, text="PRES. DUT", font=sf(20, "bold"), bg="#080b11", fg="#f3f4f6").pack(side="left")
 
         tk.Label(
             live_panel,
             textvariable=self.var_dut_pressure,
-            font=("Arial", 36, "bold"),
+            font=sf(36, "bold"),
             bg="#080b11",
             fg="#f8fafc",
             anchor="center",
-        ).grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 2))
+        ).grid(row=4, column=0, sticky="ew", padx=sp(10, 4), pady=(0, sp(2, 1)))
 
         tk.Label(
             live_panel,
             textvariable=self.var_sig,
-            font=("Arial", 13, "bold"),
+            font=sf(13, "bold"),
             bg="#080b11",
             fg="#cbd5e1",
             anchor="center",
-        ).grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 2))
+        ).grid(row=5, column=0, sticky="ew", padx=sp(10, 4), pady=(0, sp(2, 1)))
 
         aux_row = tk.Frame(live_panel, bg="#080b11")
-        aux_row.grid(row=6, column=0, sticky="ew", padx=18, pady=(0, 8))
+        aux_row.grid(row=6, column=0, sticky="ew", padx=sp(12, 6), pady=(0, sp(6, 3)))
         aux_row.grid_columnconfigure(0, weight=1)
         aux_row.grid_columnconfigure(1, weight=1)
         aux_left = tk.Frame(aux_row, bg="#080b11")
         aux_left.grid(row=0, column=0, sticky="w")
-        tk.Label(aux_left, text="SPAN", font=("Arial", 11, "bold"), bg="#080b11", fg="#94a3b8").pack(anchor="w")
-        tk.Label(aux_left, textvariable=self.var_span, font=("Arial", 14, "bold"), bg="#080b11", fg="#e2e8f0").pack(anchor="w")
+        tk.Label(aux_left, text="SPAN", font=sf(11, "bold"), bg="#080b11", fg="#94a3b8").pack(anchor="w")
+        tk.Label(aux_left, textvariable=self.var_span, font=sf(14, "bold"), bg="#080b11", fg="#e2e8f0").pack(anchor="w")
         aux_right = tk.Frame(aux_row, bg="#080b11")
         aux_right.grid(row=0, column=1, sticky="e")
-        tk.Label(aux_right, text="PWM", font=("Arial", 11, "bold"), bg="#080b11", fg="#94a3b8").pack(anchor="e")
-        tk.Label(aux_right, textvariable=self.var_pwm, font=("Arial", 14, "bold"), bg="#080b11", fg="#e2e8f0").pack(anchor="e")
+        tk.Label(aux_right, text="PWM", font=sf(11, "bold"), bg="#080b11", fg="#94a3b8").pack(anchor="e")
+        tk.Label(aux_right, textvariable=self.var_pwm, font=sf(14, "bold"), bg="#080b11", fg="#e2e8f0").pack(anchor="e")
 
         footer = tk.Frame(live_panel, bg="#0b0f16", bd=1, relief="groove")
-        footer.grid(row=7, column=0, sticky="ew", padx=18, pady=(6, 14))
+        footer.grid(row=7, column=0, sticky="ew", padx=sp(12, 6), pady=(sp(4, 2), sp(10, 4)))
         footer.grid_columnconfigure(0, weight=3)
         footer.grid_columnconfigure(1, weight=1)
 
         err_box = tk.Frame(footer, bg="#0b0f16")
-        err_box.grid(row=0, column=0, sticky="nsew", padx=12, pady=10)
-        tk.Label(err_box, text="ERROR", font=("Arial", 16, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w")
-        tk.Label(err_box, textvariable=self.var_err, font=("Arial", 30, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
+        err_box.grid(row=0, column=0, sticky="nsew", padx=sp(8, 4), pady=sp(6, 3))
+        tk.Label(err_box, text="ERROR", font=sf(16, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w")
+        tk.Label(err_box, textvariable=self.var_err, font=sf(30, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
 
         tol_box = tk.Frame(footer, bg="#0b0f16")
-        tol_box.grid(row=0, column=1, sticky="nsew", padx=12, pady=10)
-        tk.Label(tol_box, text="TOL", font=("Arial", 14, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="center")
-        tk.Label(tol_box, textvariable=self.var_tol, font=("Arial", 20, "bold"), bg="#0b0f16", fg="#f8fafc", justify="center").pack(anchor="center")
+        tol_box.grid(row=0, column=1, sticky="nsew", padx=sp(8, 4), pady=sp(6, 3))
+        tk.Label(tol_box, text="TOL", font=sf(14, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="center")
+        tk.Label(tol_box, textvariable=self.var_tol, font=sf(20, "bold"), bg="#0b0f16", fg="#f8fafc", justify="center").pack(anchor="center")
 
         plot_panel = tk.LabelFrame(
             body,
             text="TENDENCIA DE PRESION",
-            font=("Arial", 14, "bold"),
+            font=sf(14, "bold"),
             bg="#080b11",
             fg="#f3f4f6",
             bd=2,
@@ -399,24 +424,24 @@ class ManualView(ttk.Frame):
         self._plot_host = plot_panel
 
         controls = tk.Frame(shell, bg="#141922", bd=1, relief="groove")
-        controls.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 0))
+        controls.grid(row=2, column=0, sticky="ew", padx=sp(8, 4), pady=(0, 0))
         controls.grid_columnconfigure(0, weight=3)
         controls.grid_columnconfigure(1, weight=5)
         self.frm_cfg = controls
 
         sp_box = tk.Frame(controls, bg="#141922")
-        sp_box.grid(row=0, column=0, sticky="w", padx=14, pady=12)
-        tk.Label(sp_box, text="SETPOINT:", font=("Arial", 18, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, 12))
+        sp_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(8, 4))
+        tk.Label(sp_box, text="SETPOINT:", font=sf(18, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, sp(8, 4)))
         self.btn_sp = tk.Button(
             sp_box,
             text=f"[{self.var_sp.get()}]",
             command=lambda: self._open_edit_dialog_sp(),
-            font=("Arial", 22, "bold"),
+            font=sf(22, "bold"),
             bg="#090c12",
             fg="#f8fafc",
             activebackground="#171b24",
             activeforeground="#ffffff",
-            width=10,
+            width=sw(10, 7),
             bd=2,
             relief="raised",
         )
@@ -424,9 +449,9 @@ class ManualView(ttk.Frame):
         self.btn_sp_unit = tk.Button(
             sp_box,
             text=self.var_sp_unit.get(),
-            width=6,
+            width=sw(6, 4),
             command=self._open_sp_unit_selector,
-            font=("Arial", 20, "bold"),
+            font=sf(20, "bold"),
             bg="#090c12",
             fg="#e2e8f0",
             activebackground="#171b24",
@@ -434,26 +459,26 @@ class ManualView(ttk.Frame):
             bd=2,
             relief="raised",
         )
-        self.btn_sp_unit.grid(row=1, column=1, sticky="w", padx=(8, 0))
+        self.btn_sp_unit.grid(row=1, column=1, sticky="w", padx=(sp(6, 3), 0))
 
         btns = tk.Frame(controls, bg="#141922")
-        btns.grid(row=0, column=1, sticky="e", padx=14, pady=12)
+        btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(8, 4))
 
         def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=20, pad_x=8, pad_y=10):
             return tk.Button(
                 btns,
                 text=text,
                 command=command,
-                font=("Arial", font_size, "bold"),
-                width=width,
+                font=sf(font_size, "bold"),
+                width=sw(width, 4),
                 bg=bg,
                 fg=fg,
                 activebackground=bg,
                 activeforeground=fg,
                 bd=2,
                 relief="raised",
-                padx=pad_x,
-                pady=pad_y,
+                padx=sp(pad_x, 2),
+                pady=sp(pad_y, 2),
             )
 
         self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45", width=10, font_size=17, pad_x=6, pad_y=8)
@@ -462,14 +487,14 @@ class ManualView(ttk.Frame):
         self.btn_fft = make_action_button("FFT", self._open_fft_window, "#111827", width=6)
         self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=4)
 
-        self.btn_start.pack(side="left", padx=5)
-        self.btn_zero.pack(side="left", padx=5)
-        self.btn_stop_cfg.pack(side="left", padx=5)
-        self.btn_fft.pack(side="left", padx=5)
-        self.btn_settings.pack(side="left", padx=(5, 0))
+        self.btn_start.pack(side="left", padx=sp(4, 2))
+        self.btn_zero.pack(side="left", padx=sp(4, 2))
+        self.btn_stop_cfg.pack(side="left", padx=sp(4, 2))
+        self.btn_fft.pack(side="left", padx=sp(4, 2))
+        self.btn_settings.pack(side="left", padx=(sp(4, 2), 0))
 
         tx_bar = tk.Frame(shell, bg="#0f1218")
-        tx_bar.grid(row=3, column=0, sticky="ew", padx=12, pady=(8, 12))
+        tx_bar.grid(row=3, column=0, sticky="ew", padx=sp(8, 4), pady=(sp(6, 3), sp(8, 4)))
         tx_center = tk.Frame(tx_bar, bg="#0f1218")
         tx_center.pack(anchor="center")
 
@@ -479,18 +504,18 @@ class ManualView(ttk.Frame):
                 tx_center,
                 text=label,
                 command=lambda ch=channel: self._set_tx_channel(ch),
-                font=("Arial", 13, "bold"),
-                width=4,
+                font=sf(13, "bold"),
+                width=sw(4, 3),
                 bg="#1b2130",
                 fg="#f8fafc",
                 activebackground="#334155",
                 activeforeground="#ffffff",
                 bd=2,
                 relief="raised",
-                padx=6,
-                pady=4,
+                padx=sp(4, 2),
+                pady=sp(3, 1),
             )
-            btn.pack(side="left", padx=3)
+            btn.pack(side="left", padx=sp(2, 1))
             self._tx_buttons[channel] = btn
 
         self._on_mode_changed()
@@ -504,15 +529,21 @@ class ManualView(ttk.Frame):
         plot_box.grid_rowconfigure(0, weight=1)
         plot_box.grid_columnconfigure(0, weight=1)
 
-        fig = Figure(figsize=(6.0, 4.0), dpi=90)
+        fig = Figure(
+            figsize=(
+                max(4.0, 6.0 * max(self._ui_scale, 0.80)),
+                max(2.8, 4.0 * max(self._ui_scale, 0.78)),
+            ),
+            dpi=90,
+        )
         fig.patch.set_facecolor("#080b11")
         ax = fig.add_subplot(111)
         ax.set_facecolor("#080b11")
-        ax.set_title("Patron vs DUT", color="#f8fafc", fontsize=13, fontweight="bold")
-        ax.set_xlabel("Tiempo (s)", color="#e2e8f0")
-        ax.set_ylabel("Presion", color="#e2e8f0")
-        ax.tick_params(axis="x", colors="#e2e8f0")
-        ax.tick_params(axis="y", colors="#e2e8f0")
+        ax.set_title("Patron vs DUT", color="#f8fafc", fontsize=max(10, self._sp(13, 10)), fontweight="bold")
+        ax.set_xlabel("Tiempo (s)", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
+        ax.set_ylabel("Presion", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
+        ax.tick_params(axis="x", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
+        ax.tick_params(axis="y", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
         ax.grid(True, alpha=0.25, color="#94a3b8")
         for spine in ax.spines.values():
             spine.set_color("#94a3b8")
@@ -521,7 +552,7 @@ class ManualView(ttk.Frame):
 
         line_pat, = ax.plot([], [], color="#0b5aa2", linewidth=1.6, label="Patron")
         line_dut, = ax.plot([], [], color="#d97706", linewidth=1.4, label="DUT")
-        legend = ax.legend(loc="upper left", fontsize=8)
+        legend = ax.legend(loc="upper left", fontsize=max(7, self._sp(8, 7)))
         legend.get_frame().set_facecolor("#0f172a")
         legend.get_frame().set_edgecolor("#475569")
         for text in legend.get_texts():
