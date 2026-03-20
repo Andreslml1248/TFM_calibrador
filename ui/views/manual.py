@@ -323,8 +323,8 @@ class ManualView(ttk.Frame):
         body = tk.Frame(shell, bg="#0f1218")
         body.grid(row=1, column=0, sticky="nsew", padx=sp(8, 4), pady=(0, sp(6, 3)))
         body.grid_rowconfigure(0, weight=1)
-        body.grid_columnconfigure(0, weight=5)
-        body.grid_columnconfigure(1, weight=3)
+        body.grid_columnconfigure(0, weight=2, uniform="mainbody")
+        body.grid_columnconfigure(1, weight=1, uniform="mainbody")
 
         live_panel = tk.Frame(body, bg="#080b11", bd=2, relief="groove")
         live_panel.grid(row=0, column=0, sticky="nsew", padx=(0, sp(6, 3)))
