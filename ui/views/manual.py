@@ -190,6 +190,7 @@ class ManualView(ttk.Frame):
         self._runtime_fault_latched = False
         self._runtime_snapshot: Dict[str, Any] = {
             "p_kpa": 0.0,
+            "dut_p_kpa": 0.0,
             "dut_eng": 0.0,
             "span_pct": 0.0,
             "err_pct": 0.0,
@@ -229,11 +230,13 @@ class ManualView(ttk.Frame):
 
         # Lecturas en vivo
         self.var_p_source = tk.StringVar(value="0.00 kPa")
+        self.var_dut_pressure = tk.StringVar(value="0.00 kPa")
         self.var_sig = tk.StringVar(value="0.000 mA")
         self.var_span = tk.StringVar(value="0.0 %")
         self.var_err = tk.StringVar(value="0.0 %")
         self.var_pwm = tk.StringVar(value="u=0.000")
-        self.var_temp = tk.StringVar(value="Temp: --.- C")
+        self.var_temp = tk.StringVar(value="TEMP: --.- C")
+        self.var_tol = tk.StringVar(value=f"+/- {float(getattr(config, 'TOL_KPA_DEFAULT', 1.0)):.2f} kPa")
 
         self.btn_settings = None
         self.btn_pmin = None
@@ -244,6 +247,9 @@ class ManualView(ttk.Frame):
         self.btn_sp_unit_popup = None
         self.lbl_sigmin = None
         self.lbl_sigmax = None
+        self._tx_buttons: Dict[Any, tk.Button] = {}
+        self._tx_badge = None
+        self._plot_host = None
         self._settings_snapshot: Optional[Dict[str, Any]] = None
 
         self._build_ui_compact()
@@ -260,112 +266,280 @@ class ManualView(ttk.Frame):
     # UI compacta (SIN scroll)
     # -------------------------
     def _build_ui_compact(self):
-        # Grid principal: 2 columnas
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_columnconfigure(0, weight=1, uniform="col")
-        self.grid_columnconfigure(1, weight=1, uniform="col")
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
-        # TÃ­tulo arriba (ocupa 2 columnas)
-        header = ttk.Frame(self)
-        header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 4))
+        shell = tk.Frame(self, bg="#0f1218", bd=2, relief="groove")
+        shell.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        shell.grid_rowconfigure(1, weight=1)
+        shell.grid_columnconfigure(0, weight=1)
+
+        header = tk.Frame(shell, bg="#171b24", bd=1, relief="groove")
+        header.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 8))
         header.grid_columnconfigure(0, weight=1)
 
-        title = ttk.Label(header, text="MODO MANUAL", font=("Arial", 15, "bold"))
-        title.grid(row=0, column=0, sticky="w")
+        title_wrap = tk.Frame(header, bg="#171b24")
+        title_wrap.grid(row=0, column=0, sticky="w", padx=14, pady=10)
+        tk.Label(title_wrap, text="MODO:", font=("Arial", 16, "bold"), bg="#171b24", fg="#f1f5f9").pack(side="left")
+        tk.Label(title_wrap, text=" MANUAL", font=("Arial", 20, "bold"), bg="#171b24", fg="#ffffff").pack(side="left")
 
-        ttk.Label(header, textvariable=self.var_temp, font=("Arial", 11, "bold")).grid(row=0, column=1, sticky="e")
+        tk.Label(
+            header,
+            textvariable=self.var_temp,
+            font=("Arial", 18, "bold"),
+            bg="#0c1018",
+            fg="#f8fafc",
+            bd=1,
+            relief="groove",
+            padx=18,
+            pady=6,
+        ).grid(row=0, column=1, sticky="e", padx=12, pady=8)
 
-        # ===== Columna izquierda: CONFIG =====
-        frm_cfg = ttk.LabelFrame(self, text="ConfiguraciÃ³n")
-        frm_cfg.grid(row=1, column=0, sticky="nsew", padx=(10, 6), pady=(4, 8))
-        frm_cfg.grid_columnconfigure(0, weight=1)
-        self.frm_cfg = frm_cfg
+        body = tk.Frame(shell, bg="#0f1218")
+        body.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 8))
+        body.grid_rowconfigure(0, weight=1)
+        body.grid_columnconfigure(0, weight=5)
+        body.grid_columnconfigure(1, weight=3)
 
-        # Control (SP + botÃ³n aplicar) compacto
-        sp_box = ttk.LabelFrame(frm_cfg, text="Control")
-        sp_box.grid(row=0, column=0, sticky="ew", padx=8, pady=(6, 6))
-        sp_box.grid_columnconfigure(1, weight=1)
+        live_panel = tk.Frame(body, bg="#080b11", bd=2, relief="groove")
+        live_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        live_panel.grid_columnconfigure(0, weight=1)
+        self.frm_live = live_panel
 
-        ttk.Label(sp_box, textvariable=self.var_sp_label).grid(row=0, column=0, sticky="w", padx=6, pady=6)
-        self.btn_sp = ttk.Button(sp_box, text=f"[{self.var_sp.get()}]", command=lambda: self._open_edit_dialog_sp())
-        self.btn_sp.grid(row=0, column=1, sticky="w", padx=6, pady=6)
-        self.btn_sp_unit = ttk.Button(sp_box, text=self.var_sp_unit.get(), width=10, command=self._open_sp_unit_selector)
-        self.btn_sp_unit.grid(row=0, column=2, sticky="w", padx=(0, 6), pady=6)
+        ref_hdr = tk.Frame(live_panel, bg="#080b11")
+        ref_hdr.grid(row=0, column=0, sticky="ew", padx=18, pady=(12, 6))
+        ref_hdr.grid_columnconfigure(0, weight=1)
+        tk.Label(ref_hdr, text="PRES. REF.", font=("Arial", 22, "bold"), bg="#080b11", fg="#f3f4f6").grid(row=0, column=0, sticky="w")
+        tk.Label(
+            ref_hdr,
+            text="MPX5600DP",
+            font=("Arial", 12, "bold"),
+            bg="#121826",
+            fg="#b6c2cf",
+            bd=1,
+            relief="groove",
+            padx=10,
+            pady=4,
+        ).grid(row=0, column=1, sticky="e")
 
-        # Botones config (fila compacta)
-        btns = ttk.Frame(frm_cfg)
-        btns.grid(row=1, column=0, sticky="ew", padx=8, pady=(2, 8))
-        btns.grid_columnconfigure(0, weight=1)
-        btns.grid_columnconfigure(1, weight=1)
-        btns.grid_columnconfigure(2, weight=1)
-        btns.grid_columnconfigure(3, weight=1)
+        tk.Label(
+            live_panel,
+            textvariable=self.var_p_source,
+            font=("Arial", 46, "bold"),
+            bg="#080b11",
+            fg="#5ab0ff",
+            anchor="center",
+        ).grid(row=1, column=0, sticky="ew", padx=16, pady=(2, 6))
 
-        self.btn_zero = ttk.Button(btns, text="P=0", command=self._do_tare)
-        self.btn_start = ttk.Button(btns, text="START", command=self._start)
-        self.btn_stop_cfg = ttk.Button(btns, text="STOP", command=self._stop_and_back)
-        self.btn_settings = ttk.Button(btns, text="\u2699", width=4, command=self._open_settings_window)
+        tk.Frame(live_panel, bg="#3a4150", height=2).grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 10))
 
-        self.btn_zero.grid(row=0, column=0, sticky="ew", padx=4)
-        self.btn_start.grid(row=0, column=1, sticky="ew", padx=4)
-        self.btn_stop_cfg.grid(row=0, column=2, sticky="ew", padx=4)
-        self.btn_settings.grid(row=0, column=3, sticky="ew", padx=4)
+        dut_hdr = tk.Frame(live_panel, bg="#080b11")
+        dut_hdr.grid(row=3, column=0, sticky="ew", padx=18, pady=(0, 4))
+        tk.Label(dut_hdr, text="PRES. DUT", font=("Arial", 20, "bold"), bg="#080b11", fg="#f3f4f6").pack(side="left")
 
-        # Herramientas
-        tools = ttk.Frame(frm_cfg)
-        tools.grid(row=2, column=0, sticky="ew", padx=8, pady=(0, 8))
-        tools.grid_columnconfigure(0, weight=1)
+        tk.Label(
+            live_panel,
+            textvariable=self.var_dut_pressure,
+            font=("Arial", 40, "bold"),
+            bg="#080b11",
+            fg="#f8fafc",
+            anchor="center",
+        ).grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 2))
 
-        self.btn_fft = ttk.Button(tools, text="FFT / Ruido", command=self._open_fft_window)
-        self.btn_fft.grid(row=0, column=0, sticky="ew", padx=4)
+        tk.Label(
+            live_panel,
+            textvariable=self.var_sig,
+            font=("Arial", 13, "bold"),
+            bg="#080b11",
+            fg="#cbd5e1",
+            anchor="center",
+        ).grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 2))
 
-        # ===== Columna derecha: LIVE =====
-        frm_live = ttk.LabelFrame(self, text="Lecturas en vivo")
-        frm_live.grid(row=1, column=1, sticky="nsew", padx=(6, 10), pady=(4, 8))
-        frm_live.grid_columnconfigure(1, weight=1)
-        frm_live.grid_rowconfigure(5, weight=1)
-        self.frm_live = frm_live
+        aux_row = tk.Frame(live_panel, bg="#080b11")
+        aux_row.grid(row=6, column=0, sticky="ew", padx=18, pady=(0, 8))
+        aux_row.grid_columnconfigure(0, weight=1)
+        aux_row.grid_columnconfigure(1, weight=1)
+        aux_left = tk.Frame(aux_row, bg="#080b11")
+        aux_left.grid(row=0, column=0, sticky="w")
+        tk.Label(aux_left, text="SPAN", font=("Arial", 11, "bold"), bg="#080b11", fg="#94a3b8").pack(anchor="w")
+        tk.Label(aux_left, textvariable=self.var_span, font=("Arial", 14, "bold"), bg="#080b11", fg="#e2e8f0").pack(anchor="w")
+        aux_right = tk.Frame(aux_row, bg="#080b11")
+        aux_right.grid(row=0, column=1, sticky="e")
+        tk.Label(aux_right, text="PWM", font=("Arial", 11, "bold"), bg="#080b11", fg="#94a3b8").pack(anchor="e")
+        tk.Label(aux_right, textvariable=self.var_pwm, font=("Arial", 14, "bold"), bg="#080b11", fg="#e2e8f0").pack(anchor="e")
 
-        # Letras un pelÃ­n mÃ¡s pequeÃ±as para que quepa
-        big = ("Arial", 10, "bold")
-        normal = ("Arial", 9)
+        footer = tk.Frame(live_panel, bg="#0b0f16", bd=1, relief="groove")
+        footer.grid(row=7, column=0, sticky="ew", padx=18, pady=(6, 14))
+        footer.grid_columnconfigure(0, weight=3)
+        footer.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(frm_live, text="PRESIÃ“N:", font=normal).grid(row=0, column=0, sticky="w", padx=8, pady=(3, 1))
-        ttk.Label(frm_live, textvariable=self.var_p_source, font=big).grid(row=0, column=1, sticky="w", padx=8, pady=(3, 1))
+        err_box = tk.Frame(footer, bg="#0b0f16")
+        err_box.grid(row=0, column=0, sticky="nsew", padx=12, pady=10)
+        tk.Label(err_box, text="ERROR", font=("Arial", 16, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="w")
+        tk.Label(err_box, textvariable=self.var_err, font=("Arial", 34, "bold"), bg="#0b0f16", fg="#22c55e").pack(anchor="center")
 
-        ttk.Label(frm_live, text="DUT:", font=normal).grid(row=1, column=0, sticky="w", padx=8, pady=1)
-        ttk.Label(frm_live, textvariable=self.var_sig, font=big).grid(row=1, column=1, sticky="w", padx=8, pady=1)
+        tol_box = tk.Frame(footer, bg="#0b0f16")
+        tol_box.grid(row=0, column=1, sticky="nsew", padx=12, pady=10)
+        tk.Label(tol_box, text="TOL", font=("Arial", 14, "bold"), bg="#0b0f16", fg="#f3f4f6").pack(anchor="center")
+        tk.Label(tol_box, textvariable=self.var_tol, font=("Arial", 20, "bold"), bg="#0b0f16", fg="#f8fafc", justify="center").pack(anchor="center")
 
-        ttk.Label(frm_live, text="%SPAN:", font=normal).grid(row=2, column=0, sticky="w", padx=8, pady=0)
-        ttk.Label(frm_live, textvariable=self.var_span, font=normal).grid(row=2, column=1, sticky="w", padx=8, pady=0)
+        plot_panel = tk.LabelFrame(
+            body,
+            text="TENDENCIA DE PRESION",
+            font=("Arial", 14, "bold"),
+            bg="#080b11",
+            fg="#f3f4f6",
+            bd=2,
+            relief="groove",
+            labelanchor="n",
+        )
+        plot_panel.grid(row=0, column=1, sticky="nsew")
+        plot_panel.grid_rowconfigure(0, weight=1)
+        plot_panel.grid_columnconfigure(0, weight=1)
+        self._plot_host = plot_panel
 
-        ttk.Label(frm_live, text="%ERROR:", font=normal).grid(row=3, column=0, sticky="w", padx=8, pady=0)
-        ttk.Label(frm_live, textvariable=self.var_err, font=normal).grid(row=3, column=1, sticky="w", padx=8, pady=0)
+        controls = tk.Frame(shell, bg="#141922", bd=1, relief="groove")
+        controls.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 0))
+        controls.grid_columnconfigure(0, weight=3)
+        controls.grid_columnconfigure(1, weight=5)
+        self.frm_cfg = controls
 
-        ttk.Label(frm_live, text="PWM:", font=normal).grid(row=4, column=0, sticky="w", padx=8, pady=(0, 2))
-        ttk.Label(frm_live, textvariable=self.var_pwm, font=normal).grid(row=4, column=1, sticky="w", padx=8, pady=(0, 2))
+        sp_box = tk.Frame(controls, bg="#141922")
+        sp_box.grid(row=0, column=0, sticky="w", padx=14, pady=12)
+        tk.Label(sp_box, text="SETPOINT:", font=("Arial", 18, "bold"), bg="#141922", fg="#fbbf24").grid(row=0, column=0, sticky="w", padx=(0, 12))
+        self.btn_sp = tk.Button(
+            sp_box,
+            text=f"[{self.var_sp.get()}]",
+            command=lambda: self._open_edit_dialog_sp(),
+            font=("Arial", 22, "bold"),
+            bg="#090c12",
+            fg="#f8fafc",
+            activebackground="#171b24",
+            activeforeground="#ffffff",
+            width=10,
+            bd=2,
+            relief="raised",
+        )
+        self.btn_sp.grid(row=1, column=0, sticky="w")
+        self.btn_sp_unit = tk.Button(
+            sp_box,
+            text=self.var_sp_unit.get(),
+            width=6,
+            command=self._open_sp_unit_selector,
+            font=("Arial", 20, "bold"),
+            bg="#090c12",
+            fg="#e2e8f0",
+            activebackground="#171b24",
+            activeforeground="#ffffff",
+            bd=2,
+            relief="raised",
+        )
+        self.btn_sp_unit.grid(row=1, column=1, sticky="w", padx=(8, 0))
+
+        btns = tk.Frame(controls, bg="#141922")
+        btns.grid(row=0, column=1, sticky="e", padx=14, pady=12)
+
+        def make_action_button(text, command, bg, fg="#ffffff", width=11):
+            return tk.Button(
+                btns,
+                text=text,
+                command=command,
+                font=("Arial", 20, "bold"),
+                width=width,
+                bg=bg,
+                fg=fg,
+                activebackground=bg,
+                activeforeground=fg,
+                bd=2,
+                relief="raised",
+                padx=8,
+                pady=10,
+            )
+
+        self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45")
+        self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=8)
+        self.btn_stop_cfg = make_action_button("DETENER", self._stop_and_back, "#dc2626")
+        self.btn_fft = make_action_button("FFT", self._open_fft_window, "#111827", width=6)
+        self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=4)
+
+        self.btn_start.pack(side="left", padx=5)
+        self.btn_zero.pack(side="left", padx=5)
+        self.btn_stop_cfg.pack(side="left", padx=5)
+        self.btn_fft.pack(side="left", padx=5)
+        self.btn_settings.pack(side="left", padx=(5, 0))
+
+        tx_bar = tk.Frame(shell, bg="#0f1218")
+        tx_bar.grid(row=3, column=0, sticky="ew", padx=12, pady=(8, 12))
+        tx_center = tk.Frame(tx_bar, bg="#0f1218")
+        tx_center.pack(anchor="center")
+
+        self._tx_badge = tk.Label(
+            tx_center,
+            text="TX",
+            font=("Arial", 18, "bold"),
+            bg="#1b2130",
+            fg="#f8fafc",
+            bd=2,
+            relief="groove",
+            padx=18,
+            pady=8,
+        )
+        self._tx_badge.pack(side="left", padx=4)
+
+        self._tx_buttons = {}
+        for label, channel in (("A0", 0), ("A1", 1), ("A2", 2), ("OFF", None)):
+            btn = tk.Button(
+                tx_center,
+                text=label,
+                command=lambda ch=channel: self._set_tx_channel(ch),
+                font=("Arial", 18, "bold"),
+                width=5,
+                bg="#1b2130",
+                fg="#f8fafc",
+                activebackground="#334155",
+                activeforeground="#ffffff",
+                bd=2,
+                relief="raised",
+                padx=10,
+                pady=8,
+            )
+            btn.pack(side="left", padx=4)
+            self._tx_buttons[channel] = btn
 
         self._on_mode_changed()
         self._update_sp_unit_ui()
+        self._refresh_local_tx_buttons()
 
     def _build_live_plot(self):
-        plot_box = ttk.LabelFrame(self.frm_live, text="Presion vs tiempo")
-        plot_box.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=8, pady=(4, 8))
+        plot_box = self._plot_host
+        if plot_box is None:
+            return
         plot_box.grid_rowconfigure(0, weight=1)
         plot_box.grid_columnconfigure(0, weight=1)
 
-        fig = Figure(figsize=(5.2, 2.4), dpi=90)
+        fig = Figure(figsize=(6.0, 4.0), dpi=90)
+        fig.patch.set_facecolor("#080b11")
         ax = fig.add_subplot(111)
-        ax.set_title("Patron vs DUT")
-        ax.set_xlabel("Tiempo (s)")
-        ax.set_ylabel("Presion")
-        ax.grid(True, alpha=0.25)
+        ax.set_facecolor("#080b11")
+        ax.set_title("Patron vs DUT", color="#f8fafc", fontsize=13, fontweight="bold")
+        ax.set_xlabel("Tiempo (s)", color="#e2e8f0")
+        ax.set_ylabel("Presion", color="#e2e8f0")
+        ax.tick_params(axis="x", colors="#e2e8f0")
+        ax.tick_params(axis="y", colors="#e2e8f0")
+        ax.grid(True, alpha=0.25, color="#94a3b8")
+        for spine in ax.spines.values():
+            spine.set_color("#94a3b8")
         ax.set_xlim(0.0, self._LIVE_PLOT_WINDOW_S)
         ax.set_ylim(0.0, 1.0)
 
         line_pat, = ax.plot([], [], color="#0b5aa2", linewidth=1.6, label="Patron")
         line_dut, = ax.plot([], [], color="#d97706", linewidth=1.4, label="DUT")
-        ax.legend(loc="upper left", fontsize=8)
-        fig.subplots_adjust(left=0.11, right=0.98, top=0.88, bottom=0.20)
+        legend = ax.legend(loc="upper left", fontsize=8)
+        legend.get_frame().set_facecolor("#0f172a")
+        legend.get_frame().set_edgecolor("#475569")
+        for text in legend.get_texts():
+            text.set_color("#f8fafc")
+        fig.subplots_adjust(left=0.12, right=0.98, top=0.90, bottom=0.16)
 
         canvas = FigureCanvasTkAgg(fig, master=plot_box)
         canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
@@ -376,6 +550,46 @@ class ManualView(ttk.Frame):
         self._canvas_live = canvas
         self._line_live_pat = line_pat
         self._line_live_dut = line_dut
+
+    @staticmethod
+    def _set_button_enabled(button, enabled: bool):
+        if button is None:
+            return
+        state = "normal" if enabled else "disabled"
+        try:
+            button.state(["!disabled"] if enabled else ["disabled"])
+            return
+        except Exception:
+            pass
+        try:
+            button.configure(state=state)
+        except Exception:
+            pass
+
+    def _set_tx_channel(self, channel: Optional[int]) -> None:
+        try:
+            top = self.winfo_toplevel()
+            server = getattr(top, "telemetry_server", None)
+            setter = getattr(server, "set_active_channel", None)
+            if callable(setter):
+                setter(channel)
+            refresh = getattr(top, "_refresh_tx_state_label", None)
+            if callable(refresh):
+                refresh()
+        finally:
+            self._refresh_local_tx_buttons()
+
+    def _refresh_local_tx_buttons(self) -> None:
+        active = self._get_active_tx_channel()
+        for channel, button in self._tx_buttons.items():
+            if not self._widget_exists(button):
+                continue
+            is_active = (active == channel) or (channel is None and active is None)
+            button.configure(
+                bg="#2563eb" if is_active else "#1b2130",
+                fg="#ffffff" if is_active else "#f8fafc",
+                relief="sunken" if is_active else "raised",
+            )
 
     @staticmethod
     def _widget_exists(widget) -> bool:
@@ -553,7 +767,7 @@ class ManualView(ttk.Frame):
         self.rt.last_update_ts = 0.0
         self._safe_outputs(valve_open=True)
         self._set_config_widgets_state(enabled=True)
-        self.btn_stop_cfg.state(["disabled"])
+        self._set_button_enabled(self.btn_stop_cfg, False)
 
     def _apply_state_run(self):
         self.rt.running = True
@@ -566,7 +780,7 @@ class ManualView(ttk.Frame):
         self.set_valve(True)
         self.set_relay(True)
         self._set_config_widgets_state(enabled=False)
-        self.btn_stop_cfg.state(["!disabled"])
+        self._set_button_enabled(self.btn_stop_cfg, True)
 
     def _set_config_widgets_state(self, enabled: bool):
         state = "normal" if enabled else "disabled"
@@ -596,11 +810,11 @@ class ManualView(ttk.Frame):
                 pass
 
         if enabled:
-            self.btn_start.state(["!disabled"])
-            self.btn_zero.state(["!disabled"])
+            self._set_button_enabled(self.btn_start, True)
+            self._set_button_enabled(self.btn_zero, True)
         else:
-            self.btn_start.state(["disabled"])
-            self.btn_zero.state(["!disabled"])
+            self._set_button_enabled(self.btn_start, False)
+            self._set_button_enabled(self.btn_zero, True)
 
     # -------------------------
     # Modal Edit Dialog
@@ -2164,6 +2378,7 @@ class ManualView(ttk.Frame):
                 with self._runtime_lock:
                     self._runtime_snapshot = {
                         "p_kpa": float(p),
+                        "dut_p_kpa": float(p_dut_est),
                         "dut_eng": float(dut_eng),
                         "span_pct": float(span_pct),
                         "err_pct": float(err_pct),
@@ -2278,15 +2493,17 @@ class ManualView(ttk.Frame):
                 if temp_c is None:
                     raise RuntimeError("temperature cache empty")
                 temp_c = float(temp_c)
-                self.var_temp.set(f"Temp: {temp_c:.1f} C")
+                self.var_temp.set(f"TEMP: {temp_c:.1f} C")
             except Exception:
-                self.var_temp.set("Temp: --.- C")
+                self.var_temp.set("TEMP: --.- C")
 
             snapshot = self._get_runtime_snapshot()
             p = float(snapshot.get("p_kpa", 0.0))
+            dut_p_kpa = float(snapshot.get("dut_p_kpa", 0.0))
             dut_eng = float(snapshot.get("dut_eng", 0.0))
             dut_mode = str(snapshot.get("dut_mode", self.cfg.dut_mode))
             self.var_p_source.set(f"{p:,.2f} kPa".replace(",", ""))
+            self.var_dut_pressure.set(f"{dut_p_kpa:,.2f} kPa".replace(",", ""))
             if dut_mode == "A0":
                 self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
             else:
@@ -2306,6 +2523,8 @@ class ManualView(ttk.Frame):
                     self.request_event(name, payload)
             except Empty:
                 pass
+
+            self._refresh_local_tx_buttons()
 
         except Exception as e:
             self._safe_outputs(valve_open=True)
@@ -2339,6 +2558,10 @@ class ManualView(ttk.Frame):
             except Exception:
                 pass
             finally:
+                try:
+                    self._refresh_local_tx_buttons()
+                except Exception:
+                    pass
                 if self.winfo_exists():
                     self._tx_refresh_after_id = self.after(self._tx_refresh_period_ms, _refresh)
 
