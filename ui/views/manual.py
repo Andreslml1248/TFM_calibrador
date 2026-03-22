@@ -1678,8 +1678,18 @@ class ManualView(ttk.Frame):
                 )
             )
 
-            lbl_metrics = ttk.Label(top, text="RMS=-- | STD=-- | Pico=-- Hz @ --")
-            lbl_metrics.pack(side="left", padx=10)
+            metrics_frm = ttk.Frame(frm)
+            metrics_frm.pack(fill="x", pady=(0, 6))
+
+            var_rms = tk.StringVar(value="RMS AC: --")
+            var_std = tk.StringVar(value="STD AC: --")
+            var_peak = tk.StringVar(value="Frecuencia dominante: -- Hz")
+            var_p2p = tk.StringVar(value="Pico a pico: --")
+
+            ttk.Label(metrics_frm, textvariable=var_rms, anchor="w", justify="left").pack(fill="x", padx=4)
+            ttk.Label(metrics_frm, textvariable=var_std, anchor="w", justify="left").pack(fill="x", padx=4)
+            ttk.Label(metrics_frm, textvariable=var_peak, anchor="w", justify="left").pack(fill="x", padx=4)
+            ttk.Label(metrics_frm, textvariable=var_p2p, anchor="w", justify="left").pack(fill="x", padx=4)
 
             actions = ttk.Frame(frm)
             actions.pack(fill="x", pady=(0, 6))
@@ -1737,6 +1747,7 @@ class ManualView(ttk.Frame):
 
                     rms = float(np.sqrt(np.mean(samples * samples)))
                     std = float(np.std(samples, ddof=1)) if n > 1 else 0.0
+                    p2p = float(np.max(samples) - np.min(samples)) if n > 0 else 0.0
 
                     ax.clear()
                     ax.plot(freqs, mag, color="blue")
@@ -1746,7 +1757,10 @@ class ManualView(ttk.Frame):
                     ax.grid(True, alpha=0.3)
                     canvas.draw()
 
-                    lbl_metrics.config(text=f"RMS={rms:.6f} | STD={std:.6f} | Pico={peak_f:.2f} Hz @ {peak_a:.6f}")
+                    var_rms.set(f"RMS AC: {rms:.6f}")
+                    var_std.set(f"STD AC: {std:.6f}")
+                    var_peak.set(f"Frecuencia dominante: {peak_f:.2f} Hz | Magnitud FFT: {peak_a:.6f}")
+                    var_p2p.set(f"Pico a pico: {p2p:.6f}")
                 except Exception as e:
                     messagebox.showerror("FFT", f"Error: {e}")
 
