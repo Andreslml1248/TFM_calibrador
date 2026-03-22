@@ -1635,7 +1635,6 @@ class ManualView(ttk.Frame):
                     pass
 
             var_chan = tk.StringVar(value="A1")
-            var_chan_name = tk.StringVar(value="CORRIENTE")
             var_n = tk.IntVar(value=int(getattr(config, "FFT_N_SAMPLES", 1024)))
             var_n_txt = tk.StringVar(value=str(var_n.get()))
             var_rms = tk.StringVar(value="--")
@@ -1710,24 +1709,6 @@ class ManualView(ttk.Frame):
                 padx=sp(8, 4),
                 pady=sp(3, 1),
             ).pack(side="right")
-
-            tk.Label(
-                info_panel,
-                text="CANAL ACTIVO",
-                font=sf(10, "bold"),
-                bg="#080b11",
-                fg="#f3f4f6",
-                anchor="w",
-            ).pack(fill="x", padx=sp(12, 6))
-            tk.Label(
-                info_panel,
-                textvariable=var_chan_name,
-                font=sf(30, "bold"),
-                bg="#080b11",
-                fg="#5ab0ff",
-                anchor="e",
-                justify="right",
-            ).pack(fill="x", padx=sp(10, 4), pady=(0, sp(4, 2)))
 
             tk.Frame(info_panel, bg="#3a4150", height=sp(2, 1)).pack(fill="x", padx=sp(12, 6), pady=(0, sp(8, 4)))
 
@@ -1821,7 +1802,6 @@ class ManualView(ttk.Frame):
 
             def _refresh_chan_buttons(*_):
                 current = var_chan.get().strip().upper()
-                var_chan_name.set(chan_labels.get(current, current).upper())
                 for mode_sel, btn in chan_btns.items():
                     if mode_sel == current:
                         btn.configure(relief="sunken", bg="#2563eb", fg="#ffffff", activebackground="#2563eb")
@@ -1975,7 +1955,7 @@ class ManualView(ttk.Frame):
                 except Exception as e:
                     messagebox.showerror("FFT", f"Error: {e}", parent=win)
 
-            make_action_button("CAPTURAR Y CALCULAR", _run_fft, "#1f9d45", width=17).pack(side="left", padx=sp(4, 2))
+            make_action_button("CAPTURAR", _run_fft, "#1f9d45", width=10, font_size=13).pack(side="left", padx=sp(4, 2))
             win.protocol("WM_DELETE_WINDOW", _close_fft_window)
         except Exception as e:
             messagebox.showerror("FFT", f"No se pudo abrir la ventana: {e}")
