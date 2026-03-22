@@ -617,6 +617,12 @@ class ManualView(ttk.Frame):
         except Exception:
             return False
 
+    def _get_dialog_parent_window(self):
+        for candidate in (self._settings_window, self._calibration_window):
+            if self._widget_exists(candidate):
+                return candidate
+        return self.winfo_toplevel()
+
     def _prepare_popup_window(self, window: tk.Toplevel, width: int, height: int) -> None:
         window.resizable(False, False)
         try:
@@ -2458,11 +2464,12 @@ class ManualView(ttk.Frame):
         )
 
     def _open_sp_unit_selector(self):
-        dialog = tk.Toplevel(self)
+        parent_window = self._get_dialog_parent_window()
+        dialog = tk.Toplevel(parent_window)
         dialog.title("Seleccionar unidad de presion")
         dialog.geometry("280x360")
         dialog.resizable(False, False)
-        dialog.transient(self.winfo_toplevel())
+        dialog.transient(parent_window)
         dialog.focus_force()
         dialog.grab_set()
 

@@ -32,7 +32,14 @@ def open_numeric_keypad_dialog(
     error_title: str = "Error",
     error_mode: str = "error",
 ) -> None:
-    parent_window = owner.winfo_toplevel()
+    parent_getter = getattr(owner, "_get_dialog_parent_window", None)
+    if callable(parent_getter):
+        try:
+            parent_window = parent_getter()
+        except Exception:
+            parent_window = owner.winfo_toplevel()
+    else:
+        parent_window = owner.winfo_toplevel()
     parent_window.update_idletasks()
     screen_width = max(360, int(parent_window.winfo_screenwidth()))
     screen_height = max(300, int(parent_window.winfo_screenheight()))
@@ -49,7 +56,7 @@ def open_numeric_keypad_dialog(
     def sp(value: float, minimum: int = 0) -> int:
         return max(int(minimum), int(round(float(value) * layout_scale)))
 
-    dialog = tk.Toplevel(owner)
+    dialog = tk.Toplevel(parent_window)
     dialog.title(f"Editar: {title}")
     dialog.configure(bg=_BG_ROOT)
     dialog.resizable(False, False)
