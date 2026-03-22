@@ -1616,16 +1616,13 @@ class ManualView(ttk.Frame):
     # -------------------------
     def _open_fft_window(self):
         try:
+            sp = self._sp
+            sf = self._sf
+            sw = self._sw
+
             win = tk.Toplevel(self)
             win.title("FFT / Ruido")
             self._prepare_popup_same_as_main(win)
-
-            frm = ttk.Frame(win, padding=8)
-            frm.pack(fill="both", expand=True)
-
-            header = ttk.Frame(frm)
-            header.pack(fill="x", pady=(0, 6))
-            ttk.Label(header, text="FFT / RUIDO", font=("Arial", 16, "bold")).pack(side="left", padx=4)
 
             def _close_fft_window():
                 try:
@@ -1637,15 +1634,186 @@ class ManualView(ttk.Frame):
                 except Exception:
                     pass
 
-            ttk.Button(header, text="ATRAS", command=_close_fft_window).pack(side="right", padx=4)
-
-            top = ttk.Frame(frm)
-            top.pack(fill="x", pady=(0, 6))
-
             var_chan = tk.StringVar(value="A1")
-            ttk.Label(top, text="Canal:").pack(side="left", padx=4)
-            chan_box = ttk.Frame(top)
-            chan_box.pack(side="left", padx=4)
+            var_chan_name = tk.StringVar(value="CORRIENTE")
+            var_n = tk.IntVar(value=int(getattr(config, "FFT_N_SAMPLES", 1024)))
+            var_n_txt = tk.StringVar(value=str(var_n.get()))
+            var_rms = tk.StringVar(value="--")
+            var_std = tk.StringVar(value="--")
+            var_peak_freq = tk.StringVar(value="--")
+            var_peak_mag = tk.StringVar(value="--")
+            var_p2p = tk.StringVar(value="--")
+
+            shell = tk.Frame(win, bg="#0f1218", bd=2, relief="groove")
+            shell.pack(fill="both", expand=True, padx=sp(6, 4), pady=sp(6, 4))
+            shell.grid_rowconfigure(1, weight=1)
+            shell.grid_columnconfigure(0, weight=1)
+
+            header = tk.Frame(shell, bg="#171b24", bd=1, relief="groove")
+            header.grid(row=0, column=0, sticky="ew", padx=sp(8, 4), pady=(sp(8, 4), sp(6, 3)))
+            header.grid_columnconfigure(0, weight=1)
+
+            title_wrap = tk.Frame(header, bg="#171b24")
+            title_wrap.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(7, 3))
+            tk.Label(title_wrap, text="MODO:", font=sf(16, "bold"), bg="#171b24", fg="#f1f5f9").pack(side="left")
+            tk.Label(title_wrap, text=" FFT / RUIDO", font=sf(20, "bold"), bg="#171b24", fg="#ffffff").pack(side="left")
+
+            tk.Label(
+                header,
+                textvariable=self.var_temp,
+                font=sf(18, "bold"),
+                bg="#0c1018",
+                fg="#f8fafc",
+                bd=1,
+                relief="groove",
+                padx=sp(12, 6),
+                pady=sp(4, 2),
+            ).grid(row=0, column=1, sticky="e", padx=sp(8, 4), pady=sp(6, 3))
+
+            tk.Button(
+                header,
+                text="ATRAS",
+                command=_close_fft_window,
+                font=sf(14, "bold"),
+                bg="#111827",
+                fg="#f8fafc",
+                activebackground="#1f2937",
+                activeforeground="#ffffff",
+                width=sw(7, 5),
+                bd=2,
+                relief="raised",
+                padx=sp(4, 2),
+                pady=sp(2, 1),
+            ).grid(row=0, column=2, sticky="e", padx=(0, sp(8, 4)), pady=sp(6, 3))
+
+            body = tk.Frame(shell, bg="#0f1218")
+            body.grid(row=1, column=0, sticky="nsew", padx=sp(8, 4), pady=(0, sp(6, 3)))
+            body.grid_rowconfigure(0, weight=1)
+            body.grid_columnconfigure(0, weight=2, uniform="fftbody")
+            body.grid_columnconfigure(1, weight=3, uniform="fftbody")
+
+            info_panel = tk.Frame(body, bg="#080b11", bd=2, relief="groove")
+            info_panel.grid(row=0, column=0, sticky="nsew", padx=(0, sp(6, 3)))
+            info_panel.grid_columnconfigure(0, weight=1)
+
+            info_hdr = tk.Frame(info_panel, bg="#080b11")
+            info_hdr.pack(fill="x", padx=sp(12, 6), pady=(sp(8, 4), sp(4, 2)))
+            tk.Label(info_hdr, text="ANALISIS FFT", font=sf(11, "bold"), bg="#080b11", fg="#f3f4f6").pack(side="left")
+            tk.Label(
+                info_hdr,
+                text=f"Fs {float(getattr(config, 'ADS_SPS', 128)):.0f} Hz",
+                font=sf(12, "bold"),
+                bg="#121826",
+                fg="#b6c2cf",
+                bd=1,
+                relief="groove",
+                padx=sp(8, 4),
+                pady=sp(3, 1),
+            ).pack(side="right")
+
+            tk.Label(
+                info_panel,
+                text="CANAL ACTIVO",
+                font=sf(10, "bold"),
+                bg="#080b11",
+                fg="#f3f4f6",
+                anchor="w",
+            ).pack(fill="x", padx=sp(12, 6))
+            tk.Label(
+                info_panel,
+                textvariable=var_chan_name,
+                font=sf(30, "bold"),
+                bg="#080b11",
+                fg="#5ab0ff",
+                anchor="e",
+                justify="right",
+            ).pack(fill="x", padx=sp(10, 4), pady=(0, sp(4, 2)))
+
+            tk.Frame(info_panel, bg="#3a4150", height=sp(2, 1)).pack(fill="x", padx=sp(12, 6), pady=(0, sp(8, 4)))
+
+            def _make_metric_box(parent, title: str, text_var: tk.StringVar, color: str = "#f8fafc", font_size: int = 19):
+                box = tk.Frame(parent, bg="#0b0f16", bd=1, relief="groove")
+                box.pack(fill="x", padx=sp(12, 6), pady=(0, sp(6, 3)))
+                tk.Label(
+                    box,
+                    text=title,
+                    font=sf(9, "bold"),
+                    bg="#0b0f16",
+                    fg="#f3f4f6",
+                    anchor="w",
+                ).pack(fill="x", padx=sp(10, 4), pady=(sp(6, 3), 0))
+                tk.Label(
+                    box,
+                    textvariable=text_var,
+                    font=sf(font_size, "bold"),
+                    bg="#0b0f16",
+                    fg=color,
+                    anchor="e",
+                    justify="right",
+                ).pack(fill="x", padx=sp(10, 4), pady=(0, sp(6, 3)))
+
+            _make_metric_box(info_panel, "RMS AC (Vadc)", var_rms, color="#5ab0ff")
+            _make_metric_box(info_panel, "STD AC (Vadc)", var_std, color="#f8fafc")
+            _make_metric_box(info_panel, "FRECUENCIA DOMINANTE (Hz)", var_peak_freq, color="#fbbf24")
+            _make_metric_box(info_panel, "MAGNITUD FFT", var_peak_mag, color="#c084fc")
+            _make_metric_box(info_panel, "PICO A PICO (Vadc)", var_p2p, color="#22c55e")
+
+            plot_panel = tk.LabelFrame(
+                body,
+                text="ESPECTRO FFT",
+                font=sf(14, "bold"),
+                bg="#080b11",
+                fg="#f3f4f6",
+                bd=2,
+                relief="groove",
+                labelanchor="n",
+            )
+            plot_panel.grid(row=0, column=1, sticky="nsew")
+            plot_panel.grid_rowconfigure(0, weight=1)
+            plot_panel.grid_columnconfigure(0, weight=1)
+
+            fig = Figure(figsize=(7.5, 3.4), dpi=100, facecolor="#080b11")
+            ax = fig.add_subplot(111)
+
+            def _style_fft_axes():
+                ax.set_facecolor("#080b11")
+                ax.set_title("FFT Magnitud", color="#f8fafc", fontsize=max(10, int(round(12 * self._ui_scale))))
+                ax.set_xlabel("Frecuencia (Hz)", color="#cbd5e1", fontsize=max(9, int(round(10 * self._ui_scale))))
+                ax.set_ylabel("Magnitud", color="#cbd5e1", fontsize=max(9, int(round(10 * self._ui_scale))))
+                ax.tick_params(axis="both", colors="#cbd5e1", labelsize=max(8, int(round(9 * self._ui_scale))))
+                for spine in ax.spines.values():
+                    spine.set_color("#475569")
+                ax.grid(True, color="#334155", alpha=0.35)
+
+            _style_fft_axes()
+            fig.subplots_adjust(left=0.10, right=0.98, top=0.90, bottom=0.14)
+
+            canvas = FigureCanvasTkAgg(fig, master=plot_panel)
+            canvas_widget = canvas.get_tk_widget()
+            try:
+                canvas_widget.configure(bg="#080b11", highlightthickness=0)
+            except Exception:
+                pass
+            canvas_widget.grid(row=0, column=0, sticky="nsew", padx=sp(8, 4), pady=(sp(4, 2), sp(8, 4)))
+
+            controls = tk.Frame(shell, bg="#141922", bd=1, relief="groove")
+            controls.grid(row=2, column=0, sticky="ew", padx=sp(8, 4), pady=(0, 0))
+            controls.grid_columnconfigure(0, weight=3)
+            controls.grid_columnconfigure(1, weight=4)
+
+            cfg_box = tk.Frame(controls, bg="#141922")
+            cfg_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(4, 2))
+
+            tk.Label(
+                cfg_box,
+                text="CANAL:",
+                font=sf(10, "bold"),
+                bg="#141922",
+                fg="#fbbf24",
+            ).grid(row=0, column=0, sticky="w", padx=(0, sp(6, 3)))
+
+            chan_box = tk.Frame(cfg_box, bg="#141922")
+            chan_box.grid(row=0, column=1, sticky="w")
             chan_btns = {}
 
             def _set_chan(mode_sel: str):
@@ -1653,68 +1821,101 @@ class ManualView(ttk.Frame):
 
             def _refresh_chan_buttons(*_):
                 current = var_chan.get().strip().upper()
+                var_chan_name.set(chan_labels.get(current, current).upper())
                 for mode_sel, btn in chan_btns.items():
                     if mode_sel == current:
-                        btn.configure(relief="sunken", bg="#d9edf7")
+                        btn.configure(relief="sunken", bg="#2563eb", fg="#ffffff", activebackground="#2563eb")
                     else:
-                        btn.configure(relief="raised", bg="#f0f0f0")
+                        btn.configure(relief="raised", bg="#1b2130", fg="#f8fafc", activebackground="#334155")
 
             chan_labels = {"A0": "Voltaje", "A1": "Corriente", "A3": "Presion"}
             for mode_sel in ("A0", "A1", "A3"):
                 btn = tk.Button(
                     chan_box,
                     text=chan_labels.get(mode_sel, mode_sel),
-                    width=4,
-                    height=2,
-                    font=("Arial", 10, "bold"),
+                    width=sw(10, 6),
+                    font=sf(12, "bold"),
+                    bg="#1b2130",
+                    fg="#f8fafc",
+                    activebackground="#334155",
+                    activeforeground="#ffffff",
+                    bd=2,
+                    relief="raised",
+                    padx=sp(4, 2),
+                    pady=sp(3, 1),
                     command=lambda m=mode_sel: _set_chan(m),
                 )
-                btn.pack(side="left", padx=2)
+                btn.pack(side="left", padx=sp(2, 1))
                 chan_btns[mode_sel] = btn
 
             var_chan.trace_add("write", _refresh_chan_buttons)
             _refresh_chan_buttons()
 
-            var_n = tk.IntVar(value=int(getattr(config, "FFT_N_SAMPLES", 1024)))
-            ttk.Label(top, text="N muestras:").pack(side="left", padx=4)
-            var_n_txt = tk.StringVar(value=str(var_n.get()))
-            btn_n = ttk.Button(top, text=f"[{var_n_txt.get()}]")
-            btn_n.pack(side="left", padx=4)
-            btn_n.configure(
-                command=lambda: self._open_edit_dialog(
-                    var_n_txt,
-                    "N muestras FFT",
-                    64,
-                    16384,
-                    btn_n
-                )
+            tk.Label(
+                cfg_box,
+                text="N MUESTRAS:",
+                font=sf(10, "bold"),
+                bg="#141922",
+                fg="#fbbf24",
+            ).grid(row=1, column=0, sticky="w", padx=(0, sp(6, 3)), pady=(sp(6, 3), 0))
+
+            btn_n = tk.Button(
+                cfg_box,
+                text=f"[{var_n_txt.get()}]",
+                font=sf(18, "bold"),
+                bg="#090c12",
+                fg="#f8fafc",
+                activebackground="#171b24",
+                activeforeground="#ffffff",
+                width=sw(7, 5),
+                bd=2,
+                relief="raised",
+                padx=sp(4, 2),
+                pady=sp(2, 1),
             )
+            btn_n.grid(row=1, column=1, sticky="w", pady=(sp(6, 3), 0))
 
-            metrics_frm = ttk.Frame(frm)
-            metrics_frm.pack(fill="x", pady=(0, 6))
+            def _edit_n_samples():
+                def _save_n_samples(raw_value: str) -> None:
+                    n_val = int(float(raw_value.strip().replace(",", ".")))
+                    if n_val < 64 or n_val > 16384:
+                        raise ValueError("Valor fuera de rango [64, 16384]")
+                    var_n.set(int(n_val))
+                    var_n_txt.set(str(int(n_val)))
+                    if self._widget_exists(btn_n):
+                        btn_n.configure(text=f"[{var_n_txt.get()}]")
 
-            var_rms = tk.StringVar(value="RMS AC: --")
-            var_std = tk.StringVar(value="STD AC: --")
-            var_peak = tk.StringVar(value="Frecuencia dominante: -- Hz")
-            var_p2p = tk.StringVar(value="Pico a pico: --")
+                open_numeric_keypad_dialog(
+                    self,
+                    title="N muestras FFT",
+                    range_text="Rango: 64 - 16384",
+                    initial_value=var_n_txt.get(),
+                    on_save=_save_n_samples,
+                    error_title="Error",
+                    error_mode="error",
+                )
 
-            ttk.Label(metrics_frm, textvariable=var_rms, anchor="w", justify="left").pack(fill="x", padx=4)
-            ttk.Label(metrics_frm, textvariable=var_std, anchor="w", justify="left").pack(fill="x", padx=4)
-            ttk.Label(metrics_frm, textvariable=var_peak, anchor="w", justify="left").pack(fill="x", padx=4)
-            ttk.Label(metrics_frm, textvariable=var_p2p, anchor="w", justify="left").pack(fill="x", padx=4)
+            btn_n.configure(command=_edit_n_samples)
 
-            actions = ttk.Frame(frm)
-            actions.pack(fill="x", pady=(0, 6))
+            btns = tk.Frame(controls, bg="#141922")
+            btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(4, 2))
 
-            fig = Figure(figsize=(7.5, 3.0), dpi=100)
-            ax = fig.add_subplot(111)
-            ax.set_title("FFT Magnitud")
-            ax.set_xlabel("Frecuencia (Hz)")
-            ax.set_ylabel("Magnitud")
-            ax.grid(True, alpha=0.3)
-
-            canvas = FigureCanvasTkAgg(fig, master=frm)
-            canvas.get_tk_widget().pack(fill="both", expand=True)
+            def make_action_button(text, command, bg, fg="#ffffff", width=12, font_size=15, pad_x=5, pad_y=3):
+                return tk.Button(
+                    btns,
+                    text=text,
+                    command=command,
+                    font=sf(font_size, "bold"),
+                    width=sw(width, 5),
+                    bg=bg,
+                    fg=fg,
+                    activebackground=bg,
+                    activeforeground=fg,
+                    bd=2,
+                    relief="raised",
+                    padx=sp(pad_x, 2),
+                    pady=sp(pad_y, 2),
+                )
 
             def _run_fft():
                 try:
@@ -1762,21 +1963,19 @@ class ManualView(ttk.Frame):
                     p2p = float(np.max(samples) - np.min(samples)) if n > 0 else 0.0
 
                     ax.clear()
-                    ax.plot(freqs, mag, color="blue")
-                    ax.set_title("FFT Magnitud")
-                    ax.set_xlabel("Frecuencia (Hz)")
-                    ax.set_ylabel("Magnitud")
-                    ax.grid(True, alpha=0.3)
+                    ax.plot(freqs, mag, color="#5ab0ff", linewidth=1.6)
+                    _style_fft_axes()
                     canvas.draw()
 
-                    var_rms.set(f"RMS AC: {rms:.6f}")
-                    var_std.set(f"STD AC: {std:.6f}")
-                    var_peak.set(f"Frecuencia dominante: {peak_f:.2f} Hz | Magnitud FFT: {peak_a:.6f}")
-                    var_p2p.set(f"Pico a pico: {p2p:.6f}")
+                    var_rms.set(f"{rms:.6f}")
+                    var_std.set(f"{std:.6f}")
+                    var_peak_freq.set(f"{peak_f:.2f}")
+                    var_peak_mag.set(f"{peak_a:.6f}")
+                    var_p2p.set(f"{p2p:.6f}")
                 except Exception as e:
-                    messagebox.showerror("FFT", f"Error: {e}")
+                    messagebox.showerror("FFT", f"Error: {e}", parent=win)
 
-            ttk.Button(actions, text="Capturar y Calcular", command=_run_fft).pack(side="left", padx=6)
+            make_action_button("CAPTURAR Y CALCULAR", _run_fft, "#1f9d45", width=17).pack(side="left", padx=sp(4, 2))
             win.protocol("WM_DELETE_WINDOW", _close_fft_window)
         except Exception as e:
             messagebox.showerror("FFT", f"No se pudo abrir la ventana: {e}")
