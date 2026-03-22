@@ -1618,14 +1618,26 @@ class ManualView(ttk.Frame):
         try:
             win = tk.Toplevel(self)
             win.title("FFT / Ruido")
-            win.geometry("800x480")
-            win.transient(self.winfo_toplevel())
-            win.lift()
-            win.focus_force()
-            win.grab_set()
+            self._prepare_popup_same_as_main(win)
 
             frm = ttk.Frame(win, padding=8)
             frm.pack(fill="both", expand=True)
+
+            header = ttk.Frame(frm)
+            header.pack(fill="x", pady=(0, 6))
+            ttk.Label(header, text="FFT / RUIDO", font=("Arial", 16, "bold")).pack(side="left", padx=4)
+
+            def _close_fft_window():
+                try:
+                    win.grab_release()
+                except Exception:
+                    pass
+                try:
+                    win.destroy()
+                except Exception:
+                    pass
+
+            ttk.Button(header, text="ATRAS", command=_close_fft_window).pack(side="right", padx=4)
 
             top = ttk.Frame(frm)
             top.pack(fill="x", pady=(0, 6))
@@ -1765,6 +1777,7 @@ class ManualView(ttk.Frame):
                     messagebox.showerror("FFT", f"Error: {e}")
 
             ttk.Button(actions, text="Capturar y Calcular", command=_run_fft).pack(side="left", padx=6)
+            win.protocol("WM_DELETE_WINDOW", _close_fft_window)
         except Exception as e:
             messagebox.showerror("FFT", f"No se pudo abrir la ventana: {e}")
 
