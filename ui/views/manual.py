@@ -1647,7 +1647,7 @@ class ManualView(ttk.Frame):
                     else:
                         btn.configure(relief="raised", bg="#f0f0f0")
 
-            chan_labels = {"A0": "Senal V", "A1": "Senal I", "A3": "Senal A3"}
+            chan_labels = {"A0": "Voltaje", "A1": "Corriente", "A3": "Presion"}
             for mode_sel in ("A0", "A1", "A3"):
                 btn = tk.Button(
                     chan_box,
