@@ -41,8 +41,8 @@ def open_numeric_keypad_dialog(
     else:
         parent_window = owner.winfo_toplevel()
     parent_window.update_idletasks()
-    screen_width = max(360, int(parent_window.winfo_screenwidth()))
-    screen_height = max(300, int(parent_window.winfo_screenheight()))
+    screen_width = max(360, int(parent_window.winfo_width() or parent_window.winfo_screenwidth()))
+    screen_height = max(300, int(parent_window.winfo_height() or parent_window.winfo_screenheight()))
     base_scale = float(getattr(owner, "_ui_scale", 1.0))
     if screen_height <= 480:
         layout_scale = min(base_scale, 0.74)
@@ -56,167 +56,55 @@ def open_numeric_keypad_dialog(
     def sp(value: float, minimum: int = 0) -> int:
         return max(int(minimum), int(round(float(value) * layout_scale)))
 
-    dialog = tk.Toplevel(parent_window)
-    dialog.title(f"Editar: {title}")
-    dialog.configure(bg=_BG_ROOT)
-    dialog.resizable(False, False)
-    try:
-        dialog.attributes("-topmost", True)
-    except tk.TclError:
-        pass
-    dialog.transient(parent_window)
+    previous_grab = parent_window.grab_current()
+    width = min(max(sp(460, 340), 340), max(340, screen_width - sp(24, 16)))
+    height = min(max(sp(520, 400), 400), max(400, screen_height - sp(24, 16)))
 
-    previous_grab = dialog.grab_current()
-    blocked_windows: list[tuple[tk.Misc, bool, bool | None]] = []
-    candidate_windows = []
-    for candidate in (owner.winfo_toplevel(), parent_window, previous_grab):
-        try:
-            if candidate is None or candidate is dialog or not bool(candidate.winfo_exists()):
-                continue
-        except Exception:
-            continue
-        if candidate in candidate_windows:
-            continue
-        candidate_windows.append(candidate)
-
-    for window in candidate_windows:
-        topmost_state = None
-        try:
-            topmost_state = bool(window.attributes("-topmost"))
-        except tk.TclError:
-            topmost_state = None
-        disabled_applied = False
-        try:
-            window.wm_attributes("-disabled", True)
-            disabled_applied = True
-        except tk.TclError:
-            pass
-        if topmost_state:
-            try:
-                window.attributes("-topmost", False)
-            except tk.TclError:
-                pass
-        blocked_windows.append((window, disabled_applied, topmost_state))
-
-    width = min(max(sp(460, 340), 340), max(340, screen_width - 20))
-    height = min(max(sp(520, 400), 400), max(400, screen_height - 20))
-    center_x = parent_window.winfo_x() + parent_window.winfo_width() // 2
-    center_y = parent_window.winfo_y() + parent_window.winfo_height() // 2
-    pos_x = max(0, center_x - width // 2)
-    pos_y = max(0, center_y - height // 2)
-    dialog.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
-
-    modal_binding_ids: list[tuple[tk.Misc, str, str]] = []
-    keep_front_after_id = {"id": None}
-    closing = {"done": False}
-
-    def keep_dialog_front() -> str:
-        if closing["done"]:
-            return "break"
-        try:
-            if not bool(dialog.winfo_exists()):
-                return "break"
-        except Exception:
-            return "break"
-        try:
-            dialog.lift(parent_window)
-        except Exception:
-            pass
-        try:
-            dialog.attributes("-topmost", True)
-        except tk.TclError:
-            pass
-        try:
-            dialog.focus_force()
-        except Exception:
-            pass
-        return "break"
-
-    def schedule_keep_front() -> None:
-        if closing["done"]:
-            return
-        try:
-            if not bool(dialog.winfo_exists()):
-                return
-        except Exception:
-            return
-        keep_dialog_front()
-        keep_front_after_id["id"] = dialog.after(150, schedule_keep_front)
-
-    def bind_modal_guard(widget: tk.Misc, sequence: str, handler) -> None:
-        try:
-            bind_id = widget.bind(sequence, handler, add="+")
-            if bind_id:
-                modal_binding_ids.append((widget, sequence, bind_id))
-        except Exception:
-            pass
+    overlay = tk.Frame(parent_window, bg=_BG_ROOT, highlightthickness=0, bd=0)
+    overlay.place(relx=0.0, rely=0.0, relwidth=1.0, relheight=1.0)
+    overlay.lift()
+    overlay.update_idletasks()
 
     def restore_parent() -> None:
-        for window, disabled_applied, topmost_state in blocked_windows:
-            try:
-                if not bool(window.winfo_exists()):
-                    continue
-            except Exception:
-                continue
-            if disabled_applied:
-                try:
-                    window.wm_attributes("-disabled", False)
-                except tk.TclError:
-                    pass
-            if topmost_state is not None:
-                try:
-                    window.attributes("-topmost", bool(topmost_state))
-                except tk.TclError:
-                    pass
         try:
             if previous_grab is not None and bool(previous_grab.winfo_exists()):
-                previous_grab.lift()
-                previous_grab.focus_force()
                 previous_grab.grab_set()
         except Exception:
             pass
         try:
             if bool(parent_window.winfo_exists()):
-                parent_window.lift()
                 parent_window.focus_force()
         except Exception:
             pass
 
     def close_dialog() -> None:
-        closing["done"] = True
-        if keep_front_after_id["id"] is not None:
-            try:
-                dialog.after_cancel(keep_front_after_id["id"])
-            except Exception:
-                pass
-            keep_front_after_id["id"] = None
-        for widget, sequence, bind_id in modal_binding_ids:
-            try:
-                widget.unbind(sequence, bind_id)
-            except Exception:
-                pass
         try:
-            dialog.grab_release()
+            overlay.grab_release()
         except Exception:
             pass
         try:
-            dialog.destroy()
+            overlay.destroy()
         finally:
             restore_parent()
 
-    dialog.focus_force()
-    try:
-        dialog.grab_set_global()
-    except tk.TclError:
-        dialog.grab_set()
-    dialog.lift(parent_window)
-    bind_modal_guard(parent_window, "<ButtonPress>", lambda _event: keep_dialog_front())
-    bind_modal_guard(parent_window, "<FocusIn>", lambda _event: keep_dialog_front())
-    bind_modal_guard(dialog, "<FocusOut>", lambda _event: dialog.after(1, keep_dialog_front))
-    schedule_keep_front()
+    def consume_overlay_click(_event=None) -> str:
+        try:
+            value_entry.focus_set()
+            value_entry.icursor("end")
+        except Exception:
+            pass
+        return "break"
 
-    shell = tk.Frame(dialog, bg=_BG_ROOT, padx=sp(12, 8), pady=sp(10, 8))
-    shell.pack(fill="both", expand=True)
+    shell = tk.Frame(
+        overlay,
+        bg=_BG_ROOT,
+        padx=sp(12, 8),
+        pady=sp(10, 8),
+        highlightthickness=1,
+        highlightbackground=_BORDER_PANEL,
+        bd=0,
+    )
+    shell.place(relx=0.5, rely=0.5, anchor="center", width=width, height=height)
 
     tk.Label(
         shell,
@@ -257,6 +145,14 @@ def open_numeric_keypad_dialog(
     def focus_entry() -> None:
         value_entry.focus_set()
         value_entry.icursor("end")
+
+    overlay.bind("<ButtonPress>", consume_overlay_click)
+    overlay.bind("<FocusIn>", consume_overlay_click)
+    overlay.focus_force()
+    try:
+        overlay.grab_set_global()
+    except tk.TclError:
+        overlay.grab_set()
 
     def add_digit(digit: str) -> None:
         nonlocal replace_on_first_input
@@ -417,9 +313,9 @@ def open_numeric_keypad_dialog(
 
     def show_validation_error(message: str) -> None:
         if error_mode == "warning":
-            messagebox.showwarning(error_title, message, parent=dialog)
+            messagebox.showwarning(error_title, message, parent=parent_window)
         else:
-            messagebox.showerror(error_title, message, parent=dialog)
+            messagebox.showerror(error_title, message, parent=parent_window)
 
     def save_and_close() -> None:
         try:
@@ -453,5 +349,4 @@ def open_numeric_keypad_dialog(
         font_size=13,
     ).grid(row=0, column=1, sticky="ew", padx=(sp(6, 4), 0))
 
-    dialog.protocol("WM_DELETE_WINDOW", on_cancel)
-    dialog.wait_window()
+    parent_window.wait_window(overlay)
