@@ -158,6 +158,7 @@ class AutoView(ttk.Frame):
         self.results: List[Dict[str, Any]] = []
         self._results_win: Optional[tk.Toplevel] = None
         self._settings_window: Optional[tk.Toplevel] = None
+        self._settings_snapshot: Optional[Dict[str, Any]] = None
         self.btn_seq_points = None
         self.btn_seq_dir = None
         self.btn_start = None
@@ -702,7 +703,7 @@ class AutoView(ttk.Frame):
         self._ax_registered.set_ylim(max(0.0, y_min - y_pad), y_max + y_pad)
         self._canvas_registered.draw_idle()
 
-    def _close_settings_window(self) -> None:
+    def _close_settings_window(self, clear_snapshot: bool = False) -> None:
         win = self._settings_window
         self._settings_window = None
         for attr in (
@@ -717,6 +718,8 @@ class AutoView(ttk.Frame):
             "btn_tmax",
         ):
             setattr(self, attr, None)
+        if clear_snapshot:
+            self._settings_snapshot = None
         if not self._widget_exists(win):
             return
         try:
@@ -727,6 +730,60 @@ class AutoView(ttk.Frame):
             win.destroy()
         except Exception:
             pass
+
+    def _capture_settings_snapshot(self) -> Dict[str, Any]:
+        return {
+            "var_mode": self.var_mode.get(),
+            "var_pressure_unit": self.var_pressure_unit.get(),
+            "var_sig_min": self.var_sig_min.get(),
+            "var_sig_max": self.var_sig_max.get(),
+            "var_pmin": self.var_pmin.get(),
+            "var_pmax": self.var_pmax.get(),
+            "var_npts": self.var_npts.get(),
+            "var_dir": self.var_dir.get(),
+            "var_tsettle": self.var_tsettle.get(),
+            "var_tmax": self.var_tmax.get(),
+            "cfg_dut_mode": str(self.cfg.dut_mode),
+            "cfg_sig_min": float(self.cfg.sig_min),
+            "cfg_sig_max": float(self.cfg.sig_max),
+            "cfg_p_min_kpa": float(self.cfg.p_min_kpa),
+            "cfg_p_max_kpa": float(self.cfg.p_max_kpa),
+            "cfg_n_points": int(self.cfg.n_points),
+            "cfg_direction": str(self.cfg.direction),
+            "cfg_settle_time_s": float(self.cfg.settle_time_s),
+            "cfg_settle_time_max_s": float(self.cfg.settle_time_max_s),
+        }
+
+    def _restore_settings_snapshot(self) -> None:
+        snap = self._settings_snapshot
+        if not snap:
+            return
+
+        self.var_mode.set(str(snap["var_mode"]))
+        self.var_pressure_unit.set(str(snap["var_pressure_unit"]))
+        self.var_sig_min.set(str(snap["var_sig_min"]))
+        self.var_sig_max.set(str(snap["var_sig_max"]))
+        self.var_pmin.set(str(snap["var_pmin"]))
+        self.var_pmax.set(str(snap["var_pmax"]))
+        self.var_npts.set(str(snap["var_npts"]))
+        self.var_dir.set(str(snap["var_dir"]))
+        self.var_tsettle.set(str(snap["var_tsettle"]))
+        self.var_tmax.set(str(snap["var_tmax"]))
+
+        self.cfg.dut_mode = str(snap["cfg_dut_mode"])
+        self.cfg.sig_min = float(snap["cfg_sig_min"])
+        self.cfg.sig_max = float(snap["cfg_sig_max"])
+        self.cfg.p_min_kpa = float(snap["cfg_p_min_kpa"])
+        self.cfg.p_max_kpa = float(snap["cfg_p_max_kpa"])
+        self.cfg.n_points = int(snap["cfg_n_points"])
+        self.cfg.direction = str(snap["cfg_direction"])
+        self.cfg.settle_time_s = float(snap["cfg_settle_time_s"])
+        self.cfg.settle_time_max_s = float(snap["cfg_settle_time_max_s"])
+
+        self._update_pressure_unit_ui()
+        self._on_mode_changed()
+        self._refresh_sequence_summary()
+        self._refresh_registered_plot()
 
     def _prepare_popup_same_as_main(self, window: tk.Toplevel) -> None:
         window.resizable(False, False)
@@ -781,7 +838,11 @@ class AutoView(ttk.Frame):
 
         self._refresh_sequence_summary()
         self._refresh_registered_plot()
-        self._close_settings_window()
+        self._close_settings_window(clear_snapshot=True)
+
+    def _cancel_settings_window(self) -> None:
+        self._restore_settings_snapshot()
+        self._close_settings_window(clear_snapshot=True)
 
     def _open_settings_window(self) -> None:
         if self._widget_exists(self._settings_window):
@@ -789,26 +850,34 @@ class AutoView(ttk.Frame):
             self._settings_window.focus_force()
             return
 
+        if self._settings_snapshot is None:
+            self._settings_snapshot = self._capture_settings_snapshot()
+
         win = tk.Toplevel(self)
         self._settings_window = win
         win.title("Configuracion automatica")
         self._prepare_popup_same_as_main(win)
 
-        frm = ttk.Frame(win, padding=14)
+        frm = ttk.Frame(win, padding=16)
         frm.pack(fill="both", expand=True)
-        frm.grid_columnconfigure(0, weight=1, uniform="auto_settings")
-        frm.grid_columnconfigure(1, weight=1, uniform="auto_settings")
+        frm.grid_columnconfigure(0, weight=1)
+        frm.grid_rowconfigure(1, weight=1)
 
-        ttk.Label(frm, text="CONFIGURACION AUTOMATICA", font=("Arial", 16, "bold")).grid(
+        ttk.Label(frm, text="CONFIGURACION AUTOMATICA", font=("Arial", 18, "bold")).grid(
             row=0,
             column=0,
-            columnspan=2,
             sticky="ew",
-            pady=(0, 10),
+            pady=(0, 16),
         )
 
-        dut_box = ttk.LabelFrame(frm, text="DUT", padding=10)
-        dut_box.grid(row=1, column=0, sticky="nsew", padx=(0, 8), pady=(0, 8))
+        body = ttk.Frame(frm)
+        body.grid(row=1, column=0, sticky="nsew")
+        body.grid_columnconfigure(0, weight=1, uniform="auto_settings")
+        body.grid_columnconfigure(1, weight=1, uniform="auto_settings")
+        body.grid_rowconfigure(1, weight=1)
+
+        dut_box = ttk.LabelFrame(body, text="DUT", padding=10)
+        dut_box.grid(row=0, column=0, sticky="new", padx=(0, 10), pady=(0, 10))
         dut_box.grid_columnconfigure(0, weight=1)
         ttk.Radiobutton(
             dut_box,
@@ -825,41 +894,8 @@ class AutoView(ttk.Frame):
             command=self._on_mode_changed,
         ).grid(row=1, column=0, sticky="w")
 
-        range_box = ttk.LabelFrame(frm, text="Rangos", padding=10)
-        range_box.grid(row=1, column=1, sticky="nsew", padx=(8, 0), pady=(0, 8))
-        range_box.grid_columnconfigure(1, weight=1)
-        range_box.grid_columnconfigure(2, weight=0)
-
-        ttk.Label(range_box, text="Unidad").grid(row=0, column=0, sticky="w", pady=(0, 6))
-        self.btn_pressure_unit = ttk.Button(range_box, text=self.var_pressure_unit.get(), command=self._open_pressure_unit_selector)
-        self.btn_pressure_unit.grid(row=0, column=1, columnspan=2, sticky="ew", padx=(6, 0), pady=(0, 6))
-
-        ttk.Label(range_box, textvariable=self.var_pmin_label).grid(row=1, column=0, sticky="w", pady=6)
-        self.btn_pmin = ttk.Button(range_box, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
-        self.btn_pmin.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
-
-        ttk.Label(range_box, textvariable=self.var_pmax_label).grid(row=2, column=0, sticky="w", pady=6)
-        self.btn_pmax = ttk.Button(range_box, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
-        self.btn_pmax.grid(row=2, column=1, sticky="ew", padx=6, pady=6)
-
-        ttk.Label(range_box, textvariable=self.var_sigmin_label).grid(row=3, column=0, sticky="w", pady=6)
-        self.btn_sig_min = ttk.Button(
-            range_box,
-            text=f"[{self.var_sig_min.get()}]",
-            command=lambda: self._open_edit_dialog(self.var_sig_min, "Senal min", 0, 100, self.btn_sig_min),
-        )
-        self.btn_sig_min.grid(row=3, column=1, sticky="ew", padx=6, pady=6)
-
-        ttk.Label(range_box, textvariable=self.var_sigmax_label).grid(row=4, column=0, sticky="w", pady=6)
-        self.btn_sig_max = ttk.Button(
-            range_box,
-            text=f"[{self.var_sig_max.get()}]",
-            command=lambda: self._open_edit_dialog(self.var_sig_max, "Senal max", 0, 100, self.btn_sig_max),
-        )
-        self.btn_sig_max.grid(row=4, column=1, sticky="ew", padx=6, pady=6)
-
-        seq_box = ttk.LabelFrame(frm, text="Secuencia", padding=10)
-        seq_box.grid(row=2, column=0, columnspan=2, sticky="nsew")
+        seq_box = ttk.LabelFrame(body, text="Secuencia", padding=10)
+        seq_box.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
         seq_box.grid_columnconfigure(1, weight=1)
 
         ttk.Label(seq_box, text="Puntos").grid(row=0, column=0, sticky="w", pady=6)
@@ -886,13 +922,52 @@ class AutoView(ttk.Frame):
         )
         self.btn_tmax.grid(row=3, column=1, sticky="ew", padx=(6, 0), pady=6)
 
+        range_box = ttk.LabelFrame(body, text="Rangos", padding=10)
+        range_box.grid(row=0, column=1, rowspan=2, sticky="nsew", pady=(0, 10))
+        range_box.grid_columnconfigure(1, weight=1)
+        range_box.grid_columnconfigure(2, weight=0)
+
+        ttk.Label(range_box, text="Unidad").grid(row=0, column=0, sticky="w", padx=10, pady=(12, 6))
+        self.btn_pressure_unit = ttk.Button(range_box, text=self.var_pressure_unit.get(), command=self._open_pressure_unit_selector)
+        self.btn_pressure_unit.grid(row=0, column=1, columnspan=2, sticky="ew", padx=6, pady=(12, 6))
+
+        ttk.Label(range_box, textvariable=self.var_pmin_label).grid(row=1, column=0, sticky="w", padx=10, pady=6)
+        self.btn_pmin = ttk.Button(range_box, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
+        self.btn_pmin.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+
+        ttk.Label(range_box, textvariable=self.var_pmax_label).grid(row=2, column=0, sticky="w", padx=10, pady=6)
+        self.btn_pmax = ttk.Button(range_box, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
+        self.btn_pmax.grid(row=2, column=1, sticky="ew", padx=6, pady=6)
+
+        ttk.Label(range_box, textvariable=self.var_sigmin_label).grid(row=3, column=0, sticky="w", padx=10, pady=6)
+        self.btn_sig_min = ttk.Button(
+            range_box,
+            text=f"[{self.var_sig_min.get()}]",
+            command=lambda: self._open_edit_dialog(self.var_sig_min, "Senal min", 0, 100, self.btn_sig_min),
+        )
+        self.btn_sig_min.grid(row=3, column=1, sticky="ew", padx=6, pady=6)
+
+        ttk.Label(range_box, textvariable=self.var_sigmax_label).grid(row=4, column=0, sticky="w", padx=10, pady=6)
+        self.btn_sig_max = ttk.Button(
+            range_box,
+            text=f"[{self.var_sig_max.get()}]",
+            command=lambda: self._open_edit_dialog(self.var_sig_max, "Senal max", 0, 100, self.btn_sig_max),
+        )
+        self.btn_sig_max.grid(row=4, column=1, sticky="ew", padx=6, pady=6)
+
         btns = ttk.Frame(frm)
-        btns.grid(row=3, column=0, columnspan=2, pady=(12, 0))
-        ttk.Button(btns, text="Guardar", command=self._save_settings_window).pack(side="left", padx=(0, 8), ipadx=18, ipady=6)
-        ttk.Button(btns, text="Cerrar", command=self._close_settings_window).pack(side="left", ipadx=18, ipady=6)
+        btns.grid(row=2, column=0, pady=(8, 0))
+        btns.grid_columnconfigure(0, weight=1)
+        btns.grid_columnconfigure(1, weight=1)
+        ttk.Button(btns, text="GUARDAR", command=self._save_settings_window).grid(
+            row=0, column=0, sticky="ew", padx=(0, 10), ipady=8
+        )
+        ttk.Button(btns, text="CANCELAR", command=self._cancel_settings_window).grid(
+            row=0, column=1, sticky="ew", padx=(10, 0), ipady=8
+        )
 
         def _on_close():
-            self._close_settings_window()
+            self._cancel_settings_window()
 
         win.protocol("WM_DELETE_WINDOW", _on_close)
         self._on_mode_changed()
