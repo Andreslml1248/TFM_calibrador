@@ -66,6 +66,14 @@ def open_numeric_keypad_dialog(
         pass
     dialog.transient(parent_window)
 
+    previous_grab = dialog.grab_current()
+    parent_disabled = False
+    try:
+        parent_window.wm_attributes("-disabled", True)
+        parent_disabled = True
+    except tk.TclError:
+        pass
+
     width = min(max(sp(460, 340), 340), max(340, screen_width - 20))
     height = min(max(sp(520, 400), 400), max(400, screen_height - 20))
     center_x = parent_window.winfo_x() + parent_window.winfo_width() // 2
@@ -74,8 +82,37 @@ def open_numeric_keypad_dialog(
     pos_y = max(0, center_y - height // 2)
     dialog.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
+    def restore_parent() -> None:
+        if parent_disabled:
+            try:
+                parent_window.wm_attributes("-disabled", False)
+            except tk.TclError:
+                pass
+        try:
+            if bool(parent_window.winfo_exists()):
+                parent_window.lift()
+                parent_window.focus_force()
+        except Exception:
+            pass
+        try:
+            if previous_grab is not None and bool(previous_grab.winfo_exists()):
+                previous_grab.grab_set()
+        except Exception:
+            pass
+
+    def close_dialog() -> None:
+        try:
+            dialog.grab_release()
+        except Exception:
+            pass
+        try:
+            dialog.destroy()
+        finally:
+            restore_parent()
+
     dialog.focus_force()
     dialog.grab_set()
+    dialog.lift(parent_window)
 
     shell = tk.Frame(dialog, bg=_BG_ROOT, padx=sp(12, 8), pady=sp(10, 8))
     shell.pack(fill="both", expand=True)
@@ -289,10 +326,10 @@ def open_numeric_keypad_dialog(
         except Exception as exc:
             show_validation_error(str(exc))
             return
-        dialog.destroy()
+        close_dialog()
 
     def on_cancel() -> None:
-        dialog.destroy()
+        close_dialog()
 
     make_button(
         actions,

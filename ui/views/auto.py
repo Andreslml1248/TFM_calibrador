@@ -1450,8 +1450,16 @@ class AutoView(ttk.Frame):
         dialog.geometry("280x360")
         dialog.resizable(False, False)
         dialog.transient(parent_window)
+        previous_grab = dialog.grab_current()
+        parent_disabled = False
+        try:
+            parent_window.wm_attributes("-disabled", True)
+            parent_disabled = True
+        except tk.TclError:
+            pass
         dialog.focus_force()
         dialog.grab_set()
+        dialog.lift(parent_window)
 
         frm = ttk.Frame(dialog, padding=10)
         frm.pack(fill="both", expand=True)
@@ -1483,20 +1491,46 @@ class AutoView(ttk.Frame):
         action_frm = ttk.Frame(frm)
         action_frm.pack(fill="x", pady=(8, 0))
 
+        def _close_dialog():
+            try:
+                dialog.grab_release()
+            except Exception:
+                pass
+            try:
+                dialog.destroy()
+            finally:
+                if parent_disabled:
+                    try:
+                        parent_window.wm_attributes("-disabled", False)
+                    except tk.TclError:
+                        pass
+                try:
+                    if self._widget_exists(parent_window):
+                        parent_window.lift()
+                        parent_window.focus_force()
+                except Exception:
+                    pass
+                try:
+                    if previous_grab is not None and bool(previous_grab.winfo_exists()):
+                        previous_grab.grab_set()
+                except Exception:
+                    pass
+
         def on_save():
             sel = lst_units.curselection()
             if not sel:
                 return
             self._set_pressure_unit(self._PRESSURE_UNITS[int(sel[0])])
-            dialog.destroy()
+            _close_dialog()
 
         def on_cancel():
-            dialog.destroy()
+            _close_dialog()
 
         ttk.Button(action_frm, text="Guardar", command=on_save).pack(side="left", fill="x", expand=True, padx=(0, 4))
         ttk.Button(action_frm, text="Cancelar", command=on_cancel).pack(side="left", fill="x", expand=True, padx=(4, 0))
 
         lst_units.bind("<Double-Button-1>", lambda _e: on_save())
+        dialog.protocol("WM_DELETE_WINDOW", on_cancel)
         dialog.wait_window()
 
     def _open_list_selector(self, *, title: str, label: str, options: List[str], current_value: str, on_save_value: Callable[[str], None]):
@@ -1506,8 +1540,16 @@ class AutoView(ttk.Frame):
         dialog.geometry("280x360")
         dialog.resizable(False, False)
         dialog.transient(parent_window)
+        previous_grab = dialog.grab_current()
+        parent_disabled = False
+        try:
+            parent_window.wm_attributes("-disabled", True)
+            parent_disabled = True
+        except tk.TclError:
+            pass
         dialog.focus_force()
         dialog.grab_set()
+        dialog.lift(parent_window)
 
         frm = ttk.Frame(dialog, padding=10)
         frm.pack(fill="both", expand=True)
@@ -1538,20 +1580,46 @@ class AutoView(ttk.Frame):
         action_frm = ttk.Frame(frm)
         action_frm.pack(fill="x", pady=(8, 0))
 
+        def _close_dialog():
+            try:
+                dialog.grab_release()
+            except Exception:
+                pass
+            try:
+                dialog.destroy()
+            finally:
+                if parent_disabled:
+                    try:
+                        parent_window.wm_attributes("-disabled", False)
+                    except tk.TclError:
+                        pass
+                try:
+                    if self._widget_exists(parent_window):
+                        parent_window.lift()
+                        parent_window.focus_force()
+                except Exception:
+                    pass
+                try:
+                    if previous_grab is not None and bool(previous_grab.winfo_exists()):
+                        previous_grab.grab_set()
+                except Exception:
+                    pass
+
         def _save():
             sel = lst_values.curselection()
             if not sel:
                 return
             on_save_value(options[int(sel[0])])
-            dialog.destroy()
+            _close_dialog()
 
         def _cancel():
-            dialog.destroy()
+            _close_dialog()
 
         ttk.Button(action_frm, text="Guardar", command=_save).pack(side="left", fill="x", expand=True, padx=(0, 4))
         ttk.Button(action_frm, text="Cancelar", command=_cancel).pack(side="left", fill="x", expand=True, padx=(4, 0))
 
         lst_values.bind("<Double-Button-1>", lambda _e: _save())
+        dialog.protocol("WM_DELETE_WINDOW", _cancel)
         dialog.wait_window()
 
     def _open_npts_selector(self):
@@ -1586,8 +1654,16 @@ class AutoView(ttk.Frame):
         dialog.geometry("280x360")
         dialog.resizable(False, False)
         dialog.transient(parent_window)
+        previous_grab = dialog.grab_current()
+        parent_disabled = False
+        try:
+            parent_window.wm_attributes("-disabled", True)
+            parent_disabled = True
+        except tk.TclError:
+            pass
         dialog.focus_force()
         dialog.grab_set()
+        dialog.lift(parent_window)
 
         frm = ttk.Frame(dialog, padding=10)
         frm.pack(fill="both", expand=True)
@@ -1619,20 +1695,46 @@ class AutoView(ttk.Frame):
         action_frm = ttk.Frame(frm)
         action_frm.pack(fill="x", pady=(8, 0))
 
+        def _close_dialog():
+            try:
+                dialog.grab_release()
+            except Exception:
+                pass
+            try:
+                dialog.destroy()
+            finally:
+                if parent_disabled:
+                    try:
+                        parent_window.wm_attributes("-disabled", False)
+                    except tk.TclError:
+                        pass
+                try:
+                    if self._widget_exists(parent_window):
+                        parent_window.lift()
+                        parent_window.focus_force()
+                except Exception:
+                    pass
+                try:
+                    if previous_grab is not None and bool(previous_grab.winfo_exists()):
+                        previous_grab.grab_set()
+                except Exception:
+                    pass
+
         def _save():
             sel = lst_values.curselection()
             if not sel:
                 return
             self._set_direction_value(options[int(sel[0])])
-            dialog.destroy()
+            _close_dialog()
 
         def _cancel():
-            dialog.destroy()
+            _close_dialog()
 
         ttk.Button(action_frm, text="Guardar", command=_save).pack(side="left", fill="x", expand=True, padx=(0, 4))
         ttk.Button(action_frm, text="Cancelar", command=_cancel).pack(side="left", fill="x", expand=True, padx=(4, 0))
 
         lst_values.bind("<Double-Button-1>", lambda _e: _save())
+        dialog.protocol("WM_DELETE_WINDOW", _cancel)
         dialog.wait_window()
 
     def _set_direction_value(self, value: str):
