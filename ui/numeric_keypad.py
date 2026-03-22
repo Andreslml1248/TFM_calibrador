@@ -82,6 +82,47 @@ def open_numeric_keypad_dialog(
     pos_y = max(0, center_y - height // 2)
     dialog.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
 
+    modal_binding_ids: list[tuple[tk.Misc, str, str]] = []
+    keep_front_after_id = {"id": None}
+    closing = {"done": False}
+
+    def keep_dialog_front() -> str:
+        if closing["done"]:
+            return "break"
+        try:
+            if not bool(dialog.winfo_exists()):
+                return "break"
+        except Exception:
+            return "break"
+        try:
+            dialog.lift(parent_window)
+        except Exception:
+            pass
+        try:
+            dialog.focus_force()
+        except Exception:
+            pass
+        return "break"
+
+    def schedule_keep_front() -> None:
+        if closing["done"]:
+            return
+        try:
+            if not bool(dialog.winfo_exists()):
+                return
+        except Exception:
+            return
+        keep_dialog_front()
+        keep_front_after_id["id"] = dialog.after(150, schedule_keep_front)
+
+    def bind_modal_guard(widget: tk.Misc, sequence: str, handler) -> None:
+        try:
+            bind_id = widget.bind(sequence, handler, add="+")
+            if bind_id:
+                modal_binding_ids.append((widget, sequence, bind_id))
+        except Exception:
+            pass
+
     def restore_parent() -> None:
         if parent_disabled:
             try:
@@ -101,6 +142,18 @@ def open_numeric_keypad_dialog(
             pass
 
     def close_dialog() -> None:
+        closing["done"] = True
+        if keep_front_after_id["id"] is not None:
+            try:
+                dialog.after_cancel(keep_front_after_id["id"])
+            except Exception:
+                pass
+            keep_front_after_id["id"] = None
+        for widget, sequence, bind_id in modal_binding_ids:
+            try:
+                widget.unbind(sequence, bind_id)
+            except Exception:
+                pass
         try:
             dialog.grab_release()
         except Exception:
@@ -111,8 +164,15 @@ def open_numeric_keypad_dialog(
             restore_parent()
 
     dialog.focus_force()
-    dialog.grab_set()
+    try:
+        dialog.grab_set_global()
+    except tk.TclError:
+        dialog.grab_set()
     dialog.lift(parent_window)
+    bind_modal_guard(parent_window, "<ButtonPress>", lambda _event: keep_dialog_front())
+    bind_modal_guard(parent_window, "<FocusIn>", lambda _event: keep_dialog_front())
+    bind_modal_guard(dialog, "<FocusOut>", lambda _event: dialog.after(1, keep_dialog_front))
+    schedule_keep_front()
 
     shell = tk.Frame(dialog, bg=_BG_ROOT, padx=sp(12, 8), pady=sp(10, 8))
     shell.pack(fill="both", expand=True)
