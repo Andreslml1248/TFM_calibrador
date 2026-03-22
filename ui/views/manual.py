@@ -1395,10 +1395,6 @@ class ManualView(ttk.Frame):
             self._calibration_window = win
             win.grid_rowconfigure(0, weight=1)
             win.grid_columnconfigure(0, weight=1)
-            frm = ttk.Frame(win, padding=10)
-            frm.grid(row=0, column=0, sticky="nsew")
-            frm.grid_columnconfigure(0, weight=1)
-            frm.grid_rowconfigure(1, weight=1)
 
             var_chan = tk.StringVar(value="A0")
             var_x1 = tk.StringVar(value="--")
@@ -1432,29 +1428,129 @@ class ManualView(ttk.Frame):
                     var_m.set(f"{config.GAIN_2PT:.6f}")
                     var_b.set(f"{config.OFFSET_2PT:.6f}")
 
-            title = ttk.Label(frm, text="CALIBRACION 2 PUNTOS", font=("Arial", 16, "bold"))
-            title.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+            sp = self._sp
+            sf = self._sf
+            sw = self._sw
+            win.configure(bg="#0f1218")
 
-            content = ttk.Frame(frm)
-            content.grid(row=1, column=0, sticky="nsew")
+            def make_value_button(parent, text, command=None, width=8, font_size=15):
+                return tk.Button(
+                    parent,
+                    text=text,
+                    command=command,
+                    font=sf(font_size, "bold"),
+                    bg="#090c12",
+                    fg="#f8fafc",
+                    activebackground="#171b24",
+                    activeforeground="#ffffff",
+                    width=sw(width, 5),
+                    bd=2,
+                    relief="raised",
+                    padx=sp(4, 2),
+                    pady=sp(3, 1),
+                )
+
+            def make_action_button(parent, text, command, bg, fg="#ffffff", width=12, font_size=14):
+                return tk.Button(
+                    parent,
+                    text=text,
+                    command=command,
+                    font=sf(font_size, "bold"),
+                    bg=bg,
+                    fg=fg,
+                    activebackground=bg,
+                    activeforeground=fg,
+                    width=sw(width, 5),
+                    bd=2,
+                    relief="raised",
+                    padx=sp(5, 2),
+                    pady=sp(3, 1),
+                )
+
+            panel_label_kwargs = {
+                "font": sf(11, "bold"),
+                "bg": "#080b11",
+                "fg": "#f3f4f6",
+                "anchor": "w",
+            }
+            value_label_kwargs = {
+                "font": sf(12, "bold"),
+                "bg": "#080b11",
+                "fg": "#f8fafc",
+                "anchor": "w",
+            }
+
+            shell = tk.Frame(win, bg="#0f1218", bd=2, relief="groove")
+            shell.grid(row=0, column=0, sticky="nsew", padx=sp(6, 4), pady=sp(6, 4))
+            shell.grid_rowconfigure(1, weight=1)
+            shell.grid_columnconfigure(0, weight=1)
+
+            header = tk.Frame(shell, bg="#171b24", bd=1, relief="groove")
+            header.grid(row=0, column=0, sticky="ew", padx=sp(8, 4), pady=(sp(8, 4), sp(6, 3)))
+            header.grid_columnconfigure(0, weight=1)
+
+            title_wrap = tk.Frame(header, bg="#171b24")
+            title_wrap.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(7, 3))
+            tk.Label(title_wrap, text="MODO:", font=sf(16, "bold"), bg="#171b24", fg="#f1f5f9").pack(side="left")
+            tk.Label(title_wrap, text=" MANUAL", font=sf(20, "bold"), bg="#171b24", fg="#ffffff").pack(side="left")
+            tk.Label(
+                title_wrap,
+                text="  CALIBRACION 2 PUNTOS",
+                font=sf(13, "bold"),
+                bg="#121826",
+                fg="#b6c2cf",
+                bd=1,
+                relief="groove",
+                padx=sp(8, 4),
+                pady=sp(2, 1),
+            ).pack(side="left", padx=(sp(10, 4), 0))
+
+            tk.Label(
+                header,
+                textvariable=self.var_temp,
+                font=sf(18, "bold"),
+                bg="#0c1018",
+                fg="#f8fafc",
+                bd=1,
+                relief="groove",
+                padx=sp(12, 6),
+                pady=sp(4, 2),
+            ).grid(row=0, column=1, sticky="e", padx=sp(8, 4), pady=sp(6, 3))
+
+            body = tk.Frame(shell, bg="#0f1218")
+            body.grid(row=1, column=0, sticky="nsew", padx=sp(8, 4), pady=(0, sp(6, 3)))
+            body.grid_rowconfigure(0, weight=1)
+            body.grid_columnconfigure(0, weight=1)
+
+            content = tk.Frame(body, bg="#0f1218")
+            content.grid(row=0, column=0, sticky="nsew")
             content.grid_columnconfigure(0, weight=1, uniform="cal")
             content.grid_columnconfigure(1, weight=1, uniform="cal")
             content.grid_rowconfigure(0, weight=1)
 
-            left_col = ttk.Frame(content)
-            left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+            left_col = tk.Frame(content, bg="#0f1218")
+            left_col.grid(row=0, column=0, sticky="nsew", padx=(0, sp(6, 3)))
             left_col.grid_columnconfigure(0, weight=1)
 
-            right_col = ttk.Frame(content)
-            right_col.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+            right_col = tk.Frame(content, bg="#0f1218")
+            right_col.grid(row=0, column=1, sticky="nsew", padx=(sp(6, 3), 0))
             right_col.grid_columnconfigure(0, weight=1)
 
-            chan_frame = ttk.LabelFrame(left_col, text="Canal")
-            chan_frame.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+            chan_frame = tk.LabelFrame(
+                left_col,
+                text="CANAL",
+                font=sf(13, "bold"),
+                bg="#080b11",
+                fg="#f3f4f6",
+                bd=2,
+                relief="groove",
+                labelanchor="n",
+            )
+            chan_frame.grid(row=0, column=0, sticky="ew", pady=(0, sp(8, 4)))
             chan_frame.grid_columnconfigure(0, weight=1)
 
-            chan_box = ttk.Frame(chan_frame)
-            chan_box.grid(row=0, column=0, sticky="w", padx=8, pady=8)
+            chan_box = tk.Frame(chan_frame, bg="#080b11")
+            chan_box.grid(row=0, column=0, sticky="w", padx=sp(8, 4), pady=sp(8, 4))
             chan_btns = {}
 
             def _set_chan(mode_sel: str):
@@ -1464,32 +1560,48 @@ class ManualView(ttk.Frame):
                 current = var_chan.get().strip().upper()
                 for mode_sel, btn in chan_btns.items():
                     if mode_sel == current:
-                        btn.configure(relief="sunken", bg="#d9edf7")
+                        btn.configure(relief="sunken", bg="#2563eb", fg="#ffffff", activebackground="#2563eb")
                     else:
-                        btn.configure(relief="raised", bg="#f0f0f0")
+                        btn.configure(relief="raised", bg="#1b2130", fg="#f8fafc", activebackground="#334155")
 
             for mode_sel in ("A0", "A1", "A2"):
                 btn = tk.Button(
                     chan_box,
                     text=mode_sel,
-                    width=4,
-                    height=1,
-                    font=("Arial", 10, "bold"),
+                    width=sw(4, 3),
+                    font=sf(12, "bold"),
+                    bg="#1b2130",
+                    fg="#f8fafc",
+                    activebackground="#334155",
+                    activeforeground="#ffffff",
+                    bd=2,
+                    relief="raised",
+                    padx=sp(4, 2),
+                    pady=sp(2, 1),
                     command=lambda m=mode_sel: _set_chan(m),
                 )
-                btn.pack(side="left", padx=3)
+                btn.pack(side="left", padx=sp(3, 2))
                 chan_btns[mode_sel] = btn
 
             var_chan.trace_add("write", _refresh_chan_buttons)
             _refresh_chan_buttons()
 
-            p1_box = ttk.LabelFrame(left_col, text="Punto 1")
-            p1_box.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+            p1_box = tk.LabelFrame(
+                left_col,
+                text="PUNTO 1",
+                font=sf(13, "bold"),
+                bg="#080b11",
+                fg="#f3f4f6",
+                bd=2,
+                relief="groove",
+                labelanchor="n",
+            )
+            p1_box.grid(row=1, column=0, sticky="ew", pady=(0, sp(8, 4)))
             p1_box.grid_columnconfigure(1, weight=1)
 
-            ttk.Label(p1_box, text="y real").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
-            btn_y1 = ttk.Button(p1_box, text=f"[{var_y1.get()}]")
-            btn_y1.grid(row=0, column=1, sticky="ew", padx=6, pady=(8, 4))
+            tk.Label(p1_box, text="y real", **panel_label_kwargs).grid(row=0, column=0, sticky="w", padx=sp(8, 4), pady=(sp(8, 4), sp(4, 2)))
+            btn_y1 = make_value_button(p1_box, f"[{var_y1.get()}]")
+            btn_y1.grid(row=0, column=1, sticky="ew", padx=sp(6, 3), pady=(sp(8, 4), sp(4, 2)))
             btn_y1.configure(
                 command=lambda: self._open_edit_dialog(
                     var_y1,
@@ -1499,20 +1611,29 @@ class ManualView(ttk.Frame):
                     btn_y1
                 )
             )
-            ttk.Label(p1_box, textvariable=var_units).grid(row=0, column=2, sticky="w", padx=(0, 8), pady=(8, 4))
-            ttk.Button(p1_box, text="Capturar x1", command=lambda: _capture_point(1)).grid(
-                row=1, column=0, columnspan=3, sticky="ew", padx=8, pady=4
+            tk.Label(p1_box, textvariable=var_units, **panel_label_kwargs).grid(row=0, column=2, sticky="w", padx=(0, sp(8, 4)), pady=(sp(8, 4), sp(4, 2)))
+            make_action_button(p1_box, "CAPTURAR X1", lambda: _capture_point(1), "#111827", width=11, font_size=13).grid(
+                row=1, column=0, columnspan=3, sticky="ew", padx=sp(8, 4), pady=sp(4, 2)
             )
-            ttk.Label(p1_box, text="x1 (Vadc):").grid(row=2, column=0, sticky="w", padx=8, pady=(4, 8))
-            ttk.Label(p1_box, textvariable=var_x1).grid(row=2, column=1, columnspan=2, sticky="w", padx=6, pady=(4, 8))
+            tk.Label(p1_box, text="x1 (Vadc):", **panel_label_kwargs).grid(row=2, column=0, sticky="w", padx=sp(8, 4), pady=(sp(4, 2), sp(8, 4)))
+            tk.Label(p1_box, textvariable=var_x1, **value_label_kwargs).grid(row=2, column=1, columnspan=2, sticky="w", padx=sp(6, 3), pady=(sp(4, 2), sp(8, 4)))
 
-            p2_box = ttk.LabelFrame(left_col, text="Punto 2")
+            p2_box = tk.LabelFrame(
+                left_col,
+                text="PUNTO 2",
+                font=sf(13, "bold"),
+                bg="#080b11",
+                fg="#f3f4f6",
+                bd=2,
+                relief="groove",
+                labelanchor="n",
+            )
             p2_box.grid(row=2, column=0, sticky="ew")
             p2_box.grid_columnconfigure(1, weight=1)
 
-            ttk.Label(p2_box, text="y real").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
-            btn_y2 = ttk.Button(p2_box, text=f"[{var_y2.get()}]")
-            btn_y2.grid(row=0, column=1, sticky="ew", padx=6, pady=(8, 4))
+            tk.Label(p2_box, text="y real", **panel_label_kwargs).grid(row=0, column=0, sticky="w", padx=sp(8, 4), pady=(sp(8, 4), sp(4, 2)))
+            btn_y2 = make_value_button(p2_box, f"[{var_y2.get()}]")
+            btn_y2.grid(row=0, column=1, sticky="ew", padx=sp(6, 3), pady=(sp(8, 4), sp(4, 2)))
             btn_y2.configure(
                 command=lambda: self._open_edit_dialog(
                     var_y2,
@@ -1522,35 +1643,53 @@ class ManualView(ttk.Frame):
                     btn_y2
                 )
             )
-            ttk.Label(p2_box, textvariable=var_units).grid(row=0, column=2, sticky="w", padx=(0, 8), pady=(8, 4))
-            ttk.Button(p2_box, text="Capturar x2", command=lambda: _capture_point(2)).grid(
-                row=1, column=0, columnspan=3, sticky="ew", padx=8, pady=4
+            tk.Label(p2_box, textvariable=var_units, **panel_label_kwargs).grid(row=0, column=2, sticky="w", padx=(0, sp(8, 4)), pady=(sp(8, 4), sp(4, 2)))
+            make_action_button(p2_box, "CAPTURAR X2", lambda: _capture_point(2), "#111827", width=11, font_size=13).grid(
+                row=1, column=0, columnspan=3, sticky="ew", padx=sp(8, 4), pady=sp(4, 2)
             )
-            ttk.Label(p2_box, text="x2 (Vadc):").grid(row=2, column=0, sticky="w", padx=8, pady=(4, 8))
-            ttk.Label(p2_box, textvariable=var_x2).grid(row=2, column=1, columnspan=2, sticky="w", padx=6, pady=(4, 8))
+            tk.Label(p2_box, text="x2 (Vadc):", **panel_label_kwargs).grid(row=2, column=0, sticky="w", padx=sp(8, 4), pady=(sp(4, 2), sp(8, 4)))
+            tk.Label(p2_box, textvariable=var_x2, **value_label_kwargs).grid(row=2, column=1, columnspan=2, sticky="w", padx=sp(6, 3), pady=(sp(4, 2), sp(8, 4)))
 
-            pwm_box = ttk.LabelFrame(right_col, text="Control bomba PWM")
-            pwm_box.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+            pwm_box = tk.LabelFrame(
+                right_col,
+                text="CONTROL BOMBA PWM",
+                font=sf(13, "bold"),
+                bg="#080b11",
+                fg="#f3f4f6",
+                bd=2,
+                relief="groove",
+                labelanchor="n",
+            )
+            pwm_box.grid(row=0, column=0, sticky="ew", pady=(0, sp(8, 4)))
             pwm_box.grid_columnconfigure(1, weight=1)
             pwm_box.grid_columnconfigure(2, weight=1)
 
-            ttk.Label(pwm_box, text="PWM (%)").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
-            btn_pwm_pct = ttk.Button(pwm_box, text=f"[{var_pwm_pct.get()}]")
-            btn_pwm_pct.grid(row=0, column=1, sticky="ew", padx=6, pady=(8, 4))
-            btn_pwm_toggle = ttk.Button(pwm_box, text="PWM ON")
-            btn_pwm_toggle.grid(row=0, column=2, sticky="ew", padx=6, pady=(8, 4))
-            ttk.Label(pwm_box, text="P actual (kPa)").grid(row=1, column=0, sticky="w", padx=8, pady=4)
-            ttk.Label(pwm_box, textvariable=var_pwm_p).grid(row=1, column=1, sticky="w", padx=6, pady=4)
-            ttk.Label(pwm_box, textvariable=var_pwm_state).grid(row=2, column=0, columnspan=3, sticky="w", padx=8, pady=(4, 8))
+            tk.Label(pwm_box, text="PWM (%)", **panel_label_kwargs).grid(row=0, column=0, sticky="w", padx=sp(8, 4), pady=(sp(8, 4), sp(4, 2)))
+            btn_pwm_pct = make_value_button(pwm_box, f"[{var_pwm_pct.get()}]", width=7)
+            btn_pwm_pct.grid(row=0, column=1, sticky="ew", padx=sp(6, 3), pady=(sp(8, 4), sp(4, 2)))
+            btn_pwm_toggle = make_action_button(pwm_box, "PWM ON", None, "#111827", width=8, font_size=13)
+            btn_pwm_toggle.grid(row=0, column=2, sticky="ew", padx=sp(6, 3), pady=(sp(8, 4), sp(4, 2)))
+            tk.Label(pwm_box, text="P actual (kPa)", **panel_label_kwargs).grid(row=1, column=0, sticky="w", padx=sp(8, 4), pady=sp(4, 2))
+            tk.Label(pwm_box, textvariable=var_pwm_p, **value_label_kwargs).grid(row=1, column=1, sticky="w", padx=sp(6, 3), pady=sp(4, 2))
+            tk.Label(pwm_box, textvariable=var_pwm_state, **value_label_kwargs).grid(row=2, column=0, columnspan=3, sticky="w", padx=sp(8, 4), pady=(sp(4, 2), sp(8, 4)))
 
-            result_box = ttk.LabelFrame(right_col, text="Coeficientes")
-            result_box.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+            result_box = tk.LabelFrame(
+                right_col,
+                text="COEFICIENTES",
+                font=sf(13, "bold"),
+                bg="#080b11",
+                fg="#f3f4f6",
+                bd=2,
+                relief="groove",
+                labelanchor="n",
+            )
+            result_box.grid(row=1, column=0, sticky="ew", pady=(0, sp(8, 4)))
             result_box.grid_columnconfigure(1, weight=1)
 
-            ttk.Label(result_box, text="m:").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
-            ttk.Label(result_box, textvariable=var_m).grid(row=0, column=1, sticky="w", padx=6, pady=(8, 4))
-            ttk.Label(result_box, text="b:").grid(row=1, column=0, sticky="w", padx=8, pady=(4, 8))
-            ttk.Label(result_box, textvariable=var_b).grid(row=1, column=1, sticky="w", padx=6, pady=(4, 8))
+            tk.Label(result_box, text="m:", **panel_label_kwargs).grid(row=0, column=0, sticky="w", padx=sp(8, 4), pady=(sp(8, 4), sp(4, 2)))
+            tk.Label(result_box, textvariable=var_m, **value_label_kwargs).grid(row=0, column=1, sticky="w", padx=sp(6, 3), pady=(sp(8, 4), sp(4, 2)))
+            tk.Label(result_box, text="b:", **panel_label_kwargs).grid(row=1, column=0, sticky="w", padx=sp(8, 4), pady=(sp(4, 2), sp(8, 4)))
+            tk.Label(result_box, textvariable=var_b, **value_label_kwargs).grid(row=1, column=1, sticky="w", padx=sp(6, 3), pady=(sp(4, 2), sp(8, 4)))
 
             def _capture_point(idx: int):
                 mode = var_chan.get().strip().upper()
@@ -1608,19 +1747,22 @@ class ManualView(ttk.Frame):
                 except Exception as e:
                     messagebox.showerror("Calibracion", f"Error: {e}")
 
-            actions = ttk.Frame(right_col)
+            actions = tk.Frame(right_col, bg="#0f1218")
             actions.grid(row=2, column=0, sticky="sew")
             actions.grid_columnconfigure(0, weight=1)
             actions.grid_columnconfigure(1, weight=1)
 
-            ttk.Button(actions, text="CALCULAR Y GUARDAR", command=_calc_and_save).grid(
-                row=0, column=0, sticky="ew", padx=(0, 6), ipady=6
+            make_action_button(actions, "CALCULAR Y GUARDAR", _calc_and_save, "#1f9d45", width=16, font_size=13).grid(
+                row=0, column=0, sticky="ew", padx=(0, sp(6, 3))
             )
-            ttk.Button(
+            make_action_button(
                 actions,
-                text="ATRAS",
-                command=lambda: _back_to_settings(),
-            ).grid(row=0, column=1, sticky="ew", padx=(6, 0), ipady=6)
+                "ATRAS",
+                lambda: _back_to_settings(),
+                "#111827",
+                width=9,
+                font_size=13,
+            ).grid(row=0, column=1, sticky="ew", padx=(sp(6, 3), 0))
 
             def _disable_manual_pwm():
                 pwm_enabled["on"] = False
