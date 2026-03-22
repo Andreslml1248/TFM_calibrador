@@ -1736,7 +1736,7 @@ class ManualView(ttk.Frame):
             _make_metric_box(info_panel, "RMS AC (Vadc)", var_rms, color="#5ab0ff")
             _make_metric_box(info_panel, "STD AC (Vadc)", var_std, color="#f8fafc")
             _make_metric_box(info_panel, "FRECUENCIA DOMINANTE (Hz)", var_peak_freq, color="#fbbf24", font_size=14)
-            _make_metric_box(info_panel, "MAGNITUD FFT", var_peak_mag, color="#c084fc", font_size=14)
+            _make_metric_box(info_panel, "MAGNITUD FFT (Vadc)", var_peak_mag, color="#c084fc", font_size=14)
             _make_metric_box(info_panel, "PICO A PICO (Vadc)", var_p2p, color="#22c55e")
 
             plot_panel = tk.LabelFrame(
@@ -1955,7 +1955,7 @@ class ManualView(ttk.Frame):
                 except Exception as e:
                     messagebox.showerror("FFT", f"Error: {e}", parent=win)
 
-            make_action_button("CAPTURAR", _run_fft, "#1f9d45", width=10, font_size=13).pack(side="left", padx=sp(4, 2))
+            make_action_button("CAPTURAR", _run_fft, "#1f9d45", width=12, font_size=13).pack(side="left", padx=sp(4, 2))
             win.protocol("WM_DELETE_WINDOW", _close_fft_window)
         except Exception as e:
             messagebox.showerror("FFT", f"No se pudo abrir la ventana: {e}")
