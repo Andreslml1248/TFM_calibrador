@@ -1127,105 +1127,218 @@ class ManualView(ttk.Frame):
         self._prepare_popup_same_as_main(win)
         self._settings_window = win
 
-        frm = ttk.Frame(win, padding=16)
-        frm.pack(fill="both", expand=True)
+        sp = self._sp
+        sf = self._sf
+        sw = self._sw
+        win.configure(bg="#0f1218")
+
+        def make_value_button(parent, text, command, width=8):
+            return tk.Button(
+                parent,
+                text=text,
+                command=command,
+                font=sf(15, "bold"),
+                bg="#090c12",
+                fg="#f8fafc",
+                activebackground="#171b24",
+                activeforeground="#ffffff",
+                width=sw(width, 5),
+                bd=2,
+                relief="raised",
+                padx=sp(4, 2),
+                pady=sp(3, 1),
+            )
+
+        def make_action_button(parent, text, command, bg, fg="#ffffff"):
+            return tk.Button(
+                parent,
+                text=text,
+                command=command,
+                font=sf(15, "bold"),
+                bg=bg,
+                fg=fg,
+                activebackground=bg,
+                activeforeground=fg,
+                bd=2,
+                relief="raised",
+                padx=sp(6, 3),
+                pady=sp(4, 2),
+            )
+
+        shell = tk.Frame(win, bg="#0f1218", bd=2, relief="groove")
+        shell.pack(fill="both", expand=True, padx=sp(6, 4), pady=sp(6, 4))
+        shell.grid_rowconfigure(1, weight=1)
+        shell.grid_columnconfigure(0, weight=1)
+
+        header = tk.Frame(shell, bg="#171b24", bd=1, relief="groove")
+        header.grid(row=0, column=0, sticky="ew", padx=sp(8, 4), pady=(sp(8, 4), sp(6, 3)))
+        header.grid_columnconfigure(0, weight=1)
+
+        title_wrap = tk.Frame(header, bg="#171b24")
+        title_wrap.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(7, 3))
+        tk.Label(title_wrap, text="MODO:", font=sf(16, "bold"), bg="#171b24", fg="#f1f5f9").pack(side="left")
+        tk.Label(title_wrap, text=" MANUAL", font=sf(20, "bold"), bg="#171b24", fg="#ffffff").pack(side="left")
+        tk.Label(title_wrap, text="  CONFIGURACION", font=sf(13, "bold"), bg="#121826", fg="#b6c2cf", bd=1, relief="groove", padx=sp(8, 4), pady=sp(2, 1)).pack(side="left", padx=(sp(10, 4), 0))
+
+        tk.Label(
+            header,
+            textvariable=self.var_temp,
+            font=sf(18, "bold"),
+            bg="#0c1018",
+            fg="#f8fafc",
+            bd=1,
+            relief="groove",
+            padx=sp(12, 6),
+            pady=sp(4, 2),
+        ).grid(row=0, column=1, sticky="e", padx=sp(8, 4), pady=sp(6, 3))
+
+        frm = tk.Frame(shell, bg="#0f1218")
+        frm.grid(row=1, column=0, sticky="nsew", padx=sp(8, 4), pady=(0, sp(6, 3)))
         frm.grid_columnconfigure(0, weight=1)
-        frm.grid_rowconfigure(1, weight=1)
+        frm.grid_rowconfigure(0, weight=1)
 
-        title = ttk.Label(frm, text="CONFIGURACION DEL DUT", font=("Arial", 18, "bold"))
-        title.grid(row=0, column=0, sticky="ew", pady=(0, 16))
-
-        body = ttk.Frame(frm)
-        body.grid(row=1, column=0, sticky="nsew")
+        body = tk.Frame(frm, bg="#0f1218")
+        body.grid(row=0, column=0, sticky="nsew")
         body.grid_columnconfigure(0, weight=1, uniform="settings")
         body.grid_columnconfigure(1, weight=1, uniform="settings")
         body.grid_rowconfigure(1, weight=1)
 
-        mode_box = ttk.LabelFrame(body, text="DUT")
-        mode_box.grid(row=0, column=0, sticky="new", padx=(0, 10), pady=(0, 10))
+        mode_box = tk.LabelFrame(
+            body,
+            text="DUT",
+            font=sf(13, "bold"),
+            bg="#080b11",
+            fg="#f3f4f6",
+            bd=2,
+            relief="groove",
+            labelanchor="n",
+        )
+        mode_box.grid(row=0, column=0, sticky="new", padx=(0, sp(10, 5)), pady=(0, sp(10, 5)))
         mode_box.grid_columnconfigure(0, weight=1)
 
-        ttk.Radiobutton(
+        tk.Radiobutton(
             mode_box,
             text="P/I (4-20 mA)",
             value="A1",
             variable=self.var_mode,
             command=self._on_mode_changed,
-        ).grid(row=0, column=0, sticky="w", padx=12, pady=(10, 6))
-        ttk.Radiobutton(
+            font=sf(12, "bold"),
+            bg="#080b11",
+            fg="#f8fafc",
+            selectcolor="#111827",
+            activebackground="#080b11",
+            activeforeground="#ffffff",
+            highlightthickness=0,
+            anchor="w",
+            justify="left",
+        ).grid(row=0, column=0, sticky="w", padx=sp(12, 6), pady=(sp(10, 5), sp(6, 3)))
+        tk.Radiobutton(
             mode_box,
             text="P/V (0-10 V)",
             value="A0",
             variable=self.var_mode,
             command=self._on_mode_changed,
-        ).grid(row=1, column=0, sticky="w", padx=12, pady=(4, 12))
+            font=sf(12, "bold"),
+            bg="#080b11",
+            fg="#f8fafc",
+            selectcolor="#111827",
+            activebackground="#080b11",
+            activeforeground="#ffffff",
+            highlightthickness=0,
+            anchor="w",
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", padx=sp(12, 6), pady=(sp(4, 2), sp(12, 6)))
 
-        cal_box = ttk.Frame(body)
-        cal_box.grid(row=1, column=0, sticky="new", padx=(0, 10))
+        cal_box = tk.Frame(body, bg="#0f1218")
+        cal_box.grid(row=1, column=0, sticky="new", padx=(0, sp(10, 5)))
         cal_box.grid_columnconfigure(0, weight=1)
-        ttk.Button(
+        make_action_button(
             cal_box,
-            text="CALIBRACION 2 PUNTOS",
-            command=self._open_calibration_2pt_from_settings,
-        ).grid(row=0, column=0, sticky="ew", pady=(8, 0), ipady=8)
+            "CALIBRACION 2 PUNTOS",
+            self._open_calibration_2pt_from_settings,
+            "#111827",
+        ).grid(row=0, column=0, sticky="ew", pady=(sp(8, 4), 0))
 
-        rng_box = ttk.LabelFrame(body, text="Rangos")
-        rng_box.grid(row=0, column=1, rowspan=2, sticky="nsew", pady=(0, 10))
+        rng_box = tk.LabelFrame(
+            body,
+            text="RANGOS",
+            font=sf(13, "bold"),
+            bg="#080b11",
+            fg="#f3f4f6",
+            bd=2,
+            relief="groove",
+            labelanchor="n",
+        )
+        rng_box.grid(row=0, column=1, rowspan=2, sticky="nsew", pady=(0, sp(10, 5)))
         rng_box.grid_columnconfigure(1, weight=1)
         rng_box.grid_columnconfigure(2, weight=0)
 
-        ttk.Label(rng_box, text="P min").grid(row=0, column=0, sticky="w", padx=10, pady=(12, 6))
-        self.btn_pmin = ttk.Button(rng_box, text=f"[{self.var_pmin.get()}]", command=self._open_edit_dialog_pmin)
-        self.btn_pmin.grid(row=0, column=1, sticky="ew", padx=6, pady=(12, 6))
-        ttk.Label(rng_box, textvariable=self.var_settings_pressure_unit).grid(row=0, column=2, sticky="w", padx=(6, 10), pady=(12, 6))
+        label_kwargs = {
+            "font": sf(11, "bold"),
+            "bg": "#080b11",
+            "fg": "#f3f4f6",
+            "anchor": "w",
+        }
+        unit_kwargs = {
+            "font": sf(11, "bold"),
+            "bg": "#080b11",
+            "fg": "#cbd5e1",
+            "anchor": "w",
+        }
 
-        ttk.Label(rng_box, text="P max").grid(row=1, column=0, sticky="w", padx=10, pady=6)
-        self.btn_pmax = ttk.Button(rng_box, text=f"[{self.var_pmax.get()}]", command=self._open_edit_dialog_pmax)
-        self.btn_pmax.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
-        ttk.Label(rng_box, textvariable=self.var_settings_pressure_unit).grid(row=1, column=2, sticky="w", padx=(6, 10), pady=6)
+        tk.Label(rng_box, text="P min", **label_kwargs).grid(row=0, column=0, sticky="w", padx=sp(10, 5), pady=(sp(12, 6), sp(6, 3)))
+        self.btn_pmin = make_value_button(rng_box, f"[{self.var_pmin.get()}]", self._open_edit_dialog_pmin)
+        self.btn_pmin.grid(row=0, column=1, sticky="ew", padx=sp(6, 3), pady=(sp(12, 6), sp(6, 3)))
+        tk.Label(rng_box, textvariable=self.var_settings_pressure_unit, **unit_kwargs).grid(row=0, column=2, sticky="w", padx=(sp(6, 3), sp(10, 5)), pady=(sp(12, 6), sp(6, 3)))
 
-        self.lbl_sigmin = ttk.Label(rng_box, text="I mÃ­n")
-        self.lbl_sigmin.grid(row=2, column=0, sticky="w", padx=10, pady=6)
-        self.btn_sigmin = ttk.Button(
+        tk.Label(rng_box, text="P max", **label_kwargs).grid(row=1, column=0, sticky="w", padx=sp(10, 5), pady=sp(6, 3))
+        self.btn_pmax = make_value_button(rng_box, f"[{self.var_pmax.get()}]", self._open_edit_dialog_pmax)
+        self.btn_pmax.grid(row=1, column=1, sticky="ew", padx=sp(6, 3), pady=sp(6, 3))
+        tk.Label(rng_box, textvariable=self.var_settings_pressure_unit, **unit_kwargs).grid(row=1, column=2, sticky="w", padx=(sp(6, 3), sp(10, 5)), pady=sp(6, 3))
+
+        self.lbl_sigmin = tk.Label(rng_box, text="I min", **label_kwargs)
+        self.lbl_sigmin.grid(row=2, column=0, sticky="w", padx=sp(10, 5), pady=sp(6, 3))
+        self.btn_sigmin = make_value_button(
             rng_box,
-            text=f"[{self.var_sigmin.get()}]",
-            command=lambda: self._open_edit_dialog(self.var_sigmin, "SeÃ±al mÃ­n", 0, 100, self.btn_sigmin),
+            f"[{self.var_sigmin.get()}]",
+            lambda: self._open_edit_dialog(self.var_sigmin, "SeÃ±al mÃ­n", 0, 100, self.btn_sigmin),
         )
-        self.btn_sigmin.grid(row=2, column=1, sticky="ew", padx=6, pady=6)
-        ttk.Label(rng_box, textvariable=self.var_settings_signal_unit).grid(row=2, column=2, sticky="w", padx=(6, 10), pady=6)
+        self.btn_sigmin.grid(row=2, column=1, sticky="ew", padx=sp(6, 3), pady=sp(6, 3))
+        tk.Label(rng_box, textvariable=self.var_settings_signal_unit, **unit_kwargs).grid(row=2, column=2, sticky="w", padx=(sp(6, 3), sp(10, 5)), pady=sp(6, 3))
 
-        self.lbl_sigmax = ttk.Label(rng_box, text="I mÃ¡x")
-        self.lbl_sigmax.grid(row=3, column=0, sticky="w", padx=10, pady=6)
-        self.btn_sigmax = ttk.Button(
+        self.lbl_sigmax = tk.Label(rng_box, text="I max", **label_kwargs)
+        self.lbl_sigmax.grid(row=3, column=0, sticky="w", padx=sp(10, 5), pady=sp(6, 3))
+        self.btn_sigmax = make_value_button(
             rng_box,
-            text=f"[{self.var_sigmax.get()}]",
-            command=lambda: self._open_edit_dialog(self.var_sigmax, "SeÃ±al mÃ¡x", 0, 100, self.btn_sigmax),
+            f"[{self.var_sigmax.get()}]",
+            lambda: self._open_edit_dialog(self.var_sigmax, "SeÃ±al mÃ¡x", 0, 100, self.btn_sigmax),
         )
-        self.btn_sigmax.grid(row=3, column=1, sticky="ew", padx=6, pady=6)
-        ttk.Label(rng_box, textvariable=self.var_settings_signal_unit).grid(row=3, column=2, sticky="w", padx=(6, 10), pady=6)
+        self.btn_sigmax.grid(row=3, column=1, sticky="ew", padx=sp(6, 3), pady=sp(6, 3))
+        tk.Label(rng_box, textvariable=self.var_settings_signal_unit, **unit_kwargs).grid(row=3, column=2, sticky="w", padx=(sp(6, 3), sp(10, 5)), pady=sp(6, 3))
 
-        ttk.Label(rng_box, text="P seg").grid(row=4, column=0, sticky="w", padx=10, pady=6)
-        self.btn_pmaxseg = ttk.Button(rng_box, text=f"[{self.var_pmaxseg.get()}]", command=self._open_edit_dialog_pmaxseg)
-        self.btn_pmaxseg.grid(row=4, column=1, sticky="ew", padx=6, pady=6)
-        ttk.Label(rng_box, textvariable=self.var_settings_pressure_unit).grid(row=4, column=2, sticky="w", padx=(6, 10), pady=6)
+        tk.Label(rng_box, text="P seg", **label_kwargs).grid(row=4, column=0, sticky="w", padx=sp(10, 5), pady=sp(6, 3))
+        self.btn_pmaxseg = make_value_button(rng_box, f"[{self.var_pmaxseg.get()}]", self._open_edit_dialog_pmaxseg)
+        self.btn_pmaxseg.grid(row=4, column=1, sticky="ew", padx=sp(6, 3), pady=sp(6, 3))
+        tk.Label(rng_box, textvariable=self.var_settings_pressure_unit, **unit_kwargs).grid(row=4, column=2, sticky="w", padx=(sp(6, 3), sp(10, 5)), pady=sp(6, 3))
 
-        self.btn_sp_unit_popup = ttk.Button(
+        self.btn_sp_unit_popup = make_value_button(
             rng_box,
-            text=self.var_sp_unit.get(),
-            command=self._open_sp_unit_selector,
+            self.var_sp_unit.get(),
+            self._open_sp_unit_selector,
+            width=7,
         )
-        self.btn_sp_unit_popup.grid(row=5, column=1, columnspan=2, sticky="ew", padx=6, pady=(12, 12), ipady=6)
+        self.btn_sp_unit_popup.grid(row=5, column=1, columnspan=2, sticky="ew", padx=sp(6, 3), pady=(sp(12, 6), sp(12, 6)))
 
-        actions = ttk.Frame(frm)
-        actions.grid(row=2, column=0, pady=(8, 0))
+        actions = tk.Frame(shell, bg="#141922", bd=1, relief="groove")
+        actions.grid(row=2, column=0, sticky="ew", padx=sp(8, 4), pady=(0, 0))
         actions.grid_columnconfigure(0, weight=1)
         actions.grid_columnconfigure(1, weight=1)
 
-        ttk.Button(actions, text="GUARDAR", command=self._save_settings_window).grid(
-            row=0, column=0, sticky="ew", padx=(0, 10), ipady=8
+        make_action_button(actions, "GUARDAR", self._save_settings_window, "#1f9d45").grid(
+            row=0, column=0, sticky="ew", padx=(sp(10, 5), sp(5, 3)), pady=sp(8, 4)
         )
-        ttk.Button(actions, text="CANCELAR", command=self._cancel_settings_window).grid(
-            row=0, column=1, sticky="ew", padx=(10, 0), ipady=8
+        make_action_button(actions, "CANCELAR", self._cancel_settings_window, "#dc2626").grid(
+            row=0, column=1, sticky="ew", padx=(sp(5, 3), sp(10, 5)), pady=sp(8, 4)
         )
 
         def _on_close():
