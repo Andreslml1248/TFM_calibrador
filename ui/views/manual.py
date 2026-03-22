@@ -1710,19 +1710,19 @@ class ManualView(ttk.Frame):
                 pady=sp(3, 1),
             ).pack(side="right")
 
-            tk.Frame(info_panel, bg="#3a4150", height=sp(2, 1)).pack(fill="x", padx=sp(12, 6), pady=(0, sp(8, 4)))
+            tk.Frame(info_panel, bg="#3a4150", height=sp(2, 1)).pack(fill="x", padx=sp(10, 5), pady=(0, sp(6, 3)))
 
-            def _make_metric_box(parent, title: str, text_var: tk.StringVar, color: str = "#f8fafc", font_size: int = 19):
+            def _make_metric_box(parent, title: str, text_var: tk.StringVar, color: str = "#f8fafc", font_size: int = 15):
                 box = tk.Frame(parent, bg="#0b0f16", bd=1, relief="groove")
-                box.pack(fill="x", padx=sp(12, 6), pady=(0, sp(6, 3)))
+                box.pack(fill="x", padx=sp(10, 5), pady=(0, sp(4, 2)))
                 tk.Label(
                     box,
                     text=title,
-                    font=sf(9, "bold"),
+                    font=sf(8, "bold"),
                     bg="#0b0f16",
                     fg="#f3f4f6",
                     anchor="w",
-                ).pack(fill="x", padx=sp(10, 4), pady=(sp(6, 3), 0))
+                ).pack(fill="x", padx=sp(8, 4), pady=(sp(4, 2), 0))
                 tk.Label(
                     box,
                     textvariable=text_var,
@@ -1731,12 +1731,12 @@ class ManualView(ttk.Frame):
                     fg=color,
                     anchor="e",
                     justify="right",
-                ).pack(fill="x", padx=sp(10, 4), pady=(0, sp(6, 3)))
+                ).pack(fill="x", padx=sp(8, 4), pady=(0, sp(4, 2)))
 
             _make_metric_box(info_panel, "RMS AC (Vadc)", var_rms, color="#5ab0ff")
             _make_metric_box(info_panel, "STD AC (Vadc)", var_std, color="#f8fafc")
-            _make_metric_box(info_panel, "FRECUENCIA DOMINANTE (Hz)", var_peak_freq, color="#fbbf24")
-            _make_metric_box(info_panel, "MAGNITUD FFT", var_peak_mag, color="#c084fc")
+            _make_metric_box(info_panel, "FRECUENCIA DOMINANTE (Hz)", var_peak_freq, color="#fbbf24", font_size=14)
+            _make_metric_box(info_panel, "MAGNITUD FFT", var_peak_mag, color="#c084fc", font_size=14)
             _make_metric_box(info_panel, "PICO A PICO (Vadc)", var_p2p, color="#22c55e")
 
             plot_panel = tk.LabelFrame(
