@@ -2463,96 +2463,185 @@ class ManualView(ttk.Frame):
             error_mode="warning",
         )
 
-    def _open_sp_unit_selector(self):
+    def _open_overlay_list_selector(
+        self,
+        *,
+        label: str,
+        options: list[str],
+        current_index: int,
+        on_save_index: Callable[[int], None],
+        display_options: Optional[list[str]] = None,
+    ) -> None:
         parent_window = self._get_dialog_parent_window()
-        dialog = tk.Toplevel(parent_window)
-        dialog.title("Seleccionar unidad de presion")
-        dialog.geometry("280x360")
-        dialog.resizable(False, False)
-        dialog.transient(parent_window)
-        previous_grab = dialog.grab_current()
-        parent_disabled = False
-        try:
-            parent_window.wm_attributes("-disabled", True)
-            parent_disabled = True
-        except tk.TclError:
-            pass
-        dialog.focus_force()
-        dialog.grab_set()
-        dialog.lift(parent_window)
+        parent_window.update_idletasks()
+        previous_grab = parent_window.grab_current()
+        display_values = display_options if display_options is not None else options
 
-        frm = ttk.Frame(dialog, padding=10)
-        frm.pack(fill="both", expand=True)
+        screen_width = max(320, int(parent_window.winfo_width() or parent_window.winfo_screenwidth()))
+        screen_height = max(320, int(parent_window.winfo_height() or parent_window.winfo_screenheight()))
+        width = min(max(self._sp(320, 280), 280), max(280, screen_width - self._sp(24, 16)))
+        height = min(max(self._sp(420, 340), 340), max(340, screen_height - self._sp(24, 16)))
 
-        ttk.Label(frm, text="Unidad de presion", font=("Arial", 11, "bold")).pack(anchor="w", pady=(0, 6))
+        overlay = tk.Frame(parent_window, bg="#05070b", highlightthickness=0, bd=0)
+        overlay.place(relx=0.0, rely=0.0, relwidth=1.0, relheight=1.0)
+        overlay.lift()
 
-        list_frm = ttk.Frame(frm)
-        list_frm.pack(fill="both", expand=True)
+        shell = tk.Frame(
+            overlay,
+            bg="#0d1117",
+            highlightthickness=1,
+            highlightbackground="#303844",
+            bd=0,
+            padx=self._sp(10, 8),
+            pady=self._sp(10, 8),
+        )
+        shell.place(relx=0.5, rely=0.5, anchor="center", width=width, height=height)
 
-        yscroll = ttk.Scrollbar(list_frm, orient="vertical")
-        yscroll.pack(side="right", fill="y")
-
-        lst_units = tk.Listbox(list_frm, exportselection=False, yscrollcommand=yscroll.set, height=11)
-        lst_units.pack(side="left", fill="both", expand=True)
-        yscroll.configure(command=lst_units.yview)
-
-        for unit in self._SP_UNITS:
-            lst_units.insert("end", unit)
-
-        current = self.var_sp_unit.get().strip() or "kPa"
-        try:
-            idx = self._SP_UNITS.index(current)
-        except ValueError:
-            idx = self._SP_UNITS.index("kPa")
-        lst_units.selection_set(idx)
-        lst_units.activate(idx)
-        lst_units.see(idx)
-
-        action_frm = ttk.Frame(frm)
-        action_frm.pack(fill="x", pady=(8, 0))
-
-        def _close_dialog():
+        def _close_overlay() -> None:
             try:
-                dialog.grab_release()
+                overlay.grab_release()
             except Exception:
                 pass
             try:
-                dialog.destroy()
+                overlay.destroy()
             finally:
-                if parent_disabled:
-                    try:
-                        parent_window.wm_attributes("-disabled", False)
-                    except tk.TclError:
-                        pass
-                try:
-                    if self._widget_exists(parent_window):
-                        parent_window.lift()
-                        parent_window.focus_force()
-                except Exception:
-                    pass
                 try:
                     if previous_grab is not None and bool(previous_grab.winfo_exists()):
                         previous_grab.grab_set()
                 except Exception:
                     pass
+                try:
+                    if self._widget_exists(parent_window):
+                        parent_window.focus_force()
+                except Exception:
+                    pass
 
-        def on_save():
-            sel = lst_units.curselection()
+        tk.Label(
+            shell,
+            text=label,
+            font=("Arial", self._sp(16, 13), "bold"),
+            bg="#0d1117",
+            fg="#f3f4f6",
+            anchor="w",
+        ).pack(fill="x", pady=(0, self._sp(8, 5)))
+
+        list_frm = tk.Frame(shell, bg="#0d1117")
+        list_frm.pack(fill="both", expand=True)
+
+        yscroll = ttk.Scrollbar(list_frm, orient="vertical")
+        yscroll.pack(side="right", fill="y")
+
+        lst_values = tk.Listbox(
+            list_frm,
+            exportselection=False,
+            yscrollcommand=yscroll.set,
+            height=min(11, max(3, len(options))),
+            bg="#161b22",
+            fg="#f3f4f6",
+            selectbackground="#2563eb",
+            selectforeground="#ffffff",
+            relief="flat",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#3a4452",
+            font=("Arial", self._sp(15, 12), "bold"),
+        )
+        lst_values.pack(side="left", fill="both", expand=True)
+        yscroll.configure(command=lst_values.yview)
+
+        for option in display_values:
+            lst_values.insert("end", option)
+
+        idx = max(0, min(int(current_index), len(options) - 1 if options else 0))
+        if options:
+            lst_values.selection_set(idx)
+            lst_values.activate(idx)
+            lst_values.see(idx)
+
+        def _consume_overlay_click(_event=None) -> str:
+            try:
+                lst_values.focus_set()
+            except Exception:
+                pass
+            return "break"
+
+        overlay.bind("<ButtonPress>", _consume_overlay_click)
+        overlay.bind("<FocusIn>", _consume_overlay_click)
+        try:
+            overlay.grab_set_global()
+        except tk.TclError:
+            overlay.grab_set()
+        overlay.focus_force()
+
+        actions = tk.Frame(shell, bg="#0d1117")
+        actions.pack(fill="x", pady=(self._sp(10, 6), 0))
+        actions.grid_columnconfigure(0, weight=1, uniform="overlay_actions")
+        actions.grid_columnconfigure(1, weight=1, uniform="overlay_actions")
+
+        def _save() -> None:
+            sel = lst_values.curselection()
             if not sel:
                 return
-            self.var_sp_unit.set(self._SP_UNITS[int(sel[0])])
-            self._update_sp_unit_ui()
-            _close_dialog()
+            on_save_index(int(sel[0]))
+            _close_overlay()
 
-        def on_cancel():
-            _close_dialog()
+        def _cancel() -> None:
+            _close_overlay()
 
-        ttk.Button(action_frm, text="Guardar", command=on_save).pack(side="left", fill="x", expand=True, padx=(0, 4))
-        ttk.Button(action_frm, text="Cancelar", command=on_cancel).pack(side="left", fill="x", expand=True, padx=(4, 0))
+        tk.Button(
+            actions,
+            text="Guardar",
+            command=_save,
+            bg="#123019",
+            fg="#86efac",
+            activebackground="#184222",
+            activeforeground="#86efac",
+            relief="flat",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#4ade80",
+            highlightcolor="#4ade80",
+            font=("Arial", self._sp(15, 12), "bold"),
+            padx=self._sp(6, 4),
+            pady=self._sp(6, 4),
+        ).grid(row=0, column=0, sticky="ew", padx=(0, self._sp(6, 4)))
+        tk.Button(
+            actions,
+            text="Cancelar",
+            command=_cancel,
+            bg="#11161d",
+            fg="#c6ccd4",
+            activebackground="#1a222d",
+            activeforeground="#c6ccd4",
+            relief="flat",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#3a4452",
+            highlightcolor="#3a4452",
+            font=("Arial", self._sp(15, 12), "bold"),
+            padx=self._sp(6, 4),
+            pady=self._sp(6, 4),
+        ).grid(row=0, column=1, sticky="ew", padx=(self._sp(6, 4), 0))
 
-        lst_units.bind("<Double-Button-1>", lambda _e: on_save())
-        dialog.protocol("WM_DELETE_WINDOW", on_cancel)
-        dialog.wait_window()
+        lst_values.bind("<Double-Button-1>", lambda _e: _save())
+        lst_values.focus_set()
+        parent_window.wait_window(overlay)
+
+    def _open_sp_unit_selector(self):
+        current = self.var_sp_unit.get().strip() or "kPa"
+        try:
+            idx = self._SP_UNITS.index(current)
+        except ValueError:
+            idx = self._SP_UNITS.index("kPa")
+        self._open_overlay_list_selector(
+            label="Unidad de presion",
+            options=list(self._SP_UNITS),
+            current_index=idx,
+            on_save_index=lambda selected_idx: (
+                self.var_sp_unit.set(self._SP_UNITS[selected_idx]),
+                self._update_sp_unit_ui(),
+            ),
+        )
 
     # -------------------------
     # Acciones

@@ -1444,6 +1444,19 @@ class AutoView(ttk.Frame):
         self._refresh_registered_plot()
 
     def _open_pressure_unit_selector(self):
+        current = self.var_pressure_unit.get().strip() or "kPa"
+        try:
+            idx = self._PRESSURE_UNITS.index(current)
+        except ValueError:
+            idx = self._PRESSURE_UNITS.index("kPa")
+        self._open_overlay_list_selector(
+            label="Unidad de presion",
+            options=list(self._PRESSURE_UNITS),
+            current_index=idx,
+            on_save_index=lambda selected_idx: self._set_pressure_unit(self._PRESSURE_UNITS[selected_idx]),
+        )
+        return
+
         parent_window = self._get_dialog_parent_window()
         dialog = tk.Toplevel(parent_window)
         dialog.title("Seleccionar unidad")
