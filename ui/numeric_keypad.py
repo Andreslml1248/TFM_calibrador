@@ -67,12 +67,36 @@ def open_numeric_keypad_dialog(
     dialog.transient(parent_window)
 
     previous_grab = dialog.grab_current()
-    parent_disabled = False
-    try:
-        parent_window.wm_attributes("-disabled", True)
-        parent_disabled = True
-    except tk.TclError:
-        pass
+    blocked_windows: list[tuple[tk.Misc, bool, bool | None]] = []
+    candidate_windows = []
+    for candidate in (owner.winfo_toplevel(), parent_window, previous_grab):
+        try:
+            if candidate is None or candidate is dialog or not bool(candidate.winfo_exists()):
+                continue
+        except Exception:
+            continue
+        if candidate in candidate_windows:
+            continue
+        candidate_windows.append(candidate)
+
+    for window in candidate_windows:
+        topmost_state = None
+        try:
+            topmost_state = bool(window.attributes("-topmost"))
+        except tk.TclError:
+            topmost_state = None
+        disabled_applied = False
+        try:
+            window.wm_attributes("-disabled", True)
+            disabled_applied = True
+        except tk.TclError:
+            pass
+        if topmost_state:
+            try:
+                window.attributes("-topmost", False)
+            except tk.TclError:
+                pass
+        blocked_windows.append((window, disabled_applied, topmost_state))
 
     width = min(max(sp(460, 340), 340), max(340, screen_width - 20))
     height = min(max(sp(520, 400), 400), max(400, screen_height - 20))
@@ -97,6 +121,10 @@ def open_numeric_keypad_dialog(
         try:
             dialog.lift(parent_window)
         except Exception:
+            pass
+        try:
+            dialog.attributes("-topmost", True)
+        except tk.TclError:
             pass
         try:
             dialog.focus_force()
@@ -124,20 +152,33 @@ def open_numeric_keypad_dialog(
             pass
 
     def restore_parent() -> None:
-        if parent_disabled:
+        for window, disabled_applied, topmost_state in blocked_windows:
             try:
-                parent_window.wm_attributes("-disabled", False)
-            except tk.TclError:
-                pass
+                if not bool(window.winfo_exists()):
+                    continue
+            except Exception:
+                continue
+            if disabled_applied:
+                try:
+                    window.wm_attributes("-disabled", False)
+                except tk.TclError:
+                    pass
+            if topmost_state is not None:
+                try:
+                    window.attributes("-topmost", bool(topmost_state))
+                except tk.TclError:
+                    pass
+        try:
+            if previous_grab is not None and bool(previous_grab.winfo_exists()):
+                previous_grab.lift()
+                previous_grab.focus_force()
+                previous_grab.grab_set()
+        except Exception:
+            pass
         try:
             if bool(parent_window.winfo_exists()):
                 parent_window.lift()
                 parent_window.focus_force()
-        except Exception:
-            pass
-        try:
-            if previous_grab is not None and bool(previous_grab.winfo_exists()):
-                previous_grab.grab_set()
         except Exception:
             pass
 
