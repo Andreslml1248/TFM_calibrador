@@ -1589,7 +1589,7 @@ class AutoView(ttk.Frame):
         tk.Label(
             shell,
             text=label,
-            font=("Arial", self._sp(14, 11), "bold"),
+            font=("Arial", self._sp(16, 13), "bold"),
             bg="#0d1117",
             fg="#f3f4f6",
             anchor="w",
@@ -1614,7 +1614,7 @@ class AutoView(ttk.Frame):
             bd=0,
             highlightthickness=1,
             highlightbackground="#3a4452",
-            font=("Arial", self._sp(13, 10), "bold"),
+            font=("Arial", self._sp(15, 12), "bold"),
         )
         lst_values.pack(side="left", fill="both", expand=True)
         yscroll.configure(command=lst_values.yview)
@@ -1671,7 +1671,7 @@ class AutoView(ttk.Frame):
             highlightthickness=1,
             highlightbackground="#4ade80",
             highlightcolor="#4ade80",
-            font=("Arial", self._sp(13, 10), "bold"),
+            font=("Arial", self._sp(15, 12), "bold"),
             padx=self._sp(6, 4),
             pady=self._sp(6, 4),
         ).grid(row=0, column=0, sticky="ew", padx=(0, self._sp(6, 4)))
@@ -1688,7 +1688,7 @@ class AutoView(ttk.Frame):
             highlightthickness=1,
             highlightbackground="#3a4452",
             highlightcolor="#3a4452",
-            font=("Arial", self._sp(13, 10), "bold"),
+            font=("Arial", self._sp(15, 12), "bold"),
             padx=self._sp(6, 4),
             pady=self._sp(6, 4),
         ).grid(row=0, column=1, sticky="ew", padx=(self._sp(6, 4), 0))
