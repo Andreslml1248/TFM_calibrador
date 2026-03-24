@@ -136,6 +136,7 @@ class ManualView(ttk.Frame):
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
         usb_state_var: Optional[tk.StringVar] = None,
+        labview_state_var: Optional[tk.StringVar] = None,
         retry_usb_export: Optional[Callable[[], None]] = None,
         get_usb_status_colors: Optional[Callable[[], tuple[str, str]]] = None,
         update_period_ms: int = 100,
@@ -148,6 +149,7 @@ class ManualView(ttk.Frame):
         self.set_valve = set_valve
         self.request_event = request_event
         self.usb_state_var = usb_state_var or tk.StringVar(value="USB: --")
+        self.labview_state_var = labview_state_var or tk.StringVar(value="LAB OFF | W -- | E --")
         self.retry_usb_export = retry_usb_export
         self.get_usb_status_colors = get_usb_status_colors
         self.update_period_ms = update_period_ms
@@ -259,6 +261,7 @@ class ManualView(ttk.Frame):
         self.lbl_sigmax = None
         self._tx_buttons: Dict[Any, tk.Button] = {}
         self._tx_badge = None
+        self.lbl_labview_state = None
         self.lbl_usb_state = None
         self.btn_usb_retry = None
         self._plot_host = None
@@ -521,6 +524,20 @@ class ManualView(ttk.Frame):
             self._tx_buttons[channel] = btn
 
         tk.Frame(tx_center, bg="#334155", width=sp(2, 1), height=sp(24, 18)).pack(side="left", padx=sp(5, 3))
+
+        self.lbl_labview_state = tk.Label(
+            tx_center,
+            textvariable=self.labview_state_var,
+            font=sf(9, "bold"),
+            bg="#0f172a",
+            fg="#bfdbfe",
+            bd=1,
+            relief="groove",
+            padx=sp(6, 3),
+            pady=sp(3, 1),
+            anchor="w",
+        )
+        self.lbl_labview_state.pack(side="left", padx=(sp(2, 1), sp(2, 1)))
 
         self.lbl_usb_state = tk.Label(
             tx_center,

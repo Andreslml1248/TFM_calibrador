@@ -139,6 +139,7 @@ class AutoView(ttk.Frame):
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
         export_manager: Optional[ExportManager] = None,
         usb_state_var: Optional[tk.StringVar] = None,
+        labview_state_var: Optional[tk.StringVar] = None,
         retry_usb_export: Optional[Callable[[], None]] = None,
         get_usb_status_colors: Optional[Callable[[], tuple[str, str]]] = None,
         update_period_ms: int = 100,
@@ -153,6 +154,7 @@ class AutoView(ttk.Frame):
         self.request_event = request_event
         self.export_manager = export_manager
         self.usb_state_var = usb_state_var or tk.StringVar(value="USB: --")
+        self.labview_state_var = labview_state_var or tk.StringVar(value="LAB OFF | W -- | E --")
         self.retry_usb_export = retry_usb_export
         self.get_usb_status_colors = get_usb_status_colors
         self.update_period_ms = update_period_ms
@@ -186,6 +188,7 @@ class AutoView(ttk.Frame):
         self.lbl_status = None
         self.lbl_cycle = None
         self.lbl_flow_notice = None
+        self.lbl_labview_state = None
         self.lbl_usb_state = None
         self.btn_usb_retry = None
         self._plot_host = None
@@ -615,6 +618,20 @@ class AutoView(ttk.Frame):
 
         usb_box = tk.Frame(controls, bg="#141922")
         usb_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(2, 1))
+
+        self.lbl_labview_state = tk.Label(
+            usb_box,
+            textvariable=self.labview_state_var,
+            font=sf(9, "bold"),
+            bg="#0f172a",
+            fg="#bfdbfe",
+            bd=1,
+            relief="groove",
+            padx=sp(6, 3),
+            pady=sp(3, 1),
+            anchor="w",
+        )
+        self.lbl_labview_state.pack(side="left", padx=(0, sp(3, 2)))
 
         self.lbl_usb_state = tk.Label(
             usb_box,

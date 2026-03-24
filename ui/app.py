@@ -14,6 +14,7 @@ from config import hardware as config
 from core.hw import HW
 from core.calibration import load_calibration
 from core.export_manager import ExportManager, ExportSyncResult
+from core.network import NetworkAddresses, format_labview_status, get_network_addresses
 from core.telemetry import ADSTelemetryServer, get_global_telemetry_snapshot
 from ui.views.auto import AutoView
 from ui.views.manual import ManualView
@@ -65,8 +66,10 @@ class App(tk.Tk):
         self.btn_exit.lift()
 
         self.var_usb_state = tk.StringVar(value="USB: inicializando")
+        self.var_labview_state = tk.StringVar(value="LAB OFF | W -- | E --")
         self._usb_status_bg = "#1f2937"
         self._usb_status_fg = "#cbd5e1"
+        self._network_addresses = NetworkAddresses()
         self.lbl_tx_state = None
 
         upd_ms = max(10, int(round(config.DT_PI * 1000)))
@@ -80,6 +83,7 @@ class App(tk.Tk):
             set_valve=self.hw.set_valve,
             request_event=self.event_handler.request_event,
             usb_state_var=self.var_usb_state,
+            labview_state_var=self.var_labview_state,
             retry_usb_export=self._retry_pending_exports,
             get_usb_status_colors=self._get_usb_status_colors,
             update_period_ms=upd_ms,
@@ -96,12 +100,14 @@ class App(tk.Tk):
             request_event=self.event_handler.request_event,
             export_manager=self.export_manager,
             usb_state_var=self.var_usb_state,
+            labview_state_var=self.var_labview_state,
             retry_usb_export=self._retry_pending_exports,
             get_usb_status_colors=self._get_usb_status_colors,
             update_period_ms=upd_ms,
         )
         nb.add(auto, text="Automatico")
 
+        self._apply_network_status(get_network_addresses())
         self._refresh_tx_state_label()
         self._apply_export_status(self.export_manager.sync_pending_exports())
         self.after_idle(self._ensure_main_maximized)
@@ -182,7 +188,16 @@ class App(tk.Tk):
         label = getattr(self, "lbl_tx_state", None)
         if label is not None:
             label.configure(text=txt)
+        self._update_labview_state()
         return txt
+
+    def _apply_network_status(self, addresses: NetworkAddresses) -> None:
+        self._network_addresses = addresses
+        self._update_labview_state()
+
+    def _update_labview_state(self) -> None:
+        active = self.telemetry_server.get_active_channel()
+        self.var_labview_state.set(format_labview_status(active, self._network_addresses))
 
     def _apply_export_status(self, sync_result: ExportSyncResult) -> None:
         self.var_usb_state.set(self.export_manager.format_status_text(sync_result))
@@ -206,6 +221,7 @@ class App(tk.Tk):
         try:
             sync_result = self.export_manager.sync_pending_exports()
             self._apply_export_status(sync_result)
+            self._apply_network_status(get_network_addresses())
         finally:
             try:
                 if self.winfo_exists():
