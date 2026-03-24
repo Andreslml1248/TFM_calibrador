@@ -61,18 +61,20 @@ class App(tk.Tk):
         nb = ttk.Notebook(self, style="Main.TNotebook")
         nb.pack(fill="both", expand=True, padx=0, pady=0)
         self.nb = nb
-        self.btn_exit.place(in_=self.nb, relx=1.0, x=-self._sp(6, 4), y=self._sp(3, 2), anchor="ne")
+        self.btn_exit.place(in_=self, relx=1.0, x=-self._sp(6, 4), y=self._sp(3, 2), anchor="ne")
         self.btn_exit.lift()
 
         self.var_usb_state = tk.StringVar(value="USB: inicializando")
-        self.status_overlay = tk.Frame(self.nb, bg="#111827", bd=1, relief="groove")
+        self.status_overlay = tk.Frame(self, bg="#111827", bd=1, relief="groove")
         self.status_overlay.place(
+            in_=self,
             relx=0.0,
             rely=1.0,
             x=self._sp(6, 4),
             y=-self._sp(6, 4),
             anchor="sw",
         )
+        self.status_overlay.lift()
 
         self.lbl_usb_state = tk.Label(
             self.status_overlay,
@@ -147,6 +149,7 @@ class App(tk.Tk):
         self._refresh_tx_state_label()
         self._apply_export_status(self.export_manager.sync_pending_exports())
         self.after_idle(self._ensure_main_maximized)
+        self.after_idle(self._lift_overlays)
         self.after(int(config.USB_EXPORT_POLL_INTERVAL_MS), self._poll_export_status)
 
     def _compute_ui_scale(self) -> float:
@@ -206,6 +209,17 @@ class App(tk.Tk):
         except tk.TclError:
             pass
         self.geometry(f"{screen_width}x{screen_height}+0+0")
+        self.after_idle(self._lift_overlays)
+
+    def _lift_overlays(self):
+        for widget_name in ("status_overlay", "btn_exit"):
+            widget = getattr(self, widget_name, None)
+            if widget is None:
+                continue
+            try:
+                widget.lift()
+            except tk.TclError:
+                pass
 
     def _set_tx_channel(self, channel):
         self.telemetry_server.set_active_channel(channel)
