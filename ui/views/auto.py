@@ -138,6 +138,9 @@ class AutoView(ttk.Frame):
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
         export_manager: Optional[ExportManager] = None,
+        usb_state_var: Optional[tk.StringVar] = None,
+        retry_usb_export: Optional[Callable[[], None]] = None,
+        get_usb_status_colors: Optional[Callable[[], tuple[str, str]]] = None,
         update_period_ms: int = 100,
     ):
         super().__init__(master)
@@ -149,6 +152,9 @@ class AutoView(ttk.Frame):
         self.set_valve = set_valve
         self.request_event = request_event
         self.export_manager = export_manager
+        self.usb_state_var = usb_state_var or tk.StringVar(value="USB: --")
+        self.retry_usb_export = retry_usb_export
+        self.get_usb_status_colors = get_usb_status_colors
         self.update_period_ms = update_period_ms
         self._screen_width = max(1, int(self.winfo_screenwidth()))
         self._screen_height = max(1, int(self.winfo_screenheight()))
@@ -180,6 +186,8 @@ class AutoView(ttk.Frame):
         self.lbl_status = None
         self.lbl_cycle = None
         self.lbl_flow_notice = None
+        self.lbl_usb_state = None
+        self.btn_usb_retry = None
         self._plot_host = None
         self._fig_registered: Optional[Figure] = None
         self._ax_registered = None
@@ -428,6 +436,23 @@ class AutoView(ttk.Frame):
         self._set_button_enabled(self.btn_zero, True)
         self._set_button_enabled(self.btn_settings, not running)
 
+    def _retry_usb_export(self) -> None:
+        if callable(self.retry_usb_export):
+            self.retry_usb_export()
+
+    def _refresh_usb_widgets(self) -> None:
+        if self._widget_exists(self.lbl_usb_state):
+            bg = "#1f2937"
+            fg = "#cbd5e1"
+            if callable(self.get_usb_status_colors):
+                try:
+                    bg, fg = self.get_usb_status_colors()
+                except Exception:
+                    bg, fg = "#1f2937", "#cbd5e1"
+            self.lbl_usb_state.configure(bg=bg, fg=fg)
+        if self._widget_exists(self.btn_usb_retry):
+            self.btn_usb_retry.configure(state="normal" if callable(self.retry_usb_export) else "disabled")
+
     def _update_cycle_indicator(self) -> None:
         total = len(self.rt.points)
         if total <= 0:
@@ -585,10 +610,45 @@ class AutoView(ttk.Frame):
 
         controls = tk.Frame(shell, bg="#141922", bd=1, relief="groove")
         controls.grid(row=2, column=0, sticky="ew", padx=sp(8, 4), pady=(0, 0))
-        controls.grid_columnconfigure(0, weight=1)
+        controls.grid_columnconfigure(0, weight=3)
+        controls.grid_columnconfigure(1, weight=5)
+
+        usb_box = tk.Frame(controls, bg="#141922")
+        usb_box.grid(row=0, column=0, sticky="w", padx=sp(10, 4), pady=sp(2, 1))
+
+        self.lbl_usb_state = tk.Label(
+            usb_box,
+            textvariable=self.usb_state_var,
+            font=sf(10, "bold"),
+            bg="#1f2937",
+            fg="#cbd5e1",
+            bd=1,
+            relief="groove",
+            padx=sp(8, 4),
+            pady=sp(3, 1),
+            anchor="w",
+        )
+        self.lbl_usb_state.pack(side="left", padx=(0, sp(3, 2)))
+
+        self.btn_usb_retry = tk.Button(
+            usb_box,
+            text="USB",
+            command=self._retry_usb_export,
+            font=sf(11, "bold"),
+            width=sw(4, 3),
+            bg="#1b2130",
+            fg="#f8fafc",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            bd=2,
+            relief="raised",
+            padx=sp(4, 2),
+            pady=sp(3, 1),
+        )
+        self.btn_usb_retry.pack(side="left")
 
         btns = tk.Frame(controls, bg="#141922")
-        btns.grid(row=0, column=0, sticky="e", padx=sp(10, 4), pady=sp(2, 1))
+        btns.grid(row=0, column=1, sticky="e", padx=sp(10, 4), pady=sp(2, 1))
 
         def make_action_button(text, command, bg, fg="#ffffff", width=11, font_size=18, pad_x=6, pad_y=3):
             return tk.Button(
@@ -616,6 +676,7 @@ class AutoView(ttk.Frame):
         self.btn_zero.pack(side="left", padx=sp(4, 2))
         self.btn_stop_cfg.pack(side="left", padx=sp(4, 2))
         self.btn_settings.pack(side="left", padx=(sp(4, 2), 0))
+        self._refresh_usb_widgets()
 
     def _build_registered_plot(self):
         plot_box = self._plot_host
@@ -2217,6 +2278,7 @@ class AutoView(ttk.Frame):
     # ========================================================
     def _tick(self):
         try:
+            self._refresh_usb_widgets()
             try:
                 hw = getattr(self.winfo_toplevel(), "hw", None)
                 reader = getattr(hw, "get_cached_temperature_c", None)

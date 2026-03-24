@@ -95,6 +95,9 @@ class App(tk.Tk):
             set_valve=self.hw.set_valve,
             request_event=self.event_handler.request_event,
             export_manager=self.export_manager,
+            usb_state_var=self.var_usb_state,
+            retry_usb_export=self._retry_pending_exports,
+            get_usb_status_colors=self._get_usb_status_colors,
             update_period_ms=upd_ms,
         )
         nb.add(auto, text="Automatico")
