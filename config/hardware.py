@@ -225,4 +225,8 @@ TELEMETRY_FORCE_REFRESH_S: float = 0.05
 DATA_DIR: str = "data"
 CERT_DIR: str = "certs"
 LOG_DIR: str = "logs"
+RESULTS_DIR: str = "resultados_calibracion"
+EXPORT_QUEUE_FILE: str = "export_queue.json"
+USB_EXPORT_DIRNAME: str = "Calibraciones"
+USB_EXPORT_POLL_INTERVAL_MS: int = 3000
 

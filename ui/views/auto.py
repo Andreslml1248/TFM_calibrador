@@ -11,6 +11,7 @@ from datetime import datetime
 
 from config import hardware as config
 from core.control import PIController, PIConfig, PIWorker
+from core.export_manager import ExportManager, ExportSyncResult
 from core.filters import MedianPtByPt
 from ui.numeric_keypad import open_numeric_keypad_dialog
 
@@ -136,6 +137,7 @@ class AutoView(ttk.Frame):
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
+        export_manager: Optional[ExportManager] = None,
         update_period_ms: int = 100,
     ):
         super().__init__(master)
@@ -146,6 +148,7 @@ class AutoView(ttk.Frame):
         self.set_relay = set_relay
         self.set_valve = set_valve
         self.request_event = request_event
+        self.export_manager = export_manager
         self.update_period_ms = update_period_ms
         self._screen_width = max(1, int(self.winfo_screenwidth()))
         self._screen_height = max(1, int(self.winfo_screenheight()))
@@ -2103,9 +2106,10 @@ class AutoView(ttk.Frame):
             self._clear_flow_notice()
             self._update_cycle_indicator()
             self._update_action_buttons()
-            pdf_path = self._export_results_pdf()
-            if pdf_path:
-                messagebox.showinfo("Exportar", f"PDF guardado en:\n{pdf_path}")
+            export_result = self._export_results_pdf()
+            if export_result:
+                pdf_path, sync_result = export_result
+                self._show_export_feedback(pdf_path, sync_result)
 
             return
 
@@ -2493,94 +2497,161 @@ class AutoView(ttk.Frame):
         sig_pct = 100.0 * (float(dut_eng) - sig_min) / sig_span
         return sig_pct - p_pct
 
-    def _export_results_pdf(self) -> Optional[str]:
+    def _results_output_dir(self) -> str:
+        if self.export_manager is not None:
+            return self.export_manager.ensure_results_dir()
+
+        base_dir = os.getcwd()
+        results_dir = os.path.join(base_dir, str(config.RESULTS_DIR))
+        os.makedirs(results_dir, exist_ok=True)
+        return results_dir
+
+    def _compute_results_fit(self) -> tuple[np.ndarray, np.ndarray, float, float, float]:
+        x = np.array([r["p_kpa"] for r in self.results], dtype=float)
+        y = np.array([r["dut_eng"] for r in self.results], dtype=float)
+        m, b = np.polyfit(x, y, 1)
+        y_hat = m * x + b
+
+        ss_res = float(np.sum((y - y_hat) ** 2))
+        ss_tot = float(np.sum((y - float(np.mean(y))) ** 2))
+        r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
+        return x, y, float(m), float(b), r2
+
+    def _build_results_pdf_figure(self) -> Figure:
+        x, y, m, b, r2 = self._compute_results_fit()
+
+        from matplotlib.gridspec import GridSpec
+
+        fig_pdf = Figure(figsize=(10, 12), dpi=100)
+        gs = GridSpec(3, 1, figure=fig_pdf, height_ratios=[1, 1.5, 2], hspace=0.3)
+
+        ax_title = fig_pdf.add_subplot(gs[0])
+        ax_title.axis("off")
+        titulo = f"Calibracion - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        ax_title.text(0.5, 0.7, titulo, ha="center", va="center", fontsize=14, fontweight="bold")
+        ax_title.text(0.5, 0.3, f"DUT Mode: {self.results[0]['dut_mode']}", ha="center", va="center", fontsize=10)
+
+        ax_table = fig_pdf.add_subplot(gs[1])
+        ax_table.axis("tight")
+        ax_table.axis("off")
+
+        table_data = [["#", "SP (kPa)", "P med (kPa)", "sP", f"DUT ({self.results[0]['dut_mode']})", "sDUT", "%SPAN", "%ERROR", "u"]]
+        for r in self.results:
+            table_data.append([
+                str(r["i"]),
+                f"{r['sp_kpa']:.2f}",
+                f"{r['p_kpa']:.2f}",
+                f"{r['p_std']:.3f}",
+                f"{r['dut_eng']:.3f}",
+                f"{r['dut_std']:.3f}",
+                f"{r['span_pct']:.2f}",
+                f"{r['err_pct']:+.2f}",
+                f"{r['u_last']:.3f}",
+            ])
+
+        table = ax_table.table(
+            cellText=table_data,
+            cellLoc="center",
+            loc="center",
+            colWidths=[0.08, 0.12, 0.12, 0.08, 0.12, 0.08, 0.1, 0.1, 0.1],
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1, 1.5)
+
+        for i in range(len(table_data[0])):
+            table[(0, i)].set_facecolor("#4CAF50")
+            table[(0, i)].set_text_props(weight="bold", color="white")
+
+        ax_plot = fig_pdf.add_subplot(gs[2])
+        self._plot_results_scatter(ax_plot, x, y, 50)
+        ax_plot.plot(x, (m * x) + b, "k-", linewidth=2, label="Ajuste lineal")
+        ax_plot.set_xlabel("Presion medida (kPa)", fontsize=10)
+        ax_plot.set_ylabel(f"DUT ({'mA' if self.results[0]['dut_mode'] == 'A1' else 'V'})", fontsize=10)
+        ax_plot.grid(True, alpha=0.3)
+        ax_plot.legend(fontsize=9)
+        ax_plot.set_title(f"y = {m:.6f}x + {b:.6f}    R2 = {r2:.6f}", fontsize=10, fontweight="bold")
+        return fig_pdf
+
+    def _save_results_pdf_local(self) -> Optional[str]:
         if not self.results:
             return None
 
         try:
-            base_dir = os.getcwd()
-            results_dir = os.path.join(base_dir, "resultados_calibracion")
-
-            if not os.path.exists(results_dir):
-                os.makedirs(results_dir)
-
+            results_dir = self._results_output_dir()
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"calibracion_{timestamp}.pdf"
             filepath = os.path.join(results_dir, filename)
-
-            x = np.array([r["p_kpa"] for r in self.results], dtype=float)
-            y = np.array([r["dut_eng"] for r in self.results], dtype=float)
-            m, b = np.polyfit(x, y, 1)
-            y_hat = m * x + b
-
-            ss_res = float(np.sum((y - y_hat) ** 2))
-            ss_tot = float(np.sum((y - float(np.mean(y))) ** 2))
-            r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 1e-12 else 0.0
-
-            from matplotlib.gridspec import GridSpec
-
-            fig_pdf = Figure(figsize=(10, 12), dpi=100)
-            gs = GridSpec(3, 1, figure=fig_pdf, height_ratios=[1, 1.5, 2], hspace=0.3)
-
-            ax_title = fig_pdf.add_subplot(gs[0])
-            ax_title.axis("off")
-            titulo = f"Calibracion - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            ax_title.text(0.5, 0.7, titulo, ha="center", va="center", fontsize=14, fontweight="bold")
-            ax_title.text(0.5, 0.3, f"DUT Mode: {self.results[0]['dut_mode']}", ha="center", va="center", fontsize=10)
-
-            ax_table = fig_pdf.add_subplot(gs[1])
-            ax_table.axis("tight")
-            ax_table.axis("off")
-
-            table_data = [["#", "SP (kPa)", "P med (kPa)", "sP", f"DUT ({self.results[0]['dut_mode']})", "sDUT", "%SPAN", "%ERROR", "u"]]
-            for r in self.results:
-                table_data.append([
-                    str(r["i"]),
-                    f"{r['sp_kpa']:.2f}",
-                    f"{r['p_kpa']:.2f}",
-                    f"{r['p_std']:.3f}",
-                    f"{r['dut_eng']:.3f}",
-                    f"{r['dut_std']:.3f}",
-                    f"{r['span_pct']:.2f}",
-                    f"{r['err_pct']:+.2f}",
-                    f"{r['u_last']:.3f}",
-                ])
-
-            table = ax_table.table(
-                cellText=table_data,
-                cellLoc="center",
-                loc="center",
-                colWidths=[0.08, 0.12, 0.12, 0.08, 0.12, 0.08, 0.1, 0.1, 0.1],
-            )
-            table.auto_set_font_size(False)
-            table.set_fontsize(8)
-            table.scale(1, 1.5)
-
-            for i in range(len(table_data[0])):
-                table[(0, i)].set_facecolor("#4CAF50")
-                table[(0, i)].set_text_props(weight="bold", color="white")
-
-            ax_plot = fig_pdf.add_subplot(gs[2])
-            self._plot_results_scatter(ax_plot, x, y, 50)
-            ax_plot.plot(x, y_hat, "k-", linewidth=2, label="Ajuste lineal")
-            ax_plot.set_xlabel("Presion medida (kPa)", fontsize=10)
-            ax_plot.set_ylabel(f"DUT ({'mA' if self.results[0]['dut_mode'] == 'A1' else 'V'})", fontsize=10)
-            ax_plot.grid(True, alpha=0.3)
-            ax_plot.legend(fontsize=9)
-            ax_plot.set_title(f"y = {m:.6f}x + {b:.6f}    R2 = {r2:.6f}", fontsize=10, fontweight="bold")
-
-            fig_pdf.savefig(filepath, format="pdf", dpi=300, bbox_inches="tight")
+            fig_pdf = self._build_results_pdf_figure()
+            try:
+                fig_pdf.savefig(filepath, format="pdf", dpi=300, bbox_inches="tight")
+            finally:
+                fig_pdf.clear()
             return filepath
         except Exception as e:
             messagebox.showerror("Error", f"Fallo al exportar: {e}")
             return None
+
+    def _export_results_pdf(self) -> Optional[tuple[str, Optional[ExportSyncResult]]]:
+        filepath = self._save_results_pdf_local()
+        if not filepath:
+            return None
+
+        sync_result = None
+        if self.export_manager is not None:
+            try:
+                sync_result = self.export_manager.register_export(filepath)
+            except Exception as e:
+                messagebox.showwarning("USB", f"PDF guardado localmente.\nLa cola USB no pudo actualizarse:\n{e}")
+        return filepath, sync_result
+
+    def _show_export_feedback(self, local_path: str, sync_result: Optional[ExportSyncResult]) -> None:
+        if sync_result and sync_result.preferred_usb_path:
+            messagebox.showinfo(
+                "Exportar",
+                f"PDF guardado en:\n{local_path}\n\nCopia USB:\n{sync_result.preferred_usb_path}",
+            )
+            return
+
+        if sync_result and not sync_result.usb_detected:
+            messagebox.showinfo(
+                "Exportar",
+                f"PDF guardado localmente en:\n{local_path}\n\nUSB no detectada. Se copiara automaticamente al conectarla.",
+            )
+            return
+
+        if sync_result and sync_result.last_error:
+            messagebox.showwarning(
+                "Exportar",
+                f"PDF guardado localmente en:\n{local_path}\n\nLa copia a la USB quedo pendiente.\n{sync_result.last_error}",
+            )
+            return
+
+        messagebox.showinfo("Exportar", f"PDF guardado en:\n{local_path}")
+
+    def _retry_pending_usb_exports(self) -> None:
+        if self.export_manager is None:
+            messagebox.showinfo("USB", "La exportacion USB no esta disponible en esta sesion.")
+            return
+
+        sync_result = self.export_manager.sync_pending_exports()
+        if sync_result.copied_count > 0:
+            messagebox.showinfo("USB", f"Se copiaron {sync_result.copied_count} archivo(s) a la USB.")
+            return
+        if sync_result.pending_count > 0 and not sync_result.usb_detected:
+            messagebox.showinfo("USB", "No hay una USB detectada. Los archivos siguen pendientes.")
+            return
+        if sync_result.pending_count > 0 and sync_result.last_error:
+            messagebox.showwarning("USB", f"La exportacion sigue pendiente.\n{sync_result.last_error}")
+            return
+        messagebox.showinfo("USB", "No hay archivos pendientes de exportacion.")
 
     def _show_results_window(self):
         """
         Ventana final con:
         - Tabla de resultados (compacta)
         - Gráfica lineal con ecuación y R²
-        - Botones para exportar a PDF y cerrar
+        - Boton para reintentar USB y cerrar
         Optimizada para pantalla 7"
         """
         if not self.results:
