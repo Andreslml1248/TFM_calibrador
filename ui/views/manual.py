@@ -135,6 +135,9 @@ class ManualView(ttk.Frame):
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
+        usb_state_var: Optional[tk.StringVar] = None,
+        retry_usb_export: Optional[Callable[[], None]] = None,
+        get_usb_status_colors: Optional[Callable[[], tuple[str, str]]] = None,
         update_period_ms: int = 100,
     ):
         super().__init__(master)
@@ -144,6 +147,9 @@ class ManualView(ttk.Frame):
         self.set_relay = set_relay
         self.set_valve = set_valve
         self.request_event = request_event
+        self.usb_state_var = usb_state_var or tk.StringVar(value="USB: --")
+        self.retry_usb_export = retry_usb_export
+        self.get_usb_status_colors = get_usb_status_colors
         self.update_period_ms = update_period_ms
         self._screen_width = max(1, int(self.winfo_screenwidth()))
         self._screen_height = max(1, int(self.winfo_screenheight()))
@@ -253,6 +259,8 @@ class ManualView(ttk.Frame):
         self.lbl_sigmax = None
         self._tx_buttons: Dict[Any, tk.Button] = {}
         self._tx_badge = None
+        self.lbl_usb_state = None
+        self.btn_usb_retry = None
         self._plot_host = None
         self._settings_snapshot: Optional[Dict[str, Any]] = None
 
@@ -512,9 +520,43 @@ class ManualView(ttk.Frame):
             btn.pack(side="left", padx=sp(2, 1))
             self._tx_buttons[channel] = btn
 
+        tk.Frame(tx_center, bg="#334155", width=sp(2, 1), height=sp(24, 18)).pack(side="left", padx=sp(5, 3))
+
+        self.lbl_usb_state = tk.Label(
+            tx_center,
+            textvariable=self.usb_state_var,
+            font=sf(10, "bold"),
+            bg="#1f2937",
+            fg="#cbd5e1",
+            bd=1,
+            relief="groove",
+            padx=sp(8, 4),
+            pady=sp(3, 1),
+            anchor="w",
+        )
+        self.lbl_usb_state.pack(side="left", padx=(sp(2, 1), sp(2, 1)))
+
+        self.btn_usb_retry = tk.Button(
+            tx_center,
+            text="USB",
+            command=self._retry_usb_export,
+            font=sf(11, "bold"),
+            width=sw(4, 3),
+            bg="#1b2130",
+            fg="#f8fafc",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            bd=2,
+            relief="raised",
+            padx=sp(4, 2),
+            pady=sp(3, 1),
+        )
+        self.btn_usb_retry.pack(side="left", padx=sp(2, 1))
+
         self._on_mode_changed()
         self._update_sp_unit_ui()
         self._refresh_local_tx_buttons()
+        self._refresh_usb_widgets()
 
     def _build_live_plot(self):
         plot_box = self._plot_host
@@ -609,6 +651,23 @@ class ManualView(ttk.Frame):
                 fg="#ffffff" if is_active else "#f8fafc",
                 relief="sunken" if is_active else "raised",
             )
+
+    def _retry_usb_export(self) -> None:
+        if callable(self.retry_usb_export):
+            self.retry_usb_export()
+
+    def _refresh_usb_widgets(self) -> None:
+        if self._widget_exists(self.lbl_usb_state):
+            bg = "#1f2937"
+            fg = "#cbd5e1"
+            if callable(self.get_usb_status_colors):
+                try:
+                    bg, fg = self.get_usb_status_colors()
+                except Exception:
+                    bg, fg = "#1f2937", "#cbd5e1"
+            self.lbl_usb_state.configure(bg=bg, fg=fg)
+        if self._widget_exists(self.btn_usb_retry):
+            self.btn_usb_retry.configure(state="normal" if callable(self.retry_usb_export) else "disabled")
 
     @staticmethod
     def _widget_exists(widget) -> bool:
@@ -3221,6 +3280,7 @@ class ManualView(ttk.Frame):
             finally:
                 try:
                     self._refresh_local_tx_buttons()
+                    self._refresh_usb_widgets()
                 except Exception:
                     pass
                 if self.winfo_exists():

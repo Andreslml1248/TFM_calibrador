@@ -65,59 +65,9 @@ class App(tk.Tk):
         self.btn_exit.lift()
 
         self.var_usb_state = tk.StringVar(value="USB: inicializando")
-        self.status_overlay = tk.Frame(self, bg="#111827", bd=1, relief="groove")
-        self.status_overlay.place(
-            in_=self,
-            relx=0.0,
-            rely=1.0,
-            x=self._sp(6, 4),
-            y=-self._sp(6, 4),
-            anchor="sw",
-        )
-        self.status_overlay.lift()
-
-        self.lbl_usb_state = tk.Label(
-            self.status_overlay,
-            textvariable=self.var_usb_state,
-            font=("Arial", max(8, self._sp(9, 8)), "bold"),
-            bg="#1f2937",
-            fg="#cbd5e1",
-            padx=self._sp(8, 4),
-            pady=self._sp(3, 2),
-            anchor="w",
-            width=max(18, self._sp(26, 18)),
-        )
-        self.lbl_usb_state.pack(side="left")
-
-        self.lbl_tx_state = tk.Label(
-            self.status_overlay,
-            text="TX: OFF",
-            font=("Arial", max(8, self._sp(9, 8)), "bold"),
-            bg="#111827",
-            fg="#93c5fd",
-            padx=self._sp(6, 3),
-            pady=self._sp(3, 2),
-            anchor="e",
-            width=max(10, self._sp(16, 10)),
-        )
-        self.lbl_tx_state.pack(side="left")
-
-        self.btn_retry_usb = tk.Button(
-            self.status_overlay,
-            text="USB",
-            command=self._retry_pending_exports,
-            font=("Arial", max(8, self._sp(9, 8)), "bold"),
-            bg="#0f172a",
-            fg="#f8fafc",
-            activebackground="#1e293b",
-            activeforeground="#ffffff",
-            bd=1,
-            relief="raised",
-            padx=self._sp(6, 4),
-            pady=self._sp(2, 1),
-            width=max(4, self._sp(7, 4)),
-        )
-        self.btn_retry_usb.pack(side="left", padx=(self._sp(2, 1), self._sp(4, 2)))
+        self._usb_status_bg = "#1f2937"
+        self._usb_status_fg = "#cbd5e1"
+        self.lbl_tx_state = None
 
         upd_ms = max(10, int(round(config.DT_PI * 1000)))
 
@@ -129,6 +79,9 @@ class App(tk.Tk):
             set_relay=self.hw.set_relay,
             set_valve=self.hw.set_valve,
             request_event=self.event_handler.request_event,
+            usb_state_var=self.var_usb_state,
+            retry_usb_export=self._retry_pending_exports,
+            get_usb_status_colors=self._get_usb_status_colors,
             update_period_ms=upd_ms,
         )
         nb.add(manual, text="Manual")
@@ -149,7 +102,6 @@ class App(tk.Tk):
         self._refresh_tx_state_label()
         self._apply_export_status(self.export_manager.sync_pending_exports())
         self.after_idle(self._ensure_main_maximized)
-        self.after_idle(self._lift_overlays)
         self.after(int(config.USB_EXPORT_POLL_INTERVAL_MS), self._poll_export_status)
 
     def _compute_ui_scale(self) -> float:
@@ -209,17 +161,6 @@ class App(tk.Tk):
         except tk.TclError:
             pass
         self.geometry(f"{screen_width}x{screen_height}+0+0")
-        self.after_idle(self._lift_overlays)
-
-    def _lift_overlays(self):
-        for widget_name in ("status_overlay", "btn_exit"):
-            widget = getattr(self, widget_name, None)
-            if widget is None:
-                continue
-            try:
-                widget.lift()
-            except tk.TclError:
-                pass
 
     def _set_tx_channel(self, channel):
         self.telemetry_server.set_active_channel(channel)
@@ -242,17 +183,21 @@ class App(tk.Tk):
 
     def _apply_export_status(self, sync_result: ExportSyncResult) -> None:
         self.var_usb_state.set(self.export_manager.format_status_text(sync_result))
-        label = getattr(self, "lbl_usb_state", None)
-        if label is None:
-            return
         if sync_result.last_error:
-            label.configure(bg="#7c2d12", fg="#ffedd5")
+            self._usb_status_bg = "#7c2d12"
+            self._usb_status_fg = "#ffedd5"
         elif sync_result.usb_detected:
-            label.configure(bg="#14532d", fg="#ecfccb")
+            self._usb_status_bg = "#14532d"
+            self._usb_status_fg = "#ecfccb"
         elif sync_result.pending_count > 0:
-            label.configure(bg="#78350f", fg="#fef3c7")
+            self._usb_status_bg = "#78350f"
+            self._usb_status_fg = "#fef3c7"
         else:
-            label.configure(bg="#1f2937", fg="#cbd5e1")
+            self._usb_status_bg = "#1f2937"
+            self._usb_status_fg = "#cbd5e1"
+
+    def _get_usb_status_colors(self) -> tuple[str, str]:
+        return self._usb_status_bg, self._usb_status_fg
 
     def _poll_export_status(self) -> None:
         try:
