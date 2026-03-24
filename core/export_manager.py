@@ -121,10 +121,10 @@ class ExportManager:
         pending = int(sync_result.pending_count)
         if sync_result.usb_detected and sync_result.usb_root:
             usb_name = self._display_usb_name(sync_result.usb_root)
-            return f"USB: {usb_name} | Pendientes: {pending}"
+            return f"USB: {usb_name} | Pend.: {pending}"
         if pending > 0:
-            return f"USB: no detectada | Pendientes: {pending}"
-        return "USB: no detectada | Pendientes: 0"
+            return f"USB: no | Pend.: {pending}"
+        return "USB: no | Pend.: 0"
 
     @staticmethod
     def _norm_path(path: str) -> str:

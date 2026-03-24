@@ -65,48 +65,57 @@ class App(tk.Tk):
         self.btn_exit.lift()
 
         self.var_usb_state = tk.StringVar(value="USB: inicializando")
-        status_bar = tk.Frame(self, bg="#111827", bd=1, relief="groove")
-        status_bar.pack(fill="x", side="bottom")
+        self.status_overlay = tk.Frame(self.nb, bg="#111827", bd=1, relief="groove")
+        self.status_overlay.place(
+            relx=0.0,
+            rely=1.0,
+            x=self._sp(6, 4),
+            y=-self._sp(6, 4),
+            anchor="sw",
+        )
 
         self.lbl_usb_state = tk.Label(
-            status_bar,
+            self.status_overlay,
             textvariable=self.var_usb_state,
-            font=("Arial", max(8, self._sp(11, 8)), "bold"),
+            font=("Arial", max(8, self._sp(9, 8)), "bold"),
             bg="#1f2937",
             fg="#cbd5e1",
-            padx=self._sp(10, 6),
-            pady=self._sp(4, 2),
+            padx=self._sp(8, 4),
+            pady=self._sp(3, 2),
             anchor="w",
+            width=max(18, self._sp(26, 18)),
         )
-        self.lbl_usb_state.pack(side="left", fill="x", expand=True)
+        self.lbl_usb_state.pack(side="left")
+
+        self.lbl_tx_state = tk.Label(
+            self.status_overlay,
+            text="TX: OFF",
+            font=("Arial", max(8, self._sp(9, 8)), "bold"),
+            bg="#111827",
+            fg="#93c5fd",
+            padx=self._sp(6, 3),
+            pady=self._sp(3, 2),
+            anchor="e",
+            width=max(10, self._sp(16, 10)),
+        )
+        self.lbl_tx_state.pack(side="left")
 
         self.btn_retry_usb = tk.Button(
-            status_bar,
-            text="Reintentar USB",
+            self.status_overlay,
+            text="USB",
             command=self._retry_pending_exports,
-            font=("Arial", max(8, self._sp(10, 8)), "bold"),
+            font=("Arial", max(8, self._sp(9, 8)), "bold"),
             bg="#0f172a",
             fg="#f8fafc",
             activebackground="#1e293b",
             activeforeground="#ffffff",
             bd=1,
             relief="raised",
-            padx=self._sp(8, 5),
-            pady=self._sp(3, 2),
+            padx=self._sp(6, 4),
+            pady=self._sp(2, 1),
+            width=max(4, self._sp(7, 4)),
         )
-        self.btn_retry_usb.pack(side="right", padx=(self._sp(4, 2), self._sp(8, 4)), pady=self._sp(3, 2))
-
-        self.lbl_tx_state = tk.Label(
-            status_bar,
-            text="TX: OFF",
-            font=("Arial", max(8, self._sp(10, 8)), "bold"),
-            bg="#111827",
-            fg="#93c5fd",
-            padx=self._sp(8, 4),
-            pady=self._sp(4, 2),
-            anchor="e",
-        )
-        self.lbl_tx_state.pack(side="right")
+        self.btn_retry_usb.pack(side="left", padx=(self._sp(2, 1), self._sp(4, 2)))
 
         upd_ms = max(10, int(round(config.DT_PI * 1000)))
 
