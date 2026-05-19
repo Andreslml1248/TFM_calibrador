@@ -224,6 +224,7 @@ class AutoView(ttk.Frame):
         self.var_p_source = tk.StringVar(value="0.00 kPa")
         self.var_dut_pressure = tk.StringVar(value="0.00 kPa")
         self.var_sig = tk.StringVar(value="0.000 mA")
+        self._sig_live_display_ma: Optional[float] = None
         self.var_err = tk.StringVar(value="+0.00 %")
         pi_u_min, pi_u_max = self._effective_u_bounds(config.PI_CFG.u_min, config.PI_CFG.u_max)
 
@@ -1414,6 +1415,7 @@ class AutoView(ttk.Frame):
             mode = "A1"
             self.var_mode.set(mode)
         self.cfg.dut_mode = mode
+        self._sig_live_display_ma = None
 
         def _parse_sig(var: tk.StringVar, fallback: float) -> float:
             try:
@@ -2295,15 +2297,27 @@ class AutoView(ttk.Frame):
             return float(p_min)
         return float(p_min + (x_meas - x_min) * (p_max - p_min) / den)
 
+    def _format_live_signal(self, dut_eng: float, mode: str) -> str:
+        mode_u = (mode or self.cfg.dut_mode or "A1").upper()
+        if mode_u == "A0":
+            self._sig_live_display_ma = None
+            return f"{float(dut_eng):,.3f} V".replace(",", "")
+
+        current_ma = float(dut_eng)
+        threshold_ma = max(0.0, float(getattr(config, "DUT_CURRENT_DISPLAY_HYST_MA", 0.03)))
+        shown_ma = self._sig_live_display_ma
+        if shown_ma is None or abs(current_ma - shown_ma) >= threshold_ma:
+            shown_ma = round(current_ma, 2)
+            self._sig_live_display_ma = float(shown_ma)
+
+        return f"{float(self._sig_live_display_ma):,.2f} mA".replace(",", "")
+
     def _apply_live_snapshot(self, *, p_kpa: float, dut_p_kpa: float, dut_eng: float, mode: str, err_pct: float) -> None:
         self.rt.last_p = float(p_kpa)
         self.rt.last_dut_p_kpa = float(dut_p_kpa)
         self.var_p_source.set(self._format_live_pressure(p_kpa))
         self.var_dut_pressure.set(self._format_live_pressure(dut_p_kpa))
-        if mode == "A0":
-            self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
-        else:
-            self.var_sig.set(f"{dut_eng:,.2f} mA".replace(",", ""))
+        self.var_sig.set(self._format_live_signal(dut_eng, mode))
         self.var_err.set(f"{err_pct:+,.2f} %".replace(",", ""))
 
     # ========================================================
@@ -2357,6 +2371,7 @@ class AutoView(ttk.Frame):
                     self.rt.last_dut_p_kpa = 0.0
                     self.var_p_source.set(self._format_live_pressure(0.0))
                     self.var_dut_pressure.set(self._format_live_pressure(0.0))
+                    self._sig_live_display_ma = None
                     self.var_sig.set("0.000 V" if mode_live == "A0" else "0.000 mA")
                     self.var_err.set("+0.00 %")
 

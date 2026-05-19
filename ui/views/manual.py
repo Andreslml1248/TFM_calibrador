@@ -248,6 +248,7 @@ class ManualView(ttk.Frame):
         self.var_p_source = tk.StringVar(value="0.00 kPa")
         self.var_dut_pressure = tk.StringVar(value="0.00 kPa")
         self.var_sig = tk.StringVar(value="0.000 mA")
+        self._sig_live_display_ma: Optional[float] = None
         self.var_span = tk.StringVar(value="0.0 %")
         self.var_err = tk.StringVar(value="0.0 %")
         self.var_pwm = tk.StringVar(value="u=0.000")
@@ -2884,6 +2885,7 @@ class ManualView(ttk.Frame):
             mode = "A1"
             self.var_mode.set(mode)
         self.cfg.dut_mode = mode
+        self._sig_live_display_ma = None
 
         def _parse_sig(var: tk.StringVar, fallback: float) -> float:
             try:
@@ -3034,6 +3036,21 @@ class ManualView(ttk.Frame):
 
         vadc = self._read_vadc_live(config.ADS_CH_DUT_mA)
         return dut_vadc_to_eng(vadc, self.cfg.dut_mode)
+
+    def _format_live_signal(self, dut_eng: float, mode: str) -> str:
+        mode_u = (mode or self.cfg.dut_mode or "A1").upper()
+        if mode_u == "A0":
+            self._sig_live_display_ma = None
+            return f"{float(dut_eng):,.3f} V".replace(",", "")
+
+        current_ma = float(dut_eng)
+        threshold_ma = max(0.0, float(getattr(config, "DUT_CURRENT_DISPLAY_HYST_MA", 0.03)))
+        shown_ma = self._sig_live_display_ma
+        if shown_ma is None or abs(current_ma - shown_ma) >= threshold_ma:
+            shown_ma = round(current_ma, 2)
+            self._sig_live_display_ma = float(shown_ma)
+
+        return f"{float(self._sig_live_display_ma):,.2f} mA".replace(",", "")
 
     def _compute_span_percent(self, dut_eng: float) -> float:
         span = self.cfg.sig_max - self.cfg.sig_min
@@ -3261,10 +3278,7 @@ class ManualView(ttk.Frame):
             dut_mode = str(snapshot.get("dut_mode", self.cfg.dut_mode))
             self.var_p_source.set(self._format_live_pressure(p))
             self.var_dut_pressure.set(self._format_live_pressure(dut_p_kpa))
-            if dut_mode == "A0":
-                self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
-            else:
-                self.var_sig.set(f"{dut_eng:,.2f} mA".replace(",", ""))
+            self.var_sig.set(self._format_live_signal(dut_eng, dut_mode))
 
             span_pct = float(snapshot.get("span_pct", 0.0))
             err_pct = float(snapshot.get("err_pct", 0.0))

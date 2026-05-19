@@ -59,6 +59,8 @@ __all__ = [
     "A1_MEAN_N",
     "A2_MEDIAN_N",
     "A2_MEAN_N",
+    "DUT_CURRENT_LIVE_MIN_PERIOD_S",
+    "DUT_CURRENT_DISPLAY_HYST_MA",
     "MPX_A2",
     "MPX_B2",
     "MPX_C2",
