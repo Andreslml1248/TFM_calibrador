@@ -70,8 +70,14 @@ class HW:
         self._telemetry_snapshot = get_global_telemetry_snapshot()
         self._use_ina219_dut_current = bool(getattr(config, "USE_INA219_DUT_CURRENT", False))
         self._ina219 = None
+        self._dut_current_live_lock = threading.Lock()
         self._dut_current_live_filter = ChannelFilterChain(
             config.A1_MEDIAN_N, config.A1_MEAN_N
+        )
+        self._dut_current_live_cached_ma: Optional[float] = None
+        self._dut_current_live_last_ts: float = 0.0
+        self._dut_current_live_min_period_s = max(
+            0.0, float(getattr(config, "DUT_CURRENT_LIVE_MIN_PERIOD_S", 0.08))
         )
         if self._use_ina219_dut_current:
             self._ina219 = INA219Sensor(
@@ -182,10 +188,24 @@ class HW:
             return float(self._ina219.read_current_ma())
 
     def read_dut_current_ma_live_filtered(self) -> float:
-        current_ma = self.read_dut_current_ma()
-        if not bool(getattr(config, "FILTER_LIVE_ENABLE", True)):
-            return float(current_ma)
-        return float(self._dut_current_live_filter.update(current_ma))
+        with self._dut_current_live_lock:
+            now = time.monotonic()
+            if (
+                self._dut_current_live_cached_ma is not None
+                and self._dut_current_live_min_period_s > 0.0
+                and (now - self._dut_current_live_last_ts) < self._dut_current_live_min_period_s
+            ):
+                return float(self._dut_current_live_cached_ma)
+
+            current_ma = self.read_dut_current_ma()
+            if not bool(getattr(config, "FILTER_LIVE_ENABLE", True)):
+                value_ma = float(current_ma)
+            else:
+                value_ma = float(self._dut_current_live_filter.update(current_ma))
+
+            self._dut_current_live_cached_ma = float(value_ma)
+            self._dut_current_live_last_ts = now
+            return float(value_ma)
 
     def _get_temp_device_file(self) -> Optional[str]:
         if self._temp_device_file and os.path.exists(self._temp_device_file):

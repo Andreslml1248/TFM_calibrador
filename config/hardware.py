@@ -84,6 +84,10 @@ USE_INA219_DUT_CURRENT: bool = True
 INA219_ADDR_CANDIDATES = tuple(range(0x40, 0x50))
 INA219_SHUNT_OHMS: float = 0.1
 INA219_MAX_CURRENT_A: float = 0.4
+#
+# Limita la frecuencia de actualizacion LIVE de corriente para que UI y runtime
+# no avancen el mismo filtro varias veces dentro del mismo ciclo.
+DUT_CURRENT_LIVE_MIN_PERIOD_S: float = 0.08
 INA219_LOG_READ_PERIOD_S: float = 1.0
 INA219_DETECT_RETRY_S: float = 1.0
 
@@ -133,8 +137,8 @@ A0_MEDIAN_N: int = 3
 A0_MEAN_N: int = 16
 
 # A1 (DUT mA)
-A1_MEDIAN_N: int = 5
-A1_MEAN_N: int = 32
+A1_MEDIAN_N: int = 3
+A1_MEAN_N: int = 16
 
 # A2 (MPX)
 A2_MEDIAN_N: int = 5
