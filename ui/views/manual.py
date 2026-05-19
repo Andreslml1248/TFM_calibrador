@@ -782,6 +782,9 @@ class ManualView(ttk.Frame):
         if self._widget_exists(self.btn_sp_unit_popup):
             self.btn_sp_unit_popup.configure(text=unit)
         self._sync_pressure_display_from_kpa()
+        snapshot = self._get_runtime_snapshot()
+        self.var_p_source.set(self._format_live_pressure(float(snapshot.get("p_kpa", 0.0))))
+        self.var_dut_pressure.set(self._format_live_pressure(float(snapshot.get("dut_p_kpa", 0.0))))
 
     def _update_settings_signal_ui(self, mode: Optional[str] = None):
         mode = (mode or self.var_mode.get().strip() or "A1").upper()
@@ -813,6 +816,13 @@ class ManualView(ttk.Frame):
         unit = self.var_sp_unit.get().strip() or "kPa"
         factor = float(self._UNIT_TO_KPA.get(unit, 1.0))
         return float(kpa_value) / factor if abs(factor) > 1e-12 else float(kpa_value)
+
+    def _format_live_pressure(self, kpa_value: float) -> str:
+        unit = self.var_sp_unit.get().strip() or "kPa"
+        if unit not in self._UNIT_TO_KPA:
+            unit = "kPa"
+        display_value = self._pressure_kpa_to_display(kpa_value)
+        return f"{display_value:,.2f} {unit}".replace(",", "")
 
     def _fmt_display_pressure(self, value: float) -> str:
         txt = f"{float(value):.4f}".rstrip("0").rstrip(".")
@@ -3239,8 +3249,8 @@ class ManualView(ttk.Frame):
             dut_p_kpa = float(snapshot.get("dut_p_kpa", 0.0))
             dut_eng = float(snapshot.get("dut_eng", 0.0))
             dut_mode = str(snapshot.get("dut_mode", self.cfg.dut_mode))
-            self.var_p_source.set(f"{p:,.2f} kPa".replace(",", ""))
-            self.var_dut_pressure.set(f"{dut_p_kpa:,.2f} kPa".replace(",", ""))
+            self.var_p_source.set(self._format_live_pressure(p))
+            self.var_dut_pressure.set(self._format_live_pressure(dut_p_kpa))
             if dut_mode == "A0":
                 self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
             else:

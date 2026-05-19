@@ -72,6 +72,7 @@ class AutoRuntime:
     t_state: Optional[float] = None
 
     last_p: float = 0.0
+    last_dut_p_kpa: float = 0.0
     last_u: float = 1.0
 
 
@@ -1457,6 +1458,13 @@ class AutoView(ttk.Frame):
         factor = float(self._UNIT_TO_KPA.get(active_unit, 1.0))
         return float(kpa_value) / factor if abs(factor) > 1e-12 else float(kpa_value)
 
+    def _format_live_pressure(self, kpa_value: float) -> str:
+        unit = self.var_pressure_unit.get().strip() or "kPa"
+        if unit not in self._UNIT_TO_KPA:
+            unit = "kPa"
+        display_value = self._pressure_kpa_to_display(kpa_value, unit=unit)
+        return f"{display_value:,.2f} {unit}".replace(",", "")
+
     def _fmt_display_pressure(self, value: float) -> str:
         txt = f"{float(value):.4f}".rstrip("0").rstrip(".")
         return txt if txt else "0"
@@ -1494,6 +1502,8 @@ class AutoView(ttk.Frame):
         if self._widget_exists(self.btn_pressure_unit):
             self.btn_pressure_unit.configure(text=unit)
         self._sync_pressure_display_from_kpa()
+        self.var_p_source.set(self._format_live_pressure(self.rt.last_p))
+        self.var_dut_pressure.set(self._format_live_pressure(self.rt.last_dut_p_kpa))
 
     def _set_pressure_unit(self, new_unit: str):
         current_unit = self.var_pressure_unit.get().strip() or "kPa"
@@ -2282,8 +2292,10 @@ class AutoView(ttk.Frame):
         return float(p_min + (x_meas - x_min) * (p_max - p_min) / den)
 
     def _apply_live_snapshot(self, *, p_kpa: float, dut_p_kpa: float, dut_eng: float, mode: str, err_pct: float) -> None:
-        self.var_p_source.set(f"{p_kpa:,.2f} kPa".replace(",", ""))
-        self.var_dut_pressure.set(f"{dut_p_kpa:,.2f} kPa".replace(",", ""))
+        self.rt.last_p = float(p_kpa)
+        self.rt.last_dut_p_kpa = float(dut_p_kpa)
+        self.var_p_source.set(self._format_live_pressure(p_kpa))
+        self.var_dut_pressure.set(self._format_live_pressure(dut_p_kpa))
         if mode == "A0":
             self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
         else:
@@ -2337,8 +2349,10 @@ class AutoView(ttk.Frame):
             except Exception as e:
                 live_read_error = e
                 if not self.rt.running:
-                    self.var_p_source.set("0.00 kPa")
-                    self.var_dut_pressure.set("0.00 kPa")
+                    self.rt.last_p = 0.0
+                    self.rt.last_dut_p_kpa = 0.0
+                    self.var_p_source.set(self._format_live_pressure(0.0))
+                    self.var_dut_pressure.set(self._format_live_pressure(0.0))
                     self.var_sig.set("0.000 V" if mode_live == "A0" else "0.000 mA")
                     self.var_err.set("+0.00 %")
 
