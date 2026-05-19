@@ -249,6 +249,8 @@ class ManualView(ttk.Frame):
         self.var_dut_pressure = tk.StringVar(value="0.00 kPa")
         self.var_sig = tk.StringVar(value="0.000 mA")
         self._sig_live_display_ma: Optional[float] = None
+        self._dut_pressure_display_kpa: Optional[float] = None
+        self._err_display_pct: Optional[float] = None
         self.var_span = tk.StringVar(value="0.0 %")
         self.var_err = tk.StringVar(value="0.0 %")
         self.var_pwm = tk.StringVar(value="u=0.000")
@@ -789,7 +791,7 @@ class ManualView(ttk.Frame):
         self._sync_pressure_display_from_kpa()
         snapshot = self._get_runtime_snapshot()
         self.var_p_source.set(self._format_live_pressure(float(snapshot.get("p_kpa", 0.0))))
-        self.var_dut_pressure.set(self._format_live_pressure(float(snapshot.get("dut_p_kpa", 0.0))))
+        self.var_dut_pressure.set(self._format_live_dut_pressure(float(snapshot.get("dut_p_kpa", 0.0))))
 
     def _update_settings_signal_ui(self, mode: Optional[str] = None):
         mode = (mode or self.var_mode.get().strip() or "A1").upper()
@@ -828,6 +830,23 @@ class ManualView(ttk.Frame):
             unit = "kPa"
         display_value = self._pressure_kpa_to_display(kpa_value)
         return f"{display_value:,.2f} {unit}".replace(",", "")
+
+    def _format_live_dut_pressure(self, kpa_value: float) -> str:
+        pressure_kpa = float(kpa_value)
+        threshold_kpa = max(0.0, float(getattr(config, "DUT_PRESSURE_DISPLAY_HYST_KPA", 0.10)))
+        shown_kpa = self._dut_pressure_display_kpa
+        if shown_kpa is None or abs(pressure_kpa - shown_kpa) >= threshold_kpa:
+            self._dut_pressure_display_kpa = pressure_kpa
+        return self._format_live_pressure(float(self._dut_pressure_display_kpa))
+
+    def _format_live_error(self, err_pct: float) -> str:
+        error_pct = float(err_pct)
+        threshold_pct = max(0.0, float(getattr(config, "DUT_ERROR_DISPLAY_HYST_PCT", 0.10)))
+        shown_pct = self._err_display_pct
+        if shown_pct is None or abs(error_pct - shown_pct) >= threshold_pct:
+            shown_pct = round(error_pct, 2)
+            self._err_display_pct = float(shown_pct)
+        return f"{float(self._err_display_pct):+,.2f} %".replace(",", "")
 
     def _fmt_display_pressure(self, value: float) -> str:
         txt = f"{float(value):.4f}".rstrip("0").rstrip(".")
@@ -2886,6 +2905,8 @@ class ManualView(ttk.Frame):
             self.var_mode.set(mode)
         self.cfg.dut_mode = mode
         self._sig_live_display_ma = None
+        self._dut_pressure_display_kpa = None
+        self._err_display_pct = None
 
         def _parse_sig(var: tk.StringVar, fallback: float) -> float:
             try:
@@ -3277,13 +3298,13 @@ class ManualView(ttk.Frame):
             dut_eng = float(snapshot.get("dut_eng", 0.0))
             dut_mode = str(snapshot.get("dut_mode", self.cfg.dut_mode))
             self.var_p_source.set(self._format_live_pressure(p))
-            self.var_dut_pressure.set(self._format_live_pressure(dut_p_kpa))
+            self.var_dut_pressure.set(self._format_live_dut_pressure(dut_p_kpa))
             self.var_sig.set(self._format_live_signal(dut_eng, dut_mode))
 
             span_pct = float(snapshot.get("span_pct", 0.0))
             err_pct = float(snapshot.get("err_pct", 0.0))
             self.var_span.set(f"{span_pct:,.2f} %".replace(",", ""))
-            self.var_err.set(f"{err_pct:+,.2f} %".replace(",", ""))
+            self.var_err.set(self._format_live_error(err_pct))
             self.var_pwm.set(str(snapshot.get("u_text", "u=0.000")))
 
             try:

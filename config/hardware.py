@@ -89,6 +89,8 @@ INA219_MAX_CURRENT_A: float = 0.4
 # no avancen el mismo filtro varias veces dentro del mismo ciclo.
 DUT_CURRENT_LIVE_MIN_PERIOD_S: float = 0.08
 DUT_CURRENT_DISPLAY_HYST_MA: float = 0.03
+DUT_PRESSURE_DISPLAY_HYST_KPA: float = 0.10
+DUT_ERROR_DISPLAY_HYST_PCT: float = 0.10
 INA219_LOG_READ_PERIOD_S: float = 1.0
 INA219_DETECT_RETRY_S: float = 1.0
 

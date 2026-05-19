@@ -225,6 +225,8 @@ class AutoView(ttk.Frame):
         self.var_dut_pressure = tk.StringVar(value="0.00 kPa")
         self.var_sig = tk.StringVar(value="0.000 mA")
         self._sig_live_display_ma: Optional[float] = None
+        self._dut_pressure_display_kpa: Optional[float] = None
+        self._err_display_pct: Optional[float] = None
         self.var_err = tk.StringVar(value="+0.00 %")
         pi_u_min, pi_u_max = self._effective_u_bounds(config.PI_CFG.u_min, config.PI_CFG.u_max)
 
@@ -1416,6 +1418,8 @@ class AutoView(ttk.Frame):
             self.var_mode.set(mode)
         self.cfg.dut_mode = mode
         self._sig_live_display_ma = None
+        self._dut_pressure_display_kpa = None
+        self._err_display_pct = None
 
         def _parse_sig(var: tk.StringVar, fallback: float) -> float:
             try:
@@ -1471,6 +1475,23 @@ class AutoView(ttk.Frame):
         display_value = self._pressure_kpa_to_display(kpa_value, unit=unit)
         return f"{display_value:,.2f} {unit}".replace(",", "")
 
+    def _format_live_dut_pressure(self, kpa_value: float) -> str:
+        pressure_kpa = float(kpa_value)
+        threshold_kpa = max(0.0, float(getattr(config, "DUT_PRESSURE_DISPLAY_HYST_KPA", 0.10)))
+        shown_kpa = self._dut_pressure_display_kpa
+        if shown_kpa is None or abs(pressure_kpa - shown_kpa) >= threshold_kpa:
+            self._dut_pressure_display_kpa = pressure_kpa
+        return self._format_live_pressure(float(self._dut_pressure_display_kpa))
+
+    def _format_live_error(self, err_pct: float) -> str:
+        error_pct = float(err_pct)
+        threshold_pct = max(0.0, float(getattr(config, "DUT_ERROR_DISPLAY_HYST_PCT", 0.10)))
+        shown_pct = self._err_display_pct
+        if shown_pct is None or abs(error_pct - shown_pct) >= threshold_pct:
+            shown_pct = round(error_pct, 2)
+            self._err_display_pct = float(shown_pct)
+        return f"{float(self._err_display_pct):+,.2f} %".replace(",", "")
+
     def _fmt_display_pressure(self, value: float) -> str:
         txt = f"{float(value):.4f}".rstrip("0").rstrip(".")
         return txt if txt else "0"
@@ -1509,7 +1530,7 @@ class AutoView(ttk.Frame):
             self.btn_pressure_unit.configure(text=unit)
         self._sync_pressure_display_from_kpa()
         self.var_p_source.set(self._format_live_pressure(self.rt.last_p))
-        self.var_dut_pressure.set(self._format_live_pressure(self.rt.last_dut_p_kpa))
+        self.var_dut_pressure.set(self._format_live_dut_pressure(self.rt.last_dut_p_kpa))
 
     def _set_pressure_unit(self, new_unit: str):
         current_unit = self.var_pressure_unit.get().strip() or "kPa"
@@ -2316,9 +2337,9 @@ class AutoView(ttk.Frame):
         self.rt.last_p = float(p_kpa)
         self.rt.last_dut_p_kpa = float(dut_p_kpa)
         self.var_p_source.set(self._format_live_pressure(p_kpa))
-        self.var_dut_pressure.set(self._format_live_pressure(dut_p_kpa))
+        self.var_dut_pressure.set(self._format_live_dut_pressure(dut_p_kpa))
         self.var_sig.set(self._format_live_signal(dut_eng, mode))
-        self.var_err.set(f"{err_pct:+,.2f} %".replace(",", ""))
+        self.var_err.set(self._format_live_error(err_pct))
 
     # ========================================================
     # LOOP
@@ -2370,10 +2391,12 @@ class AutoView(ttk.Frame):
                     self.rt.last_p = 0.0
                     self.rt.last_dut_p_kpa = 0.0
                     self.var_p_source.set(self._format_live_pressure(0.0))
-                    self.var_dut_pressure.set(self._format_live_pressure(0.0))
+                    self._dut_pressure_display_kpa = None
                     self._sig_live_display_ma = None
+                    self._err_display_pct = None
+                    self.var_dut_pressure.set(self._format_live_dut_pressure(0.0))
                     self.var_sig.set("0.000 V" if mode_live == "A0" else "0.000 mA")
-                    self.var_err.set("+0.00 %")
+                    self.var_err.set(self._format_live_error(0.0))
 
             if not self.rt.running:
                 self._update_cycle_indicator()
