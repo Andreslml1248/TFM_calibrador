@@ -3264,7 +3264,7 @@ class ManualView(ttk.Frame):
             if dut_mode == "A0":
                 self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
             else:
-                self.var_sig.set(f"{dut_eng:,.3f} mA".replace(",", ""))
+                self.var_sig.set(f"{dut_eng:,.2f} mA".replace(",", ""))
 
             span_pct = float(snapshot.get("span_pct", 0.0))
             err_pct = float(snapshot.get("err_pct", 0.0))

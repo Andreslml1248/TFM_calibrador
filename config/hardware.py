@@ -133,8 +133,8 @@ A0_MEDIAN_N: int = 3
 A0_MEAN_N: int = 16
 
 # A1 (DUT mA)
-A1_MEDIAN_N: int = 3
-A1_MEAN_N: int = 16
+A1_MEDIAN_N: int = 5
+A1_MEAN_N: int = 32
 
 # A2 (MPX)
 A2_MEDIAN_N: int = 5

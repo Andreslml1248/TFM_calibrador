@@ -2303,7 +2303,7 @@ class AutoView(ttk.Frame):
         if mode == "A0":
             self.var_sig.set(f"{dut_eng:,.3f} V".replace(",", ""))
         else:
-            self.var_sig.set(f"{dut_eng:,.3f} mA".replace(",", ""))
+            self.var_sig.set(f"{dut_eng:,.2f} mA".replace(",", ""))
         self.var_err.set(f"{err_pct:+,.2f} %".replace(",", ""))
 
     # ========================================================
