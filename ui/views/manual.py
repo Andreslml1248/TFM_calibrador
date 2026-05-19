@@ -135,6 +135,8 @@ class ManualView(ttk.Frame):
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
+        read_dut_current_ma: Optional[Callable[[], float]] = None,
+        read_dut_current_ma_live: Optional[Callable[[], float]] = None,
         usb_state_var: Optional[tk.StringVar] = None,
         labview_state_var: Optional[tk.StringVar] = None,
         retry_usb_export: Optional[Callable[[], None]] = None,
@@ -144,6 +146,8 @@ class ManualView(ttk.Frame):
         super().__init__(master)
         self.read_vadc = read_vadc
         self.read_vadc_live = read_vadc_live
+        self.read_dut_current_ma = read_dut_current_ma
+        self.read_dut_current_ma_live = read_dut_current_ma_live
         self.set_pump = set_pump
         self.set_relay = set_relay
         self.set_valve = set_valve
@@ -3021,8 +3025,14 @@ class ManualView(ttk.Frame):
         return float(p)
 
     def _read_dut_eng(self) -> float:
-        ch = config.ADS_CH_DUT_V if self.cfg.dut_mode == "A0" else config.ADS_CH_DUT_mA
-        vadc = self._read_vadc_live(ch)
+        if self.cfg.dut_mode == "A0":
+            vadc = self._read_vadc_live(config.ADS_CH_DUT_V)
+            return dut_vadc_to_eng(vadc, self.cfg.dut_mode)
+
+        if callable(self.read_dut_current_ma_live):
+            return float(self.read_dut_current_ma_live())
+
+        vadc = self._read_vadc_live(config.ADS_CH_DUT_mA)
         return dut_vadc_to_eng(vadc, self.cfg.dut_mode)
 
     def _compute_span_percent(self, dut_eng: float) -> float:

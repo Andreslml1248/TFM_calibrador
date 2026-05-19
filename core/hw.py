@@ -29,6 +29,7 @@ else:
 from config import hardware as config
 from core.ads1115 import clamp, ads_read_v_once
 from core.filters import ChannelFilterChain
+from core.ina219 import INA219Sensor
 from core.telemetry import get_global_telemetry_snapshot
 
 
@@ -67,6 +68,21 @@ class HW:
 
         self.bus = SMBus(config.ADS_I2C_BUS)
         self._telemetry_snapshot = get_global_telemetry_snapshot()
+        self._use_ina219_dut_current = bool(getattr(config, "USE_INA219_DUT_CURRENT", False))
+        self._ina219 = None
+        self._dut_current_live_filter = ChannelFilterChain(
+            config.A1_MEDIAN_N, config.A1_MEAN_N
+        )
+        if self._use_ina219_dut_current:
+            self._ina219 = INA219Sensor(
+                self.bus,
+                addresses=getattr(config, "INA219_ADDR_CANDIDATES", tuple(range(0x40, 0x50))),
+                shunt_ohms=float(getattr(config, "INA219_SHUNT_OHMS", 0.1)),
+                max_current_a=float(getattr(config, "INA219_MAX_CURRENT_A", 0.4)),
+                read_log_period_s=float(getattr(config, "INA219_LOG_READ_PERIOD_S", 1.0)),
+                detect_retry_s=float(getattr(config, "INA219_DETECT_RETRY_S", 1.0)),
+            )
+            self._ina219.detect()
 
         # Filtros live por canal (Median PtByPt + Mean PtByPt)
         self._live_filters = {}
@@ -158,6 +174,18 @@ class HW:
             value = float(ads_read_v_once(self.bus, ch_i))
         self._telemetry_snapshot.update(ch_i, value)
         return value
+
+    def read_dut_current_ma(self) -> float:
+        if not self._use_ina219_dut_current or self._ina219 is None:
+            raise RuntimeError("INA219 DUT current source is disabled.")
+        with self._io_lock:
+            return float(self._ina219.read_current_ma())
+
+    def read_dut_current_ma_live_filtered(self) -> float:
+        current_ma = self.read_dut_current_ma()
+        if not bool(getattr(config, "FILTER_LIVE_ENABLE", True)):
+            return float(current_ma)
+        return float(self._dut_current_live_filter.update(current_ma))
 
     def _get_temp_device_file(self) -> Optional[str]:
         if self._temp_device_file and os.path.exists(self._temp_device_file):

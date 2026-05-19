@@ -78,6 +78,16 @@ ADS_CH_A3: int = 3
 USE_ADS_REF: bool = True
 
 # ============================
+# INA219 (DUT corriente por I2C)
+# ============================
+USE_INA219_DUT_CURRENT: bool = True
+INA219_ADDR_CANDIDATES = tuple(range(0x40, 0x50))
+INA219_SHUNT_OHMS: float = 0.1
+INA219_MAX_CURRENT_A: float = 0.4
+INA219_LOG_READ_PERIOD_S: float = 1.0
+INA219_DETECT_RETRY_S: float = 1.0
+
+# ============================
 # CALIBRACIÓN ENTRADAS DUT (ECUACIONES LINEALES)
 # ============================
 # A0: Vin = 3.235548 * VADC + 0.003870

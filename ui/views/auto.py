@@ -138,6 +138,8 @@ class AutoView(ttk.Frame):
         set_relay: Callable[[bool], None],
         set_valve: Callable[[bool], None],
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
+        read_dut_current_ma: Optional[Callable[[], float]] = None,
+        read_dut_current_ma_live: Optional[Callable[[], float]] = None,
         export_manager: Optional[ExportManager] = None,
         usb_state_var: Optional[tk.StringVar] = None,
         labview_state_var: Optional[tk.StringVar] = None,
@@ -149,6 +151,8 @@ class AutoView(ttk.Frame):
 
         self.read_vadc = read_vadc
         self.read_vadc_live = read_vadc_live
+        self.read_dut_current_ma = read_dut_current_ma
+        self.read_dut_current_ma_live = read_dut_current_ma_live
         self.set_pump = set_pump
         self.set_relay = set_relay
         self.set_valve = set_valve
@@ -2328,7 +2332,7 @@ class AutoView(ttk.Frame):
                 p_corr = self._read_pressure_corr_kpa()
                 p = max(0.0, p_corr - self.rt.p_zero_kpa)
                 self.rt.last_p = p
-                dut_eng = float(self._dut_vadc_to_eng(self._read_dut_vadc(), mode_live))
+                dut_eng = float(self._read_dut_eng_live(mode_live))
                 sig_min_live, sig_max_live = self._get_live_signal_bounds()
                 p_min_live, p_max_live = self._get_live_pressure_bounds()
                 dut_p_kpa = self._dut_est_pressure_kpa(
@@ -2525,7 +2529,6 @@ class AutoView(ttk.Frame):
         vadc_dut_list: List[float] = []
 
         mode = (self.cfg.dut_mode or "A1").upper()
-        ch_dut = config.ADS_CH_DUT_V if mode == "A0" else config.ADS_CH_DUT_mA
 
         for _ in range(max(1, n)):
             vadc_ref_raw = float(self.read_vadc(config.ADS_CH_REF))
@@ -2533,9 +2536,17 @@ class AutoView(ttk.Frame):
             p_corr = float(self._mpx_vadc_to_kpa(vadc_ref))
             p = max(0.0, p_corr - float(self.rt.p_zero_kpa))
 
-            vadc_dut_raw = float(self.read_vadc(ch_dut))
-            vadc_dut = med_dut.update(vadc_dut_raw) if med_dut else vadc_dut_raw
-            dut_eng = float(self._dut_vadc_to_eng(vadc_dut, mode))
+            if mode == "A0":
+                vadc_dut_raw = float(self.read_vadc(config.ADS_CH_DUT_V))
+                vadc_dut = med_dut.update(vadc_dut_raw) if med_dut else vadc_dut_raw
+                dut_eng = float(self._dut_vadc_to_eng(vadc_dut, mode))
+            else:
+                if callable(self.read_dut_current_ma):
+                    dut_raw = float(self.read_dut_current_ma())
+                else:
+                    dut_raw = float(self.read_vadc(config.ADS_CH_DUT_mA))
+                dut_eng = float(med_dut.update(dut_raw) if med_dut else dut_raw)
+                vadc_dut = float(dut_raw)
 
             vadc_ref_list.append(vadc_ref)
             vadc_dut_list.append(vadc_dut)
@@ -2986,8 +2997,19 @@ class AutoView(ttk.Frame):
     # ========================================================
     def _read_dut_vadc(self) -> float:
         mode = (self.cfg.dut_mode or "A1").upper()
-        ch = config.ADS_CH_DUT_V if mode == "A0" else config.ADS_CH_DUT_mA
-        return float(self.read_vadc_live(ch))
+        if mode == "A0":
+            return float(self.read_vadc_live(config.ADS_CH_DUT_V))
+        if callable(self.read_dut_current_ma_live):
+            return float(self.read_dut_current_ma_live())
+        return float(self.read_vadc_live(config.ADS_CH_DUT_mA))
+
+    def _read_dut_eng_live(self, mode: str) -> float:
+        mode = (mode or "A1").upper()
+        if mode == "A0":
+            return float(self._dut_vadc_to_eng(self._read_dut_vadc(), mode))
+        if callable(self.read_dut_current_ma_live):
+            return float(self.read_dut_current_ma_live())
+        return float(self._dut_vadc_to_eng(self._read_dut_vadc(), mode))
 
     def _dut_vadc_to_eng(self, vadc: float, mode: str) -> float:
         mode = (mode or "A1").upper()
@@ -3002,14 +3024,13 @@ class AutoView(ttk.Frame):
 
     def _dut_text_live(self) -> str:
         mode = (self.cfg.dut_mode or "A1").upper()
-        vadc = self._read_dut_vadc()
-
         if mode == "A0":
+            vadc = self._read_dut_vadc()
             vin = self._dut_vadc_to_eng(vadc, mode)
             return f"DUT(A0)= {vin:5.3f} V | Vadc={vadc:5.3f} V"
 
-        ima = self._dut_vadc_to_eng(vadc, mode)
-        return f"DUT(A1)= {ima:6.2f} mA | Vadc={vadc:5.3f} V"
+        ima = self._read_dut_eng_live(mode)
+        return f"DUT(A1)= {ima:6.2f} mA | INA219"
 
     def _effective_u_bounds(self, u_min: float, u_max: float) -> tuple[float, float]:
         u_min_eff = max(0.0, min(float(u_min), 1.0))
