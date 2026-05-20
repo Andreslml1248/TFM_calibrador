@@ -1,14 +1,12 @@
 ﻿# mode_manual.py
 # -*- coding: utf-8 -*-
 
-import os
 import time
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, font as tkFont
 from dataclasses import dataclass
 from collections import deque
-from datetime import datetime
 from queue import SimpleQueue, Empty
 from typing import Callable, Optional, Dict, Any
 
@@ -21,7 +19,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from config import hardware as config
 from core.control import PIController, PIConfig, PIWorker
 from core.calibration import two_point_cal, save_calibration
-from core.export_manager import ExportManager, ExportSyncResult
 from ui.numeric_keypad import open_numeric_keypad_dialog
 
 
@@ -127,8 +124,6 @@ class ManualView(ttk.Frame):
     _LIVE_PLOT_WINDOW_S = 60.0
     _LIVE_PLOT_MAX_POINTS = 600
     _LIVE_PLOT_MIN_REDRAW_S = 0.25
-    _REPORT_TEST_TARGET_KPA = 200.0
-    _REPORT_TEST_SETTLE_S = 10.0
 
     def __init__(
         self,
@@ -142,7 +137,6 @@ class ManualView(ttk.Frame):
         request_event: Callable[[str, Optional[Dict[str, Any]]], None],
         read_dut_current_ma: Optional[Callable[[], float]] = None,
         read_dut_current_ma_live: Optional[Callable[[], float]] = None,
-        export_manager: Optional[ExportManager] = None,
         usb_state_var: Optional[tk.StringVar] = None,
         labview_state_var: Optional[tk.StringVar] = None,
         retry_usb_export: Optional[Callable[[], None]] = None,
@@ -158,7 +152,6 @@ class ManualView(ttk.Frame):
         self.set_relay = set_relay
         self.set_valve = set_valve
         self.request_event = request_event
-        self.export_manager = export_manager
         self.usb_state_var = usb_state_var or tk.StringVar(value="USB: --")
         self.labview_state_var = labview_state_var or tk.StringVar(value="LAB OFF | W -- | E --")
         self.retry_usb_export = retry_usb_export
@@ -223,6 +216,7 @@ class ManualView(ttk.Frame):
         self._live_plot_lock = threading.Lock()
         self._live_plot_t0: Optional[float] = None
         self._live_plot_last_draw_ts: float = 0.0
+        self._live_plot_generation: int = 0
         self._live_plot_t = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
         self._live_plot_p_pat = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
         self._live_plot_p_dut = deque(maxlen=self._LIVE_PLOT_MAX_POINTS)
@@ -271,7 +265,6 @@ class ManualView(ttk.Frame):
         self.btn_sigmax = None
         self.btn_pmaxseg = None
         self.btn_sp_unit_popup = None
-        self.btn_report_test = None
         self.lbl_sigmin = None
         self.lbl_sigmax = None
         self._tx_buttons: Dict[Any, tk.Button] = {}
@@ -281,11 +274,6 @@ class ManualView(ttk.Frame):
         self.btn_usb_retry = None
         self._plot_host = None
         self._settings_snapshot: Optional[Dict[str, Any]] = None
-        # Temporal: prueba 0->200 kPa para capturar la grafica del informe.
-        self._report_capture_active = False
-        self._report_capture_wait_started_ts: Optional[float] = None
-        self._report_capture_event_sent = False
-        self._report_capture_prev_sp_kpa: Optional[float] = None
 
         self._build_ui_compact()
         self._build_live_plot()
@@ -507,14 +495,12 @@ class ManualView(ttk.Frame):
             )
 
         self.btn_start = make_action_button("INICIAR", self._start, "#1f9d45", width=9, font_size=15, pad_x=5, pad_y=3)
-        self.btn_report_test = make_action_button("PRUEBA 200", self._start_report_capture_test, "#1d4ed8", width=10, font_size=14, pad_x=5, pad_y=3)
         self.btn_zero = make_action_button("P=0", self._do_tare, "#fbbf24", fg="#111827", width=6, font_size=15, pad_x=5, pad_y=3)
         self.btn_stop_cfg = make_action_button("DETENER", self._stop_and_back, "#dc2626", width=9, font_size=15, pad_x=5, pad_y=3)
         self.btn_fft = make_action_button("FFT", self._open_fft_window, "#111827", width=5, font_size=15, pad_x=5, pad_y=3)
         self.btn_settings = make_action_button("\u2699", self._open_settings_window, "#111827", width=3, font_size=15, pad_x=4, pad_y=3)
 
         self.btn_start.pack(side="left", padx=sp(4, 2))
-        self.btn_report_test.pack(side="left", padx=sp(4, 2))
         self.btn_zero.pack(side="left", padx=sp(4, 2))
         self.btn_stop_cfg.pack(side="left", padx=sp(4, 2))
         self.btn_fft.pack(side="left", padx=sp(4, 2))
@@ -694,133 +680,6 @@ class ManualView(ttk.Frame):
     def _retry_usb_export(self) -> None:
         if callable(self.retry_usb_export):
             self.retry_usb_export()
-
-    def _get_export_manager(self) -> Optional[ExportManager]:
-        if self.export_manager is not None:
-            return self.export_manager
-        try:
-            top = self.winfo_toplevel()
-            manager = getattr(top, "export_manager", None)
-            if isinstance(manager, ExportManager):
-                return manager
-        except Exception:
-            pass
-        return None
-
-    def _report_capture_output_dir(self) -> str:
-        manager = self._get_export_manager()
-        if manager is not None:
-            return manager.ensure_results_dir()
-        results_dir = os.path.join(os.getcwd(), str(config.RESULTS_DIR))
-        os.makedirs(results_dir, exist_ok=True)
-        return results_dir
-
-    def _build_report_capture_figure(self) -> Figure:
-        with self._live_plot_lock:
-            x = list(self._live_plot_t)
-            y_pat = list(self._live_plot_p_pat)
-
-        fig = Figure(
-            figsize=(
-                max(4.0, 6.0 * max(self._ui_scale, 0.80)),
-                max(2.8, 4.0 * max(self._ui_scale, 0.78)),
-            ),
-            dpi=140,
-        )
-        fig.patch.set_facecolor("#080b11")
-        ax = fig.add_subplot(111)
-        ax.set_facecolor("#080b11")
-        ax.set_title("Patron", color="#f8fafc", fontsize=max(10, self._sp(13, 10)), fontweight="bold")
-        ax.set_xlabel("Tiempo (s)", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
-        ax.set_ylabel("Presion", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
-        ax.yaxis.labelpad = max(8, self._sp(10, 8))
-        ax.tick_params(axis="x", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
-        ax.tick_params(axis="y", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
-        ax.grid(True, alpha=0.25, color="#94a3b8")
-        for spine in ax.spines.values():
-            spine.set_color("#94a3b8")
-
-        ax.plot(x, y_pat, color="#0b5aa2", linewidth=1.8, label="Patron")
-
-        if x:
-            x_end = float(x[-1])
-            x_start = max(0.0, x_end - float(self._LIVE_PLOT_WINDOW_S))
-            if (x_end - x_start) < 1.0:
-                x_end = x_start + 1.0
-            ax.set_xlim(x_start, x_end)
-        else:
-            ax.set_xlim(0.0, self._LIVE_PLOT_WINDOW_S)
-
-        if y_pat:
-            y_min = min(y_pat)
-            y_max = max(y_pat)
-            if abs(y_max - y_min) < 1e-6:
-                pad = max(1.0, abs(y_max) * 0.05 + 0.5)
-            else:
-                pad = max(0.5, (y_max - y_min) * 0.10)
-            ax.set_ylim(y_min - pad, y_max + pad)
-        else:
-            ax.set_ylim(0.0, 1.0)
-
-        legend = ax.legend(loc="upper left", fontsize=max(7, self._sp(8, 7)))
-        legend.get_frame().set_facecolor("#0f172a")
-        legend.get_frame().set_edgecolor("#475569")
-        for text in legend.get_texts():
-            text.set_color("#f8fafc")
-
-        fig.subplots_adjust(left=0.17, right=0.95, top=0.90, bottom=0.16)
-        return fig
-
-    def _save_report_capture_plot_local(self) -> Optional[str]:
-        results_dir = self._report_capture_output_dir()
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"manual_prueba_200kpa_{timestamp}.png"
-        filepath = os.path.join(results_dir, filename)
-
-        fig_export = self._build_report_capture_figure()
-        try:
-            fig_export.savefig(filepath, format="png", dpi=220, bbox_inches="tight")
-        finally:
-            fig_export.clear()
-        return filepath
-
-    def _export_report_capture_plot(self) -> Optional[tuple[str, Optional[ExportSyncResult]]]:
-        filepath = self._save_report_capture_plot_local()
-        if not filepath:
-            return None
-
-        sync_result = None
-        manager = self._get_export_manager()
-        if manager is not None:
-            try:
-                sync_result = manager.register_export(filepath)
-            except Exception as e:
-                messagebox.showwarning("USB", f"Imagen guardada localmente.\nLa cola USB no pudo actualizarse:\n{e}")
-        return filepath, sync_result
-
-    def _show_report_capture_feedback(self, local_path: str, sync_result: Optional[ExportSyncResult]) -> None:
-        if sync_result and sync_result.preferred_usb_path:
-            messagebox.showinfo(
-                "Prueba 200 kPa",
-                f"Imagen guardada en:\n{local_path}\n\nCopia USB:\n{sync_result.preferred_usb_path}",
-            )
-            return
-
-        if sync_result and not sync_result.usb_detected:
-            messagebox.showinfo(
-                "Prueba 200 kPa",
-                f"Imagen guardada localmente en:\n{local_path}\n\nUSB no detectada. Se copiara automaticamente al conectarla.",
-            )
-            return
-
-        if sync_result and sync_result.last_error:
-            messagebox.showwarning(
-                "Prueba 200 kPa",
-                f"Imagen guardada localmente en:\n{local_path}\n\nLa copia a la USB quedo pendiente.\n{sync_result.last_error}",
-            )
-            return
-
-        messagebox.showinfo("Prueba 200 kPa", f"Imagen guardada en:\n{local_path}")
 
     def _refresh_usb_widgets(self) -> None:
         if self._widget_exists(self.lbl_usb_state):
@@ -1039,7 +898,6 @@ class ManualView(ttk.Frame):
         self.rt.running = False
         self.rt.target_reached = False
         self.rt.in_band_since_ts = None
-        self._reset_report_capture_state(restore_sp=True)
         self.pi_worker.reset()
         self.pi_worker.freeze()
         self.rt.last_update_ts = 0.0
@@ -1089,11 +947,9 @@ class ManualView(ttk.Frame):
 
         if enabled:
             self._set_button_enabled(self.btn_start, True)
-            self._set_button_enabled(self.btn_report_test, True)
             self._set_button_enabled(self.btn_zero, True)
         else:
             self._set_button_enabled(self.btn_start, False)
-            self._set_button_enabled(self.btn_report_test, False)
             self._set_button_enabled(self.btn_zero, True)
 
     # -------------------------
@@ -3093,81 +2949,6 @@ class ManualView(ttk.Frame):
         except Exception as e:
             messagebox.showerror("TARA", f"No se pudo aplicar tara: {e}")
 
-    def _reset_report_capture_state(self, restore_sp: bool = False) -> None:
-        prev_sp_kpa = self._report_capture_prev_sp_kpa
-        self._report_capture_active = False
-        self._report_capture_wait_started_ts = None
-        self._report_capture_event_sent = False
-        self._report_capture_prev_sp_kpa = None
-
-        if restore_sp and prev_sp_kpa is not None:
-            self.cfg.sp_kpa = float(prev_sp_kpa)
-            self.var_sp.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.sp_kpa)))
-            self._sync_pressure_display_from_kpa()
-
-    def _start_report_capture_test(self) -> None:
-        try:
-            self._pull_config_from_ui()
-            self._validate_config()
-        except Exception as e:
-            messagebox.showerror("CONFIG", str(e))
-            return
-
-        self._report_capture_prev_sp_kpa = float(self.cfg.sp_kpa)
-        self._report_capture_active = True
-        self._report_capture_wait_started_ts = None
-        self._report_capture_event_sent = False
-        self.cfg.sp_kpa = float(self._REPORT_TEST_TARGET_KPA)
-        self.var_sp.set(self._fmt_display_pressure(self._pressure_kpa_to_display(self.cfg.sp_kpa)))
-        self._sync_pressure_display_from_kpa()
-
-        if not self._start():
-            self._reset_report_capture_state(restore_sp=True)
-
-    def _update_report_capture_timer(self, now_ts: float) -> None:
-        if not self._report_capture_active or self._report_capture_event_sent:
-            return
-
-        if not self.rt.target_reached:
-            self._report_capture_wait_started_ts = None
-            return
-
-        if self._report_capture_wait_started_ts is None:
-            self._report_capture_wait_started_ts = float(now_ts)
-            return
-
-        if (float(now_ts) - float(self._report_capture_wait_started_ts)) >= float(self._REPORT_TEST_SETTLE_S):
-            self._report_capture_event_sent = True
-            self._queue_runtime_event(
-                "EV_REPORT_CAPTURE_READY",
-                {
-                    "target_kpa": float(self._REPORT_TEST_TARGET_KPA),
-                    "settle_s": float(self._REPORT_TEST_SETTLE_S),
-                },
-            )
-
-    def _handle_report_capture_ready(self) -> None:
-        export_result = None
-        error_text = None
-        try:
-            export_result = self._export_report_capture_plot()
-            if export_result is None:
-                error_text = "No se pudo generar la imagen de la grafica."
-        except Exception as e:
-            error_text = str(e)
-        finally:
-            self._apply_state_config()
-
-        if export_result is not None:
-            local_path, sync_result = export_result
-            self._show_report_capture_feedback(local_path, sync_result)
-            return
-
-        messagebox.showwarning(
-            "Prueba 200 kPa",
-            f"La prueba termino, pero no se pudo guardar la imagen.\n{error_text or 'Error no disponible.'}",
-        )
-
     # Solo aplica SP con botÃ³n/Enter
     def _apply_sp(self):
         prev_sp_kpa = float(self.cfg.sp_kpa)
@@ -3179,6 +2960,7 @@ class ManualView(ttk.Frame):
             p_now = float(self._get_runtime_snapshot().get("p_kpa", 0.0))
             sp_changed = abs(float(self.cfg.sp_kpa) - prev_sp_kpa) > 1e-9
             if sp_changed:
+                self._reset_live_plot()
                 self.pi_worker.retarget(
                     sp_kpa=float(self.cfg.sp_kpa),
                     p_kpa=float(p_now),
@@ -3389,7 +3171,6 @@ class ManualView(ttk.Frame):
                             u_text = f"u={float(u_cmd):.3f}"
 
                         self._update_live_plot(now_ts=now, p_pat_kpa=p, p_dut_est_kpa=p_dut_est)
-                        self._update_report_capture_timer(now_ts=now)
                     else:
                         u_text = "u=0.000"
 
@@ -3432,7 +3213,9 @@ class ManualView(ttk.Frame):
             pass
 
         if latest is not None:
-            self._apply_live_plot_data(*latest)
+            generation, x, y_pat, y_dut = latest
+            if int(generation) == int(self._live_plot_generation):
+                self._apply_live_plot_data(x, y_pat, y_dut)
 
         if self.winfo_exists():
             self._schedule_live_plot_poll()
@@ -3468,6 +3251,7 @@ class ManualView(ttk.Frame):
     def _update_live_plot(self, now_ts: float, p_pat_kpa: float, p_dut_est_kpa: float):
         try:
             with self._live_plot_lock:
+                generation = int(self._live_plot_generation)
                 if self._live_plot_t0 is None:
                     self._live_plot_t0 = now_ts
                 t_rel = now_ts - self._live_plot_t0
@@ -3483,19 +3267,21 @@ class ManualView(ttk.Frame):
                 y_dut = list(self._live_plot_p_dut)
                 self._live_plot_last_draw_ts = now_ts
 
-            self._live_plot_queue.put((x, y_pat, y_dut))
+            self._live_plot_queue.put((generation, x, y_pat, y_dut))
         except Exception:
             # Fallo de cola/render no debe tumbar el ciclo de adquisicion.
             pass
 
     def _reset_live_plot(self):
         with self._live_plot_lock:
+            self._live_plot_generation += 1
+            generation = int(self._live_plot_generation)
             self._live_plot_t0 = None
             self._live_plot_last_draw_ts = 0.0
             self._live_plot_t.clear()
             self._live_plot_p_pat.clear()
             self._live_plot_p_dut.clear()
-        self._live_plot_queue.put(([], [], []))
+        self._live_plot_queue.put((generation, [], [], []))
 
     # -------------------------
     # Loop
@@ -3533,9 +3319,6 @@ class ManualView(ttk.Frame):
             try:
                 while True:
                     name, payload = self._runtime_event_queue.get_nowait()
-                    if name == "EV_REPORT_CAPTURE_READY":
-                        self._handle_report_capture_ready()
-                        continue
                     if name in ("EV_OVERPRESSURE", "EV_SENSOR_FAIL_CRITICAL"):
                         self._apply_state_config()
                     self.request_event(name, payload)
