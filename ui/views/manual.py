@@ -128,7 +128,7 @@ class ManualView(ttk.Frame):
     _LIVE_PLOT_MAX_POINTS = 600
     _LIVE_PLOT_MIN_REDRAW_S = 0.25
     _REPORT_TEST_TARGET_KPA = 200.0
-    _REPORT_TEST_SETTLE_S = 5.0
+    _REPORT_TEST_SETTLE_S = 10.0
 
     def __init__(
         self,
