@@ -715,22 +715,73 @@ class ManualView(ttk.Frame):
         os.makedirs(results_dir, exist_ok=True)
         return results_dir
 
-    def _save_report_capture_plot_local(self) -> Optional[str]:
-        if self._fig_live is None:
-            return None
+    def _build_report_capture_figure(self) -> Figure:
+        with self._live_plot_lock:
+            x = list(self._live_plot_t)
+            y_pat = list(self._live_plot_p_pat)
 
+        fig = Figure(
+            figsize=(
+                max(4.0, 6.0 * max(self._ui_scale, 0.80)),
+                max(2.8, 4.0 * max(self._ui_scale, 0.78)),
+            ),
+            dpi=140,
+        )
+        fig.patch.set_facecolor("#080b11")
+        ax = fig.add_subplot(111)
+        ax.set_facecolor("#080b11")
+        ax.set_title("Patron", color="#f8fafc", fontsize=max(10, self._sp(13, 10)), fontweight="bold")
+        ax.set_xlabel("Tiempo (s)", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
+        ax.set_ylabel("Presion", color="#e2e8f0", fontsize=max(8, self._sp(10, 8)))
+        ax.yaxis.labelpad = max(8, self._sp(10, 8))
+        ax.tick_params(axis="x", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
+        ax.tick_params(axis="y", colors="#e2e8f0", labelsize=max(7, self._sp(9, 7)))
+        ax.grid(True, alpha=0.25, color="#94a3b8")
+        for spine in ax.spines.values():
+            spine.set_color("#94a3b8")
+
+        ax.plot(x, y_pat, color="#0b5aa2", linewidth=1.8, label="Patron")
+
+        if x:
+            x_end = float(x[-1])
+            x_start = max(0.0, x_end - float(self._LIVE_PLOT_WINDOW_S))
+            if (x_end - x_start) < 1.0:
+                x_end = x_start + 1.0
+            ax.set_xlim(x_start, x_end)
+        else:
+            ax.set_xlim(0.0, self._LIVE_PLOT_WINDOW_S)
+
+        if y_pat:
+            y_min = min(y_pat)
+            y_max = max(y_pat)
+            if abs(y_max - y_min) < 1e-6:
+                pad = max(1.0, abs(y_max) * 0.05 + 0.5)
+            else:
+                pad = max(0.5, (y_max - y_min) * 0.10)
+            ax.set_ylim(y_min - pad, y_max + pad)
+        else:
+            ax.set_ylim(0.0, 1.0)
+
+        legend = ax.legend(loc="upper left", fontsize=max(7, self._sp(8, 7)))
+        legend.get_frame().set_facecolor("#0f172a")
+        legend.get_frame().set_edgecolor("#475569")
+        for text in legend.get_texts():
+            text.set_color("#f8fafc")
+
+        fig.subplots_adjust(left=0.17, right=0.95, top=0.90, bottom=0.16)
+        return fig
+
+    def _save_report_capture_plot_local(self) -> Optional[str]:
         results_dir = self._report_capture_output_dir()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"manual_prueba_200kpa_{timestamp}.png"
         filepath = os.path.join(results_dir, filename)
 
+        fig_export = self._build_report_capture_figure()
         try:
-            if self._canvas_live is not None:
-                self._canvas_live.draw()
-        except Exception:
-            pass
-
-        self._fig_live.savefig(filepath, format="png", dpi=220, bbox_inches="tight")
+            fig_export.savefig(filepath, format="png", dpi=220, bbox_inches="tight")
+        finally:
+            fig_export.clear()
         return filepath
 
     def _export_report_capture_plot(self) -> Optional[tuple[str, Optional[ExportSyncResult]]]:
