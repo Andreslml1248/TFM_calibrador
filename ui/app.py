@@ -84,6 +84,7 @@ class App(tk.Tk):
             set_relay=self.hw.set_relay,
             set_valve=self.hw.set_valve,
             request_event=self.event_handler.request_event,
+            export_manager=self.export_manager,
             usb_state_var=self.var_usb_state,
             labview_state_var=self.var_labview_state,
             retry_usb_export=self._retry_pending_exports,
