@@ -17,7 +17,7 @@ VALV_PIN: int = 27
 USE_VALVULA: bool = True
 VALV_ACTIVE_HIGH: bool = True  # True => ON = energizada = ABIERTA
 
-# Bomba invertida (como tus pruebas)
+# Bomba invertida
 # True: PWM_hw = 1-u  (u=0 -> ON fuerte, u=1 -> OFF)
 BOMBA_ACTIVE_LOW: bool = True
 
@@ -154,7 +154,7 @@ A2_MEAN_N: int = 32
 MPX_M: float = 108.1
 MPX_B: float = -22.1
 
-# Coeficientes cuadraticos legacy (ya no usados como base runtime):
+# Coeficientes cuadraticos legacy:
 MPX_A2: float = 0.27334322
 MPX_B2: float = 106.390322
 MPX_C2: float = -22.167571
