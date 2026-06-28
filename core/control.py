@@ -31,8 +31,8 @@ class PIConfig:
     hold_band_kpa: float = 0.0
     kp_hold: float = 0.0
     ki_hold: float = 0.0
-    p_filt_alpha: float = 1.0          # por si luego filtras P aquí (opcional)
-    i_decay_in_deadband: float = 0.97  # igual que tu script: I *= 0.97
+    p_filt_alpha: float = 1.0
+    i_decay_in_deadband: float = 0.97
 
 
 class PIController:
@@ -59,7 +59,6 @@ class PIController:
         self.kp_active: Optional[float] = None
         self.ki_active: Optional[float] = None
 
-        # filtro opcional de P (si lo quieres aquí en vez de en otro lado)
         self._p_filt: Optional[float] = None
 
     def freeze(self) -> None:
@@ -129,7 +128,6 @@ class PIController:
         sp = float(sp_kpa)
         p = float(p_kpa)
 
-        # (Opcional) filtro 1er orden sobre presión
         a = float(self.cfg.p_filt_alpha)
         if a >= 1.0:
             p_use = p
@@ -245,7 +243,6 @@ class PIWorker:
                 break
 
             if not signaled:
-                # No llego input nuevo: NO recalcular
                 continue
 
             self._new_input_evt.clear()

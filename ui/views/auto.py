@@ -170,7 +170,6 @@ class AutoView(ttk.Frame):
         self.cfg = AutoConfig()
         self.rt = AutoRuntime(points=[])
 
-        # RESULTADOS (solo se añade esto, no cambia control)
         self.results: List[Dict[str, Any]] = []
         self._results_win: Optional[tk.Toplevel] = None
         self._settings_window: Optional[tk.Toplevel] = None
@@ -1200,7 +1199,6 @@ class AutoView(ttk.Frame):
         dialog.geometry("320x420")
         dialog.resizable(False, False)
 
-        # CRÍTICO para pantalla táctil: establecer atributos antes de geometry
         dialog.attributes("-topmost", True)
 
         # Hacer el dialog modal (bloquea eventos en la ventana principal)
@@ -1228,7 +1226,6 @@ class AutoView(ttk.Frame):
 
         dialog.geometry(f"{modal_width}x{modal_height}+{x}+{y}")
 
-        # CRÍTICO: Capture el foco ANTES de crear los widgets
         dialog.focus_force()
         dialog.grab_set()
         dialog.update_idletasks()
@@ -2085,7 +2082,6 @@ class AutoView(ttk.Frame):
             self._pull_cfg()
             self._clear_flow_notice()
 
-            # (control igual)
             self.pi.cfg.deadband_kpa = float(self.cfg.deadband_kpa)
             pi_u_min, pi_u_max = self._effective_u_bounds(self.cfg.u_min, self.cfg.u_max)
             self.pi.cfg.u_min = pi_u_min
@@ -2103,7 +2099,6 @@ class AutoView(ttk.Frame):
             self.pi_worker.reset()
             self.pi_worker.unfreeze()
 
-            # reset resultados
             self.results = []
             self._refresh_registered_plot()
 
@@ -2518,11 +2513,9 @@ class AutoView(ttk.Frame):
 
                 wait = self._current_hold_wait_s(sp_nominal)
                 if dt_st >= wait:
-                    # ✅ AQUÍ SOLO AÑADIMOS MEDICIÓN Y REGISTRO (no cambia control)
                     try:
                         self._record_point_result(sp_kpa=float(sp_nominal))
                     except Exception as e:
-                        # si falla medición, aborta con error claro
                         raise RuntimeError(f"Fallo medición punto (SP={sp:.2f}): {e}")
 
                     self.pi_worker.unfreeze()
@@ -2547,12 +2540,11 @@ class AutoView(ttk.Frame):
             self.after(self.update_period_ms, self._tick)
 
     # ========================================================
-    # RESULTADOS (solo añadido)
+    # RESULTADOS
     # ========================================================
     def _record_point_result(self, sp_kpa: float):
         """
         Toma N_SAMPLES_MEASURE muestras (ref + dut) y guarda un registro.
-        No toca control, solo lee y registra.
         """
         n = int(getattr(config, "N_SAMPLES_MEASURE", 50))
         use_med = bool(getattr(config, "MEASURE_MEDIAN_ENABLE", True))
@@ -2799,7 +2791,6 @@ class AutoView(ttk.Frame):
         if not self.results:
             return
 
-        # si ya existe, cerrarla y reconstruir para exportar la nueva serie
         if self._results_win is not None:
             try:
                 if self._results_win.winfo_exists():
@@ -2815,7 +2806,6 @@ class AutoView(ttk.Frame):
         # Adaptado a pantalla 7": 800x480 o menos
         win.geometry("800x470")
 
-        # Dar foco a la ventana
         win.lift()
         win.focus_force()
 
@@ -2924,15 +2914,12 @@ class AutoView(ttk.Frame):
         # Función para exportar PDF
         def do_export_pdf():
             try:
-                # Obtener directorio de ejecución
                 base_dir = os.getcwd()
                 results_dir = os.path.join(base_dir, "resultados_calibracion")
 
-                # Crear directorio si no existe
                 if not os.path.exists(results_dir):
                     os.makedirs(results_dir)
 
-                # Generar nombre con timestamp
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"calibracion_{timestamp}.pdf"
                 filepath = os.path.join(results_dir, filename)
@@ -3006,7 +2993,6 @@ class AutoView(ttk.Frame):
         if pdf_path:
             messagebox.showinfo("Exportar", f"PDF guardado en:\n{pdf_path}")
 
-        # Solo botón Cerrar
         self._results_close_btn = ttk.Button(frm_btns, text="Cerrar", command=win.destroy)
         self._results_close_btn.pack(side="left", padx=2)
 

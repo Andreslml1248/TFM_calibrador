@@ -280,7 +280,6 @@ class ManualView(ttk.Frame):
         self.btn_usb_retry = None
         self._plot_host = None
         self._settings_snapshot: Optional[Dict[str, Any]] = None
-        # Temporal: prueba 200 -> 0 kPa para capturar la grafica del informe.
         self._report_down_active = False
         self._report_down_phase = "idle"
         self._report_down_zero_since_ts: Optional[float] = None
@@ -3078,7 +3077,6 @@ class ManualView(ttk.Frame):
                 self.var_sigmin.set(f"{sig_min:.3f}")
                 self.var_sigmax.set(f"{sig_max:.3f}")
 
-        # Sincronizar cÃ¡lculo live sin esperar START.
         self.cfg.sig_min = float(sig_min)
         self.cfg.sig_max = float(sig_max)
         self._update_settings_signal_ui(mode)
@@ -3190,7 +3188,6 @@ class ManualView(ttk.Frame):
             f"La prueba termino, pero no se pudo guardar la imagen.\n{error_text or 'Error no disponible.'}",
         )
 
-    # Solo aplica SP con botÃ³n/Enter
     def _apply_sp(self):
         prev_sp_kpa = float(self.cfg.sp_kpa)
         self.cfg.sp_kpa = self._parse_display_pressure_kpa(self.var_sp.get(), "SP")
@@ -3517,7 +3514,6 @@ class ManualView(ttk.Frame):
 
             self._live_plot_queue.put((generation, x, y_pat, y_dut))
         except Exception:
-            # Fallo de cola/render no debe tumbar el ciclo de adquisicion.
             pass
 
     def _reset_live_plot(self):
@@ -3604,8 +3600,6 @@ class ManualView(ttk.Frame):
             try:
                 ch = self._get_active_tx_channel()
                 if ch is not None:
-                    # Lectura ligera para mantener fresco snapshot del canal transmitido.
-                    # `read_vadc` ya actualiza el snapshot en HW.
                     _ = float(self.read_vadc(int(ch)))
             except Exception:
                 pass
